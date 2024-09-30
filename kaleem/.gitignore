@@ -279,3 +279,5 @@ kaleem/media/
 .env
 .envs/*
 !.envs/.local/
+
+myapp_models.png
