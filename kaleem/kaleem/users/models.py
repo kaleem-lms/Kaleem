@@ -1,3 +1,4 @@
+from datetime import date
 from enum import Enum
 from typing import ClassVar
 
@@ -95,13 +96,18 @@ class Student(User):
 class Teacher(User):
     phone_number = models.CharField(
         _("Phone Number"),
-        max_length=15,
+        max_length=25,
         blank=True,
     )
     hire_date = models.DateField(_("Hire Date"), null=True, blank=True)
     years_of_experience = models.IntegerField(_("Years of Experience"), default=0)
 
     def save(self, *args, **kwargs):
+        if self.hire_date:
+            today = date.today()
+            self.years_of_experience = today.year - self.hire_date.year - (
+                (today.month, today.day) < (self.hire_date.month, self.hire_date.day)
+            )
         if self.pk is None:  # Only set for new records
             self.role = RoleEnum.Teacher.value
             self.is_active = False
@@ -115,7 +121,7 @@ class Teacher(User):
 class Parent(User):
     phone_number = models.CharField(
         _("Phone Number"),
-        max_length=15,
+        max_length=25,
         blank=True,
     )
 
