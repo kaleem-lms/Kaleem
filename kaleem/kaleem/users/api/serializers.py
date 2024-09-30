@@ -45,31 +45,22 @@ class UserSerializer(serializers.ModelSerializer[User]):
         return obj.get_gender_display()
 
 
-class StudentSerializer(serializers.ModelSerializer):
-    user = UserSerializer(source="*")
+class LoginSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+    password = serializers.CharField(write_only=True)
+
+
+class UserRegisterSerializer(serializers.ModelSerializer):
+    password = serializers.CharField(write_only=True)
 
     class Meta:
-        model = Student
+        model = User
         fields = (
             "id",
-            "age",
-            "assigned_parent",
-            "assigned_teacher",
-            "user",
-        )
-
-
-class TeacherSerializer(serializers.ModelSerializer):
-    user = UserSerializer(source="*")
-
-    class Meta:
-        model = Teacher
-        fields = (
-            "id",
-            "phone_number",
-            "hire_date",
-            "years_of_experience",
-            "user",
+            "email",
+            "password",
+            "name",
+            "gender",
         )
 
 
@@ -85,6 +76,98 @@ class ParentSerializer(serializers.ModelSerializer):
         )
 
 
-class LoginSerializer(serializers.Serializer):
-    email = serializers.EmailField()
+class TeacherSerializer(serializers.ModelSerializer):
+    user = UserSerializer(source="*")
+    hire_date = serializers.DateTimeField(read_only=True)
+
+    class Meta:
+        model = Teacher
+        fields = (
+            "id",
+            "phone_number",
+            "hire_date",
+            "years_of_experience",
+            "user",
+        )
+
+
+class StudentSerializer(serializers.ModelSerializer):
+    user = UserSerializer(source="*")
+    assigned_parent = ParentSerializer()
+    assigned_teacher = TeacherSerializer()
+
+    class Meta:
+        model = Student
+        fields = (
+            "id",
+            "age",
+            "assigned_parent",
+            "assigned_teacher",
+            "user",
+        )
+
+
+class StudentRegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)
+
+    class Meta:
+        model = Student
+        fields = (
+            "id",
+            "age",
+            "email",
+            "password",
+            "name",
+            "gender",
+        )
+
+    def create(self, validated_data):
+        password = validated_data.pop("password")
+        student = Student(**validated_data)
+        student.set_password(password)
+        student.save()
+        return student
+
+
+class TeacherRegisterSerializer(serializers.ModelSerializer):
+    password = serializers.CharField(write_only=True)
+
+    class Meta:
+        model = Teacher
+        fields = (
+            "id",
+            "phone_number",
+            "email",
+            "password",
+            "name",
+            "gender",
+        )
+
+    def create(self, validated_data):
+        password = validated_data.pop("password")
+        teacher = Teacher(**validated_data)
+        teacher.set_password(password)
+        teacher.save()
+        return teacher
+
+
+class ParentRegisterSerializer(serializers.ModelSerializer):
+    password = serializers.CharField(write_only=True)
+
+    class Meta:
+        model = Parent
+        fields = (
+            "id",
+            "phone_number",
+            "email",
+            "password",
+            "name",
+            "gender",
+        )
+
+    def create(self, validated_data):
+        password = validated_data.pop("password")
+        parent = Parent(**validated_data)
+        parent.set_password(password)
+        parent.save()
+        return parent
