@@ -83,3 +83,8 @@ class ParentSerializer(serializers.ModelSerializer):
             "phone_number",
             "user",
         )
+
+
+class LoginSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+    password = serializers.CharField(write_only=True)
