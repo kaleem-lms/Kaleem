@@ -1,29 +1,24 @@
-import getUser from "@/api/user/getUser";
-import { useUser } from "@/store/useUser";
-import { useQuery } from "@tanstack/react-query";
-import { Link, Outlet, ScrollRestoration } from "@tanstack/react-router";
-import { useEffect } from "react";
+import { Outlet, ScrollRestoration } from "@tanstack/react-router";
+import { useTranslation } from "react-i18next";
+import { Button } from "@/components/ui/button";
 
 export default function RootComponent() {
-	const { data: user, isLoading } = useQuery({
-		queryKey: ["user"],
-		queryFn: getUser,
-	});
+	const { t, i18n } = useTranslation();
 
-	const { setUser } = useUser();
-
-	useEffect(() => {
-		if (isLoading) return;
-		setUser(user);
-	}, [setUser, user, isLoading]);
-
-	if (isLoading) return <div>Loading...</div>; 
+	const changeLanguage = (lng: string) => {
+		i18n.changeLanguage(lng); // dynamically switch languages
+	};
 
 	return (
 		<>
 			<Outlet />
 			<ScrollRestoration />
-			<h1>Hello {user?.name}</h1>
+			<div>
+				<h1>{t("welcome")}</h1>
+				<Button onClick={() => changeLanguage("en")}>English</Button>
+				<Button onClick={() => changeLanguage("ar")}>عربي</Button>
+				<Button onClick={() => changeLanguage("fr")}>Française</Button>
+			</div>
 		</>
 	);
 }
