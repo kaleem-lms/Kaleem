@@ -1,12 +1,9 @@
+import { User } from "@/types"
 import { Dispatch, SetStateAction } from "react"
 import { create } from 'zustand'
 
 type Store = {
-    user: {
-        name: string,
-        email: string,
-        image: string,
-    } | null
+    user: User | null
     setUser: Dispatch<SetStateAction<Store['user']>>
 }
 

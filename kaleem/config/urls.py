@@ -36,7 +36,7 @@ if settings.DEBUG:
 # API URLS
 urlpatterns += [
     # API base url
-    path("api/", include("config.api_router")),
+    path("api/v1/", include("config.api_router")),
     # DRF auth token
     path("api/auth-token/", obtain_auth_token),
     path("api/schema/", SpectacularAPIView.as_view(), name="api-schema"),
@@ -49,7 +49,7 @@ urlpatterns += [
 
 #
 urlpatterns += [
-    path('set_language/', set_language, name='set_language'),
+    path("set_language/", set_language, name="set_language"),
 ]
 
 if settings.DEBUG:

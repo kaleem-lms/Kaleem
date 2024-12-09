@@ -32,7 +32,7 @@ class User(AbstractUser):
     Default custom user model for Kaleem.
     """
 
-    name = CharField(_("Name of User"), blank=True, max_length=255)
+    name = CharField(_("Name of User"), max_length=255)
     first_name = None  # type: ignore[assignment]
     last_name = None  # type: ignore[assignment]
     email = EmailField(_("Email Address"), unique=True)
@@ -194,8 +194,7 @@ class UserProfile(models.Model):
     profile_image = models.ImageField(
         _("Profile Image"),
         upload_to="profile_images/",
-        blank=True,
-        null=True,
+        default=""
     )
 
     class Meta:
