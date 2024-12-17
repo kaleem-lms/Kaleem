@@ -1,30 +1,18 @@
-from datetime import date
-from enum import Enum
+import datetime
 from typing import ClassVar
 
 from django.contrib.auth.models import AbstractUser
+from django.contrib.postgres.fields import DateTimeRangeField
 from django.db import models
 from django.db.models import CharField
 from django.db.models import EmailField
 from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
 
+from .choices import Gender
+from .choices import Role
+from .choices import Weekday
 from .managers import UserManager
-
-GENDER_CHOICES = (
-    ("M", _("Male")),
-    ("F", _("Female")),
-)
-
-class RoleEnum(Enum):
-    Unknown = "U"
-    Student = "S"
-    Teacher = "T"
-    Parent = "P"
-
-    @classmethod
-    def choices(cls):
-        return [(key.value, key.name.capitalize()) for key in cls]
 
 
 class User(AbstractUser):
@@ -41,13 +29,13 @@ class User(AbstractUser):
         _("Gender"),
         max_length=1,
         blank=True,
-        choices=GENDER_CHOICES,
+        choices=Gender,
     )
     role = models.CharField(
         _("Role"),
         max_length=1,
-        default=RoleEnum.Unknown.value,
-        choices=RoleEnum.choices(),
+        default=Role.Unknown,
+        choices=Role,
     )
 
     USERNAME_FIELD = "email"
@@ -85,7 +73,7 @@ class Student(User):
 
     def save(self, *args, **kwargs) -> None:
         if self.pk is None:  # Only set for new records
-            self.role = RoleEnum.Student.value
+            self.role = Role.Student
         super().save(*args, **kwargs)
 
     class Meta:
@@ -104,12 +92,17 @@ class Teacher(User):
 
     def save(self, *args, **kwargs):
         if self.hire_date:
-            today = date.today()
-            self.years_of_experience = today.year - self.hire_date.year - (
-                (today.month, today.day) < (self.hire_date.month, self.hire_date.day)
+            today = datetime.datetime.now(tz=datetime.UTC).date()
+            self.years_of_experience = (
+                today.year
+                - self.hire_date.year
+                - (
+                    (today.month, today.day)
+                    < (self.hire_date.month, self.hire_date.day)
+                )
             )
         if self.pk is None:  # Only set for new records
-            self.role = RoleEnum.Teacher.value
+            self.role = Role.Teacher
             self.is_active = False
         super().save(*args, **kwargs)
 
@@ -127,7 +120,7 @@ class Parent(User):
 
     def save(self, *args, **kwargs) -> None:
         if self.pk is None:  # Only set for new records
-            self.role = RoleEnum.Parent.value
+            self.role = Role.Parent
         super().save(*args, **kwargs)
 
     class Meta:
@@ -194,7 +187,7 @@ class UserProfile(models.Model):
     profile_image = models.ImageField(
         _("Profile Image"),
         upload_to="profile_images/",
-        default=""
+        default="",
     )
 
     class Meta:
@@ -203,3 +196,34 @@ class UserProfile(models.Model):
 
     def __str__(self):
         return f"Profile of {self.user.name}"
+
+
+class TeacherWeeklyTimeRange(models.Model):
+    teacher = models.ForeignKey(
+        Teacher,
+        on_delete=models.CASCADE,
+        related_name="time_ranges",
+    )
+    weekday = models.IntegerField(choices=Weekday)
+    time_range = DateTimeRangeField()
+
+    class Meta:
+        unique_together = ("teacher", "weekday", "time_range")
+
+    def __str__(self):
+        return f"{self.teacher} - {self.weekday}: {self.time_range}"
+
+
+class OccupiedTime(models.Model):
+    parent_time_range = models.ForeignKey(
+        TeacherWeeklyTimeRange,
+        on_delete=models.CASCADE,
+        related_name="occupied_times",
+    )
+    time_range = DateTimeRangeField()
+
+    class Meta:
+        unique_together = ("parent_time_range", "time_range")
+
+    def __str__(self):
+        return f"Occupied: {self.time_range} ({self.parent_time_range.teacher})"
