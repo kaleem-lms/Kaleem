@@ -2,7 +2,6 @@ import datetime
 from typing import ClassVar
 
 from django.contrib.auth.models import AbstractUser
-from django.contrib.postgres.fields import DateTimeRangeField
 from django.db import models
 from django.db.models import CharField
 from django.db.models import EmailField
@@ -11,7 +10,6 @@ from django.utils.translation import gettext_lazy as _
 
 from .choices import Gender
 from .choices import Role
-from .choices import Weekday
 from .managers import UserManager
 
 
@@ -197,33 +195,3 @@ class UserProfile(models.Model):
     def __str__(self):
         return f"Profile of {self.user.name}"
 
-
-class TeacherWeeklyTimeRange(models.Model):
-    teacher = models.ForeignKey(
-        Teacher,
-        on_delete=models.CASCADE,
-        related_name="time_ranges",
-    )
-    weekday = models.IntegerField(choices=Weekday)
-    time_range = DateTimeRangeField()
-
-    class Meta:
-        unique_together = ("teacher", "weekday", "time_range")
-
-    def __str__(self):
-        return f"{self.teacher} - {self.weekday}: {self.time_range}"
-
-
-class OccupiedTime(models.Model):
-    parent_time_range = models.ForeignKey(
-        TeacherWeeklyTimeRange,
-        on_delete=models.CASCADE,
-        related_name="occupied_times",
-    )
-    time_range = DateTimeRangeField()
-
-    class Meta:
-        unique_together = ("parent_time_range", "time_range")
-
-    def __str__(self):
-        return f"Occupied: {self.time_range} ({self.parent_time_range.teacher})"

@@ -2,9 +2,10 @@ volumes:
   production_postgres_data: {}
   production_postgres_data_backups: {}
   production_traefik: {}
-  
+  frontend_data: {}
+
   production_redis_data: {}
-  
+
 
 
 services:
@@ -47,12 +48,22 @@ services:
       - '0.0.0.0:443:443'
       - '0.0.0.0:5555:5555'
 
+  frontend:
+    build:
+      context: ../Frontend
+      dockerfile: ../kaleem/compose/production/react/Dockerfile
+    image: kaleem_production_frontend
+    container_name: kaleem_production_frontend
+    volumes:
+      - frontend_data:/app
+      - /app/node_modules
+
   redis:
     image: docker.io/redis:6
-    
+
     volumes:
       - production_redis_data:/data
-    
+
 
   celeryworker:
     <<: *django

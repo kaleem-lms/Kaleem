@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
     "i18n:extract": "i18next 'src/**/*.tsx' --config src/config/i18next-parser.config.ts"

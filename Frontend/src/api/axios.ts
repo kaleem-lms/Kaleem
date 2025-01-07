@@ -1,4 +1,4 @@
-import { LoginData, User } from '@/types'
+import { AuthResponse, LoginData, User } from '@/types'
 import axios from 'axios'
 
 const api = axios.create({
@@ -19,7 +19,7 @@ export async function getCurrentUser(): Promise<User | null> {
 }
 
 // TODO: Fix me 
-export async function (loginData: LoginData): Promise<AuthResponse> => {
+export async function loginUser(loginData: LoginData): Promise<AuthResponse> {
     const { data } = await api.post<AuthResponse>(
         '/authentication/login/',
         loginData,
