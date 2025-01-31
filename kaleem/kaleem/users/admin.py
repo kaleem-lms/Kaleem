@@ -6,6 +6,8 @@ from django.utils.translation import gettext_lazy as _
 
 from .forms import UserAdminChangeForm
 from .forms import UserAdminCreationForm
+from .models import Student
+from .models import Teacher
 from .models import User
 from .models import UserProfile
 
@@ -51,3 +53,7 @@ class UserAdmin(auth_admin.UserAdmin):
             },
         ),
     )
+
+
+admin.site.register(Student)
+admin.site.register(Teacher)

@@ -5,6 +5,7 @@ from rest_framework.routers import SimpleRouter
 from kaleem.messaging.api.views import ChatGroupViewSet
 from kaleem.messaging.api.views import ChatMessageMediaViewSet
 from kaleem.messaging.api.views import ChatMessageViewSet
+from kaleem.timetables.api.views import TimeSlotViewSet
 from kaleem.users.api.views import AuthenticationViewSet
 from kaleem.users.api.views import UserViewSet
 
@@ -15,6 +16,7 @@ router.register("authentication", AuthenticationViewSet)
 router.register("chat-group", ChatGroupViewSet)
 router.register("chat-message", ChatMessageViewSet)
 router.register("chat-message-media", ChatMessageMediaViewSet)
+router.register("time-slots", TimeSlotViewSet)
 
 
 app_name = "api"

@@ -1,4 +1,4 @@
-import Logout from '@/components/auth/logout'
+import Logout from '@/components/Auth/Logout'
 import { createFileRoute } from '@tanstack/react-router'
 
 export const Route = createFileRoute('/_auth/logout')({

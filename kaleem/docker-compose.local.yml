@@ -23,17 +23,17 @@ services:
       - "8000:8000"
     command: /start
 
-  frontend:
-    build:
-      context: ../Frontend
-      dockerfile: ../kaleem/compose/local/react/Dockerfile
-    image: kaleem_local_frontend
-    container_name: kaleem_local_frontend
-    volumes:
-      - ../Frontend:/app
-      - /app/node_modules
-    ports:
-      - "5173:5173"
+  # frontend:
+  #   build:
+  #     context: ../Frontend
+  #     dockerfile: ../kaleem/compose/local/react/Dockerfile
+  #   image: kaleem_local_frontend
+  #   container_name: kaleem_local_frontend
+  #   volumes:
+  #     - ../Frontend:/app
+  #     - /app/node_modules
+  #   ports:
+  #     - "5173:5173"
 
   postgres:
     build:

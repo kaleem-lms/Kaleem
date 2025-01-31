@@ -7,13 +7,8 @@ from rest_framework import permissions
 from rest_framework import status
 from rest_framework import viewsets
 from rest_framework.decorators import action
-from rest_framework.mixins import ListModelMixin
-from rest_framework.mixins import RetrieveModelMixin
-from rest_framework.mixins import UpdateModelMixin
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
-from rest_framework.viewsets import GenericViewSet
-from rest_framework.viewsets import ModelViewSet
 
 from kaleem.users.models import Student
 from kaleem.users.models import User
@@ -30,6 +25,7 @@ class UserViewSet(viewsets.ViewSet):
     """
     A viewset for viewing all users and editing the current user.
     """
+
     permission_classes = [permissions.IsAuthenticated]
     queryset = User.objects.all()
 
@@ -64,7 +60,9 @@ class UserViewSet(viewsets.ViewSet):
     def edit(self, request):
         user = request.user  # Current authenticated user
 
-        serializer = UserSerializer(user, data=request.data, partial=True, context={"request": request})
+        serializer = UserSerializer(
+            user, data=request.data, partial=True, context={"request": request}
+        )
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response(serializer.data)
@@ -148,6 +146,7 @@ class AuthenticationViewSet(viewsets.ViewSet):
     def teacher_register(self, request):
         try:
             teacher = AuthenticationService.register_teacher(request.data)
+            login(request, teacher, backend="django.contrib.auth.backends.ModelBackend")
             user_data = UserSerializer(teacher, context={"request": request}).data
             return Response(user_data, status=status.HTTP_201_CREATED)
         except ValidationError as e:

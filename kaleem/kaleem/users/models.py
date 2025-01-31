@@ -86,6 +86,10 @@ class Teacher(User):
         blank=True,
     )
     hire_date = models.DateField(_("Hire Date"), null=True, blank=True)
+    zoom_email = models.EmailField(
+        max_length=254,
+        default="",
+    )
     years_of_experience = models.IntegerField(_("Years of Experience"), default=0)
 
     def save(self, *args, **kwargs):
@@ -101,7 +105,6 @@ class Teacher(User):
             )
         if self.pk is None:  # Only set for new records
             self.role = Role.Teacher
-            self.is_active = False
         super().save(*args, **kwargs)
 
     class Meta:
@@ -194,4 +197,3 @@ class UserProfile(models.Model):
 
     def __str__(self):
         return f"Profile of {self.user.name}"
-

@@ -173,6 +173,8 @@ class TeacherRegisterSerializer(serializers.ModelSerializer):
             "password",
             "name",
             "gender",
+            "years_of_experience",
+            "zoom_email",
         )
 
     def validate_password(self, value):
