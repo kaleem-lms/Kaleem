@@ -16,6 +16,8 @@ import TeacherTimeSelection from '../Auth/Register/TeacherTimeSelection'
 import { getTimeSlots } from '@/api/axios'
 import { useAuth } from '@/hooks/useAuth'
 import { TeacherTimeslot } from '@/types'
+import { useTranslation } from 'react-i18next'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
 
 // Mock function to fetch user data - replace with actual API call
 // const fetchUserData = async () => {
@@ -32,6 +34,12 @@ export default function SettingsPage() {
   const [timeSlots, setTimeSlots] = useState<TeacherTimeslot[]>([])
   const { setTheme, theme } = useTheme()
   const { user } = useAuth()
+  const { i18n, t } = useTranslation()
+
+  const changeLanguage = (lng: string) => {
+    i18n.changeLanguage(lng);
+    document.documentElement.dir = lng === "ar" ? "rtl" : "ltr";
+  };
 
   useEffect(() => {
     const loadUserData = async () => {
@@ -61,20 +69,20 @@ export default function SettingsPage() {
 
   return (
     <div className="container mx-auto py-10 max-sm:px-4">
-      <h1 className="text-3xl font-bold mb-6">Settings</h1>
+      <h1 className="text-3xl font-bold mb-6">{t('Settings')}</h1>
       <Tabs defaultValue="timetable" className="w-full">
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="timetable">Timetable</TabsTrigger>
-          <TabsTrigger value="appearance">Appearance</TabsTrigger>
+          <TabsTrigger value="general">General</TabsTrigger>
           <TabsTrigger value="account">Account</TabsTrigger>
         </TabsList>
         <TabsContent value="timetable">
           <TeacherTimeSelection />
         </TabsContent>
-        <TabsContent value="appearance">
+        <TabsContent value="general">
           <Card>
             <CardHeader>
-              <CardTitle>Appearance</CardTitle>
+              <CardTitle>General</CardTitle>
               <CardDescription>Customize your view.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-2">
@@ -87,6 +95,20 @@ export default function SettingsPage() {
                   }
                 />
                 <Label htmlFor="dark-mode">Dark Mode</Label>
+              </div>
+              <hr />
+              <div className="space-y-2">
+                <Label htmlFor="language-select">Language</Label>
+                <Select value={i18n.language} onValueChange={changeLanguage}>
+                  <SelectTrigger id="language-select">
+                    <SelectValue placeholder="Select a language" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="en">English</SelectItem>
+                    <SelectItem value="ar">العربية</SelectItem>
+                    <SelectItem value="fr">Français</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </CardContent>
           </Card>

@@ -89,8 +89,8 @@ const TeacherRegisterForm: React.FC<TeacherRegisterFormProps> = ({
                       <SelectValue placeholder={t('Gender')} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="M">Male</SelectItem>
-                      <SelectItem value="F">Female</SelectItem>
+                      <SelectItem value="M">{t('Male')}</SelectItem>
+                      <SelectItem value="F">{t('Female')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </FormControl>

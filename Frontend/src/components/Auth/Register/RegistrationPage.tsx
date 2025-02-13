@@ -71,12 +71,12 @@ const RegistrationPage: React.FC = () => {
       <Card className="w-full max-w-lg">
         <CardHeader>
           <CardTitle>{t('Register for Kaleem')}</CardTitle>
-          <CardDescription>Join our Quran learning platform</CardDescription>
+          <CardDescription>{t('Join our Quran learning platform')}</CardDescription>
         </CardHeader>
         <StepIndicator currentStep={step} totalSteps={getTotalSteps()} />
         <CardContent>
           <h2 className="text-lg font-semibold mb-4">
-            Step {step} of {getTotalSteps()}
+            {t('Step')} {step} {t('of')} {getTotalSteps()}
           </h2>
           <AnimatePresence mode="wait">
             <motion.div
@@ -103,13 +103,13 @@ const RegistrationPage: React.FC = () => {
         <CardFooter className="flex justify-between">
           {step > 1 && (
             <Button onClick={prevStep} variant="outline">
-              Back
+              {t('Back')}
             </Button>
           )}
           {(step < 2 && step>1 &&  role === 'teacher') && (
-            <Button onClick={nextStep}>Next</Button>
+            <Button onClick={nextStep}>{t('Next')}</Button>
           )}
-        <Link to="/login" className='text-muted-foreground underline'>Or you can login</Link>
+        <Link to="/login" className='text-muted-foreground underline'>{t('Or you can login')}</Link>
         </CardFooter>
       </Card>
     </div>

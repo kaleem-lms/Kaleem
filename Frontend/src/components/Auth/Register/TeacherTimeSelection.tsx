@@ -1,4 +1,4 @@
-import{ useState } from 'react'
+import { useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import {
@@ -11,22 +11,24 @@ import {
 import { DaySchedule, TeacherTimeslot, TimeRange } from '@/types'
 import { timeslotsBulkCreate } from '@/api/axios'
 import { useNavigate } from '@tanstack/react-router'
-
-const daysOfWeek = {
-  0: 'Saturday',
-  1: 'Sunday',
-  2: 'Monday',
-  3: 'Tuesday',
-  4: 'Wednesday',
-  5: 'Thursday',
-  6: 'Friday',
-}
+import { useTranslation } from 'react-i18next'
 
 export default function WeeklySchedule() {
   const navigate = useNavigate()
+  const { t } = useTranslation()
+  const daysOfWeek = {
+    0: t('Saturday'),
+    1: t('Sunday'),
+    2: t('Monday'),
+    3: t('Tuesday'),
+    4: t('Wednesday'),
+    5: t('Thursday'),
+    6: t('Friday'),
+  }
   const [schedule, setSchedule] = useState<DaySchedule>(
     Object.keys(daysOfWeek).reduce((acc, day) => ({ ...acc, [day]: [] }), {}),
   )
+
 
   const addTimeRange = (day: number) => {
     setSchedule((prev) => ({
@@ -127,7 +129,7 @@ export default function WeeklySchedule() {
         </SelectContent>
       </Select>
       <Button variant="destructive" onClick={() => removeTimeRange(day, index)}>
-        Remove
+        {t('Remove')}
       </Button>
     </div>
   )
@@ -149,7 +151,7 @@ export default function WeeklySchedule() {
               />
             ))}
             <Button onClick={() => addTimeRange(parseInt(day))}>
-              Add Time Range
+              {t('Add Time Range')}
             </Button>
           </CardContent>
         </Card>

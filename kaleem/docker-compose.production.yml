@@ -57,6 +57,8 @@ services:
     volumes:
       - frontend_data:/app
       - /app/node_modules
+    ports:
+      - "0.0.0.0:6969:80"
 
   redis:
     image: docker.io/redis:6

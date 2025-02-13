@@ -15,7 +15,6 @@ import { Route as AppImport } from './routes/_app'
 import { Route as SettingsIndexImport } from './routes/settings/index'
 import { Route as SessionsIndexImport } from './routes/sessions/index'
 import { Route as AppIndexImport } from './routes/_app/index'
-import { Route as SettingsWeeklyscheduleImport } from './routes/settings/weekly_schedule'
 import { Route as AuthRegisterImport } from './routes/_auth/register'
 import { Route as AuthProfileImport } from './routes/_auth/profile'
 import { Route as AuthLogoutImport } from './routes/_auth/logout'
@@ -41,11 +40,6 @@ const SessionsIndexRoute = SessionsIndexImport.update({
 const AppIndexRoute = AppIndexImport.update({
   path: '/',
   getParentRoute: () => AppRoute,
-} as any)
-
-const SettingsWeeklyscheduleRoute = SettingsWeeklyscheduleImport.update({
-  path: '/settings/weekly_schedule',
-  getParentRoute: () => rootRoute,
 } as any)
 
 const AuthRegisterRoute = AuthRegisterImport.update({
@@ -107,13 +101,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthRegisterImport
       parentRoute: typeof rootRoute
     }
-    '/settings/weekly_schedule': {
-      id: '/settings/weekly_schedule'
-      path: '/settings/weekly_schedule'
-      fullPath: '/settings/weekly_schedule'
-      preLoaderRoute: typeof SettingsWeeklyscheduleImport
-      parentRoute: typeof rootRoute
-    }
     '/_app/': {
       id: '/_app/'
       path: '/'
@@ -156,7 +143,6 @@ export interface FileRoutesByFullPath {
   '/logout': typeof AuthLogoutRoute
   '/profile': typeof AuthProfileRoute
   '/register': typeof AuthRegisterRoute
-  '/settings/weekly_schedule': typeof SettingsWeeklyscheduleRoute
   '/': typeof AppIndexRoute
   '/sessions': typeof SessionsIndexRoute
   '/settings': typeof SettingsIndexRoute
@@ -167,7 +153,6 @@ export interface FileRoutesByTo {
   '/logout': typeof AuthLogoutRoute
   '/profile': typeof AuthProfileRoute
   '/register': typeof AuthRegisterRoute
-  '/settings/weekly_schedule': typeof SettingsWeeklyscheduleRoute
   '/': typeof AppIndexRoute
   '/sessions': typeof SessionsIndexRoute
   '/settings': typeof SettingsIndexRoute
@@ -180,7 +165,6 @@ export interface FileRoutesById {
   '/_auth/logout': typeof AuthLogoutRoute
   '/_auth/profile': typeof AuthProfileRoute
   '/_auth/register': typeof AuthRegisterRoute
-  '/settings/weekly_schedule': typeof SettingsWeeklyscheduleRoute
   '/_app/': typeof AppIndexRoute
   '/sessions/': typeof SessionsIndexRoute
   '/settings/': typeof SettingsIndexRoute
@@ -194,7 +178,6 @@ export interface FileRouteTypes {
     | '/logout'
     | '/profile'
     | '/register'
-    | '/settings/weekly_schedule'
     | '/'
     | '/sessions'
     | '/settings'
@@ -204,7 +187,6 @@ export interface FileRouteTypes {
     | '/logout'
     | '/profile'
     | '/register'
-    | '/settings/weekly_schedule'
     | '/'
     | '/sessions'
     | '/settings'
@@ -215,7 +197,6 @@ export interface FileRouteTypes {
     | '/_auth/logout'
     | '/_auth/profile'
     | '/_auth/register'
-    | '/settings/weekly_schedule'
     | '/_app/'
     | '/sessions/'
     | '/settings/'
@@ -228,7 +209,6 @@ export interface RootRouteChildren {
   AuthLogoutRoute: typeof AuthLogoutRoute
   AuthProfileRoute: typeof AuthProfileRoute
   AuthRegisterRoute: typeof AuthRegisterRoute
-  SettingsWeeklyscheduleRoute: typeof SettingsWeeklyscheduleRoute
   SessionsIndexRoute: typeof SessionsIndexRoute
   SettingsIndexRoute: typeof SettingsIndexRoute
 }
@@ -239,7 +219,6 @@ const rootRouteChildren: RootRouteChildren = {
   AuthLogoutRoute: AuthLogoutRoute,
   AuthProfileRoute: AuthProfileRoute,
   AuthRegisterRoute: AuthRegisterRoute,
-  SettingsWeeklyscheduleRoute: SettingsWeeklyscheduleRoute,
   SessionsIndexRoute: SessionsIndexRoute,
   SettingsIndexRoute: SettingsIndexRoute,
 }
@@ -261,7 +240,6 @@ export const routeTree = rootRoute
         "/_auth/logout",
         "/_auth/profile",
         "/_auth/register",
-        "/settings/weekly_schedule",
         "/sessions/",
         "/settings/"
       ]
@@ -283,9 +261,6 @@ export const routeTree = rootRoute
     },
     "/_auth/register": {
       "filePath": "_auth/register.tsx"
-    },
-    "/settings/weekly_schedule": {
-      "filePath": "settings/weekly_schedule.tsx"
     },
     "/_app/": {
       "filePath": "_app/index.tsx",

@@ -14,7 +14,7 @@ type ThemeProviderState = {
 }
 
 const initialState: ThemeProviderState = {
-    theme: 'system',
+    theme: 'light',
     setTheme: () => null,
 }
 
@@ -35,7 +35,7 @@ export function ThemeProvider({
 
         root.classList.remove('light', 'dark')
 
-        if (theme === 'system') {
+        if (theme === 'light') {
             const systemTheme = window.matchMedia(
                 '(prefers-color-scheme: dark)',
             ).matches

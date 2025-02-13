@@ -63,7 +63,7 @@ const StudentRegisterForm: React.FC = () => {
             <FormItem>
               <FormLabel>{t('Name')}</FormLabel>
               <FormControl>
-                <Input placeholder="Kaleem" type="text" {...field} />
+                <Input placeholder={t("Kaleem")} type="text" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -108,8 +108,8 @@ const StudentRegisterForm: React.FC = () => {
                       <SelectValue placeholder={t('Gender')} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="M">Male</SelectItem>
-                      <SelectItem value="F">Female</SelectItem>
+                      <SelectItem value="M">{t('Male')}</SelectItem>
+                      <SelectItem value="F">{t('Female')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </FormControl>

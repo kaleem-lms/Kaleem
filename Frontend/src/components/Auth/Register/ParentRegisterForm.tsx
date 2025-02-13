@@ -27,8 +27,8 @@ import { useNavigate } from '@tanstack/react-router'
 import { registerParent } from '@/api/axios'
 
 const ParentRegisterForm: React.FC = () => {
-  const { t } = useTranslation()
   const navigate = useNavigate()
+  const { t } = useTranslation()
 
   const form = useForm<z.infer<typeof parentRegisterSchema>>({
     resolver: zodResolver(parentRegisterSchema),
@@ -36,9 +36,7 @@ const ParentRegisterForm: React.FC = () => {
 
   const [errors, setErrors] = useState<{ [key: string]: string[] }>({})
 
-  const handleSubmit = async (
-    values: z.infer<typeof parentRegisterSchema>,
-  ) => {
+  const handleSubmit = async (values: z.infer<typeof parentRegisterSchema>) => {
     try {
       await registerParent(values)
       navigate({ to: '/login' })
@@ -62,7 +60,7 @@ const ParentRegisterForm: React.FC = () => {
               <FormItem>
                 <FormLabel>{t('Name')}</FormLabel>
                 <FormControl>
-                  <Input placeholder="Kaleem" type="text" {...field} />
+                  <Input placeholder={t("Kaleem")} type="text" {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -83,8 +81,8 @@ const ParentRegisterForm: React.FC = () => {
                       <SelectValue placeholder={t('Gender')} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="M">Male</SelectItem>
-                      <SelectItem value="F">Female</SelectItem>
+                      <SelectItem value="M">{t('Male')}</SelectItem>
+                      <SelectItem value="F">{t('Female')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </FormControl>
@@ -156,4 +154,3 @@ const ParentRegisterForm: React.FC = () => {
 }
 
 export default ParentRegisterForm
-

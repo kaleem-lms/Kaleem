@@ -50,29 +50,29 @@ export default function Logout() {
     <div className="flex items-center justify-center min-h-screen bg-background">
       <Card className="w-[350px] border-primary/20">
         <CardHeader className="bg-primary/5">
-          <CardTitle className="text-primary">Logout</CardTitle>
+          <CardTitle className="text-primary">{t('Logout')}</CardTitle>
         </CardHeader>
         <CardContent className="pt-6">
           <p className="text-sm text-muted-foreground">
-            Are you sure you want to log out of your Quran learning session?
+            {t('Are you sure you want to log out of your Quran learning session?')}
           </p>
         </CardContent>
         <CardFooter className="flex justify-end bg-primary/5">
           <AlertDialog>
             <AlertDialogTrigger asChild>
               <Button variant="outline" className="text-primary hover:bg-primary hover:text-primary-foreground">
-                Logout
+                {t('Logout')}
               </Button>
             </AlertDialogTrigger>
             <AlertDialogContent className="bg-background border-primary/20">
               <AlertDialogHeader>
-                <AlertDialogTitle className="text-primary">Are you absolutely sure?</AlertDialogTitle>
+                <AlertDialogTitle className="text-primary">{t('Are you absolutely sure?')}</AlertDialogTitle>
                 <AlertDialogDescription className="text-muted-foreground">
-                  This action will log you out of your account. You will need to log in again to access your Quran learning sessions.
+                  {t('This action will log you out of your account. You will need to log in again to access your Quran learning sessions.')}
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
-                <AlertDialogCancel className="text-primary hover:bg-primary/10">Cancel</AlertDialogCancel>
+                <AlertDialogCancel className="text-primary hover:bg-primary/10">{t('Cancel')}</AlertDialogCancel>
                 <AlertDialogAction
                   onClick={handleLogout}
                   disabled={isLoggingOut}
