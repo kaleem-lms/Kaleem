@@ -50,8 +50,8 @@ services:
 
   frontend:
     build:
-      context: ../Frontend
-      dockerfile: ../kaleem/compose/production/react/Dockerfile
+      context: ./frontend
+      dockerfile: ../compose/production/frontend/Dockerfile
     image: kaleem_production_frontend
     container_name: kaleem_production_frontend
     volumes:

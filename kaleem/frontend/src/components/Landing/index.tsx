@@ -47,17 +47,28 @@ const LandingPage: React.FC = () => {
       <section className="relative">
         <Carousel className="w-full">
           <CarouselContent>
-            {Array.from({ length: 5 }).map((_, index) => (
+            {[
+              {
+                title: 'Welcome to Kaleem Institute',
+                description:
+                  'Kaleem Institute is an online educational platform dedicated to teaching Arabic, the Quran, Islamic sciences, and the Egyptian accent to French-speaking learners worldwide. Our goal is to make Arabic and Islamic knowledge accessible, engaging, and immersive, enabling students to connect with the language and their faith in a meaningful way.',
+                image: '/kaleem.jpg',
+              },
+              {
+                title: 'Welcome to Kaleem Institute',
+                description:
+                  'Whether you are a complete beginner or an advanced learner, our structured courses provide step-by-step guidance to help you achieve fluency in Arabic, master Quranic recitation with Tajweed, and deepen your understanding of Islamic sciences.',
+                image: '/goals.jpg',
+              },
+            ].map((obj, index) => (
               <CarouselItem key={index}>
                 <div className="flex flex-col md:flex-row h-[60vh] bg-gray-100">
                   <div className="flex flex-col justify-center flex-1 p-8 md:p-16">
                     <h1 className="text-4xl md:text-5xl font-bold mb-4">
-                      {t('Learn Quran with Kaleem')}
+                      {t(obj.title)}
                     </h1>
                     <p className="text-lg md:text-xl mb-6">
-                      {t(
-                        'Discover the beauty of the Quran through our interactive and personalized learning platform.'
-                      )}
+                      {t(obj.description)}
                     </p>
                     <Link to="/register" className="self-start">
                       <Button className="w-fit text-lg px-6 py-3">
@@ -68,7 +79,7 @@ const LandingPage: React.FC = () => {
                   <div className="flex-1 bg-slate-300 hidden md:block">
                     {/* Add an image here */}
                     <img
-                      src="/goals.jpg"
+                      src={obj.image}
                       alt={t('Quran learning')}
                       className="w-full h-full object-cover"
                     />
