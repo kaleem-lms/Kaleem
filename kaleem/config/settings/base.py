@@ -90,6 +90,7 @@ LOCAL_APPS = [
     "kaleem.messaging",
     "kaleem.timetables",
     "kaleem.subscriptions",
+    "kaleem.resources",
     # Your stuff: custom apps go here
 ]
 # https://docs.djangoproject.com/en/dev/ref/settings/#installed-apps

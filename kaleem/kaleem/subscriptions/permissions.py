@@ -1,6 +1,6 @@
 from rest_framework.permissions import BasePermission
 
-from kaleem.kaleem.subscriptions.models import UserSubscription
+from kaleem.subscriptions.models import UserSubscription
 
 
 class SubscriptionRequired(BasePermission):
