@@ -14,6 +14,7 @@ import { Route as rootRoute } from './routes/__root'
 import { Route as AppImport } from './routes/_app'
 import { Route as SettingsIndexImport } from './routes/settings/index'
 import { Route as SessionsIndexImport } from './routes/sessions/index'
+import { Route as DashboardIndexImport } from './routes/dashboard/index'
 import { Route as AboutIndexImport } from './routes/about/index'
 import { Route as AppIndexImport } from './routes/_app/index'
 import { Route as AuthRegisterImport } from './routes/_auth/register'
@@ -37,6 +38,12 @@ const SettingsIndexRoute = SettingsIndexImport.update({
 const SessionsIndexRoute = SessionsIndexImport.update({
   id: '/sessions/',
   path: '/sessions/',
+  getParentRoute: () => rootRoute,
+} as any)
+
+const DashboardIndexRoute = DashboardIndexImport.update({
+  id: '/dashboard/',
+  path: '/dashboard/',
   getParentRoute: () => rootRoute,
 } as any)
 
@@ -129,6 +136,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AboutIndexImport
       parentRoute: typeof rootRoute
     }
+    '/dashboard/': {
+      id: '/dashboard/'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof DashboardIndexImport
+      parentRoute: typeof rootRoute
+    }
     '/sessions/': {
       id: '/sessions/'
       path: '/sessions'
@@ -166,6 +180,7 @@ export interface FileRoutesByFullPath {
   '/register': typeof AuthRegisterRoute
   '/': typeof AppIndexRoute
   '/about': typeof AboutIndexRoute
+  '/dashboard': typeof DashboardIndexRoute
   '/sessions': typeof SessionsIndexRoute
   '/settings': typeof SettingsIndexRoute
 }
@@ -177,6 +192,7 @@ export interface FileRoutesByTo {
   '/register': typeof AuthRegisterRoute
   '/': typeof AppIndexRoute
   '/about': typeof AboutIndexRoute
+  '/dashboard': typeof DashboardIndexRoute
   '/sessions': typeof SessionsIndexRoute
   '/settings': typeof SettingsIndexRoute
 }
@@ -190,6 +206,7 @@ export interface FileRoutesById {
   '/_auth/register': typeof AuthRegisterRoute
   '/_app/': typeof AppIndexRoute
   '/about/': typeof AboutIndexRoute
+  '/dashboard/': typeof DashboardIndexRoute
   '/sessions/': typeof SessionsIndexRoute
   '/settings/': typeof SettingsIndexRoute
 }
@@ -204,6 +221,7 @@ export interface FileRouteTypes {
     | '/register'
     | '/'
     | '/about'
+    | '/dashboard'
     | '/sessions'
     | '/settings'
   fileRoutesByTo: FileRoutesByTo
@@ -214,6 +232,7 @@ export interface FileRouteTypes {
     | '/register'
     | '/'
     | '/about'
+    | '/dashboard'
     | '/sessions'
     | '/settings'
   id:
@@ -225,6 +244,7 @@ export interface FileRouteTypes {
     | '/_auth/register'
     | '/_app/'
     | '/about/'
+    | '/dashboard/'
     | '/sessions/'
     | '/settings/'
   fileRoutesById: FileRoutesById
@@ -237,6 +257,7 @@ export interface RootRouteChildren {
   AuthProfileRoute: typeof AuthProfileRoute
   AuthRegisterRoute: typeof AuthRegisterRoute
   AboutIndexRoute: typeof AboutIndexRoute
+  DashboardIndexRoute: typeof DashboardIndexRoute
   SessionsIndexRoute: typeof SessionsIndexRoute
   SettingsIndexRoute: typeof SettingsIndexRoute
 }
@@ -248,6 +269,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthProfileRoute: AuthProfileRoute,
   AuthRegisterRoute: AuthRegisterRoute,
   AboutIndexRoute: AboutIndexRoute,
+  DashboardIndexRoute: DashboardIndexRoute,
   SessionsIndexRoute: SessionsIndexRoute,
   SettingsIndexRoute: SettingsIndexRoute,
 }
@@ -268,6 +290,7 @@ export const routeTree = rootRoute
         "/_auth/profile",
         "/_auth/register",
         "/about/",
+        "/dashboard/",
         "/sessions/",
         "/settings/"
       ]
@@ -296,6 +319,9 @@ export const routeTree = rootRoute
     },
     "/about/": {
       "filePath": "about/index.tsx"
+    },
+    "/dashboard/": {
+      "filePath": "dashboard/index.tsx"
     },
     "/sessions/": {
       "filePath": "sessions/index.tsx"
