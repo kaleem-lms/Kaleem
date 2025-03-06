@@ -131,3 +131,51 @@ class SessionSlot(models.Model):
 
     def __str__(self):
         return f"Session on {self.date} ({self.teacher}) - {self.status}"
+
+class StudenTrialSessionReservation(models.Model):
+    student = models.ForeignKey(
+        Student,
+        on_delete=models.CASCADE,
+        related_name="student_trial_session_reservations",
+    )
+    """
+    {
+        "0": ["9:00", "10:00"],
+        "1": ["10:00", "11:00"],
+    }
+    """
+    available_times = models.JSONField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    is_approved = models.BooleanField(default=False)
+
+    def __str__(self):
+        return f"Trial Session Reservation for {self.student}"
+
+class StudentTrialSession(models.Model):
+    student = models.ForeignKey(
+        Student,
+        on_delete=models.CASCADE,
+        related_name="student_trial_sessions",
+    )
+    reservation = models.OneToOneField(
+        StudenTrialSessionReservation,
+        on_delete=models.CASCADE,
+        related_name="student_trial_session",
+    )
+    teacher = models.ForeignKey(
+        Teacher,
+        on_delete=models.CASCADE,
+        related_name="student_trial_sessions",
+    )
+    date = models.DateField()
+    start_time = models.TimeField()
+    status = models.CharField(
+        max_length=20,
+        choices=SessionStatus,
+        default=SessionStatus.SCHEDULED,
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    zoom_meeting_id = models.CharField(max_length=255, default="")
+
+    def __str__(self):
+        return f"Trial Session on {self.date} ({self.teacher}) - {self.status}"

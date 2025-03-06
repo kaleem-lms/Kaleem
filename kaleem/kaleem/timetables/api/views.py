@@ -1,16 +1,23 @@
 from django.db.models import Q
+from django.shortcuts import get_object_or_404
 from drf_spectacular.utils import OpenApiResponse
 from drf_spectacular.utils import extend_schema
 from rest_framework import status
 from rest_framework import viewsets
 from rest_framework.decorators import action
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
+from kaleem.timetables.choices import SessionStatus
 from kaleem.timetables.models import SessionSlot
+from kaleem.timetables.models import StudenTrialSessionReservation
+from kaleem.timetables.models import StudentTrialSession
 from kaleem.timetables.models import TimeSlot
 
 from .serializers import OccupyTimeSerializer
 from .serializers import SessionSlotSerializer
+from .serializers import StudenTrialSessionReservationSerializer
+from .serializers import StudentTrialSessionSerializer
 from .serializers import TimeSlotSerializer
 
 
@@ -139,3 +146,75 @@ class TimeSlotViewSet(viewsets.ViewSet):
         )
         serializer = SessionSlotSerializer(queryset, many=True)
         return Response(serializer.data)
+
+
+class TrialViewSet(viewsets.ViewSet):
+    permission_classes = [IsAuthenticated]
+
+    def list(self, request):
+        """
+        GET all trial reservations (for teachers only).
+        This endpoint returns all pending (not approved) trial reservations.
+        """
+        # Check if the current user is a teacher
+        if not getattr(request.user, "is_teacher", False):
+            return Response(
+                {"detail": "Not authorized."}, status=status.HTTP_403_FORBIDDEN,
+            )
+
+        # Get all reservations that are not approved yet
+        reservations = StudenTrialSessionReservation.objects.filter(is_approved=False)
+        serializer = StudenTrialSessionReservationSerializer(reservations, many=True)
+        return Response(serializer.data)
+
+    def create(self, request):
+        """
+        POST trial session approval.
+        This endpoint approves a pending trial session reservation and creates a trial session.
+        Expected payload:
+            {
+                "reservation_id": <reservation id>,
+                "date": "YYYY-MM-DD",
+                "start_time": "HH:MM:SS"
+            }
+        """  # noqa: E501
+        if not getattr(request.user, "is_teacher", False):
+            return Response(
+                {"detail": "Not authorized."}, status=status.HTTP_403_FORBIDDEN,
+            )
+
+        # Extract data from request
+        reservation_id = request.data.get("reservation_id")
+        date = request.data.get("date")
+        start_time = request.data.get("start_time")
+
+        if not all([reservation_id, date, start_time]):
+            return Response(
+                {
+                    "detail": "Missing required fields: reservation_id, date, and start_time.",  # noqa: E501
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Retrieve the reservation ensuring it's not already approved
+        reservation = get_object_or_404(
+            StudenTrialSessionReservation, id=reservation_id, is_approved=False,
+        )
+
+        # Mark the reservation as approved
+        reservation.is_approved = True
+        reservation.save()
+
+        # Create a new trial session linked to this reservation.
+        # We assume the teacher instance is accessible via request.user.teacher or similar.
+        trial_session = StudentTrialSession.objects.create(
+            student=reservation.student,
+            reservation=reservation,
+            teacher=request.user.teacher,  # Adjust according to how you relate a teacher to a user
+            date=date,
+            start_time=start_time,
+            status=SessionStatus.SCHEDULED,  # Assuming SessionStatus.SCHEDULED is the appropriate status
+        )
+
+        serializer = StudentTrialSessionSerializer(trial_session)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)

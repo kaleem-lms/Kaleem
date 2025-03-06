@@ -31,7 +31,7 @@ certificatesResolvers:
 http:
   routers:
     web-secure-router:
-      rule: 'Host(`backend.example.com`)'
+      rule: 'Host(`backend.kaleem.academy`)'
       entryPoints:
         - web-secure
       middlewares:
@@ -42,7 +42,7 @@ http:
         certResolver: letsencrypt
 
     frontend-secure-router:
-      rule: 'Host(`example.com`)'
+      rule: 'Host(`kaleem.academy`)'
       entryPoints:
         - web-secure
       service: frontend
@@ -51,7 +51,7 @@ http:
         certResolver: letsencrypt
 
     flower-secure-router:
-      rule: 'Host(`example.com`)'
+      rule: 'Host(`kaleem.academy`)'
       entryPoints:
         - flower
       service: flower

@@ -1,6 +1,10 @@
 from rest_framework import serializers  # noqa: EXE002
 
-from kaleem.timetables.models import SessionSlot
+from kaleem.timetables.models import (
+    SessionSlot,
+    StudenTrialSessionReservation,
+    StudentTrialSession,
+)
 from kaleem.users.models import Student
 from kaleem.users.models import Teacher
 
@@ -53,3 +57,15 @@ class OccupyTimeSerializer(serializers.Serializer):
     day_of_week = serializers.IntegerField()
     start_time = serializers.TimeField()
     end_time = serializers.TimeField()
+
+
+class StudenTrialSessionReservationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = StudenTrialSessionReservation
+        fields = "__all__"
+
+
+class StudentTrialSessionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = StudentTrialSession
+        fields = "__all__"
