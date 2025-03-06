@@ -9,12 +9,9 @@ import {
   ScanEye,
   ThumbsUp,
   GraduationCap,
-  Instagram,
-  Facebook,
   BrainCircuit,
   Podcast,
 } from 'lucide-react'
-import { BsWhatsapp } from 'react-icons/bs'
 
 import {
   Carousel,
@@ -50,26 +47,42 @@ const LandingPage: React.FC = () => {
           <CarouselContent>
             {[
               {
-                title: 'Welcome to Kaleem Institute',
-                description:
-                  'Kaleem Institute is an online educational platform dedicated to teaching Arabic, the Quran, Islamic sciences, and the Egyptian accent to French-speaking learners worldwide. Our goal is to make Arabic and Islamic knowledge accessible, engaging, and immersive, enabling students to connect with the language and their faith in a meaningful way.',
+                title: t('Welcome to Kaleem Institute'),
+                description: t(
+                  'Kaleem Institute is an online educational platform dedicated to teaching Arabic, the Quran, Islamic sciences, and the Egyptian accent to French-speaking learners worldwide. Our goal is to make Arabic and Islamic knowledge accessible, engaging, and immersive, enabling students to connect with the language and their faith in a meaningful way.'
+                ),
                 image: '/kaleem.jpg',
               },
               {
-                title: 'Welcome to Kaleem Institute',
-                description:
-                  'Whether you are a complete beginner or an advanced learner, our structured courses provide step-by-step guidance to help you achieve fluency in Arabic, master Quranic recitation with Tajweed, and deepen your understanding of Islamic sciences.',
+                title: t('Learn, Understand, and Connect'),
+                description: t(
+                  'Whether you are a complete beginner or an advanced learner, our structured courses provide step-by-step guidance to help you achieve fluency in Arabic, master Quranic recitation with Tajweed, and deepen your understanding of Islamic sciences.'
+                ),
+                image: '/2.jpg',
+              },
+              {
+                title: t('Unlock the Beauty of Arabic'),
+                description: t(
+                  "Immerse yourself in the richness of the Arabic language with engaging lessons, expert instructors, and practical exercises. Whether you're a beginner or looking to refine your skills, our structured approach ensures a smooth and enjoyable learning journey. Start speaking Arabic with confidence today!"
+                ),
+                image: '/3.jpg',
+              },
+              {
+                title: t('Enlightening Hearts, Empowering Minds'),
+                description: t(
+                  `At Kaleem Institute, we are dedicated to preserving the beauty of Quranic recitation through Tajweed, fostering fluency in Arabic and strengthening Islamic knowledge. Our mission is to equip students with the tools to deepen their faith, connect with the Quran, and confidently engage with the Arabic language in their daily lives.`
+                ),
                 image: '/goals.jpg',
               },
             ].map((obj, index) => (
               <CarouselItem key={index}>
-                <div className="flex flex-col md:flex-row h-[60vh] bg-gray-100">
+                <div className="flex flex-col md:flex-row h-[60vh] bg-gray-100 select-none">
                   <div className="flex flex-col justify-center flex-1 p-8 md:p-16">
-                    <h1 className="text-4xl md:text-5xl font-bold mb-4">
-                      {t(obj.title)}
+                    <h1 className="text-4xl md:text-4xl font-bold mb-4">
+                      {obj.title}
                     </h1>
-                    <p className="text-lg md:text-xl mb-6">
-                      {t(obj.description)}
+                    <p className="text-lg md:text-md mb-6">
+                      {obj.description}
                     </p>
                     <Link to="/register" className="self-start">
                       <Button className="w-fit text-lg px-6 py-3">
@@ -77,12 +90,12 @@ const LandingPage: React.FC = () => {
                       </Button>
                     </Link>
                   </div>
-                  <div className="flex-1 bg-slate-300 hidden md:block">
+                  <div className="flex-2 bg-slate-300 hidden md:block">
                     {/* Add an image here */}
                     <img
                       src={obj.image}
                       alt={t('Quran learning')}
-                      className="w-full h-full object-cover"
+                      className="w-full h-full object-contain"
                     />
                   </div>
                 </div>
@@ -191,13 +204,6 @@ const LandingPage: React.FC = () => {
                   'Gain deep knowledge of Fiqh (Islamic jurisprudence), Tafsir (Quranic exegesis), Hadith studies, and Aqeedah (Islamic creed) to strengthen your understanding of Islam.'
                 ),
               },
-              {
-                icon: Podcast,
-                title: t('Egyptian Accent and Culture'),
-                description: t(
-                  'Immerse yourself in the spoken Arabic of Egypt, one of the most widely understood dialects in the Arab world, while also discovering Egyptian customs and traditions.'
-                ),
-              },
             ].map((feature, index) => (
               <Card
                 key={index}
@@ -216,7 +222,7 @@ const LandingPage: React.FC = () => {
         </div>
       </section>
 
-      <Footer/>
+      <Footer />
     </div>
   )
 }

@@ -36,38 +36,44 @@ const Header = () => {
             <Link to="/" className="flex items-center">
               <img
                 src="/kaleem/cover.svg"
-                className="w-[30vw] h-[15vh]"
+                className="w-[23vw] h-[15vh]"
                 alt=""
               />
             </Link>
-            <nav className="hidden md:ml-6 md:flex md:space-x-4">
+            <nav className="hidden md:ml-6 md:flex md:space-x-3">
               <Link
                 to="/about"
-                className="text-gray-600 hover:text-primary px-3 py-2 rounded-md text-lg font-semibold"
+                className="text-gray-600 hover:text-primary px-2 py-1.5 rounded-md text-sm font-extrabold"
               >
                 {t('About Us')}
               </Link>
               <Link
                 to="/programs"
-                className="text-gray-600 hover:text-primary px-3 py-2 rounded-md text-lg font-semibold"
+                className="text-gray-600 hover:text-primary px-2 py-1.5 rounded-md text-sm font-extrabold"
               >
                 {t('Programs')}
               </Link>
               <Link
+                to="/curriculum"
+                className="text-gray-600 hover:text-primary px-2 py-1.5 rounded-md text-sm font-extrabold"
+              >
+                {t('Curriculum & Materials')}
+              </Link>
+              <Link
                 to="/terms"
-                className="text-gray-600 hover:text-primary px-3 py-2 rounded-md text-lg font-semibold"
+                className="text-gray-600 hover:text-primary px-2 py-1.5 rounded-md text-sm font-extrabold"
               >
                 {t('Terms & Conditions')}
               </Link>
               <Link
                 to="/pricing"
-                className="text-gray-600 hover:text-primary px-3 py-2 rounded-md text-lg font-semibold"
+                className="text-gray-600 hover:text-primary px-2 py-1.5 rounded-md text-sm font-extrabold"
               >
                 {t('Pricing')}
               </Link>
               <Link
                 to="/login"
-                className="text-gray-600 hover:text-primary px-3 py-2 rounded-md text-lg font-semibold"
+                className="text-gray-600 hover:text-primary px-2 py-1.5 rounded-md text-sm font-extrabold"
               >
                 {t('Login')}
               </Link>
