@@ -81,6 +81,8 @@ services:
     <<: *django
     image: kaleem_production_flower
     command: /start-flower
+    ports:
+    - "5555:5555"
 
   awscli:
     build:

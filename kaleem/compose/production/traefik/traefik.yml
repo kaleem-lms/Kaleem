@@ -51,9 +51,9 @@ http:
         certResolver: letsencrypt
 
     flower-secure-router:
-      rule: 'Host(`kaleem.academy`)'
+      rule: 'Host(`flower.kaleem.academy`)'
       entryPoints:
-        - flower
+        - web-secure
       service: flower
       tls:
         # https://doc.traefik.io/traefik/master/routing/routers/#certresolver
