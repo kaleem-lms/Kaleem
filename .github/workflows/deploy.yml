@@ -22,5 +22,5 @@ jobs:
         script: |
           sudo mkdir -p /app
           cd /app/Kaleem
-          sudo git pull origin main
+          sudo git pull origin master
           sudo docker compose -f ./kaleem/docker-compose.production.yml up --build -d 
