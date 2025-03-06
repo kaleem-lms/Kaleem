@@ -12,9 +12,12 @@
 
 import { Route as rootRoute } from './routes/__root'
 import { Route as AppImport } from './routes/_app'
+import { Route as TermsIndexImport } from './routes/terms/index'
 import { Route as SettingsIndexImport } from './routes/settings/index'
 import { Route as SessionsIndexImport } from './routes/sessions/index'
+import { Route as ProgramsIndexImport } from './routes/programs/index'
 import { Route as DashboardIndexImport } from './routes/dashboard/index'
+import { Route as CurriculumIndexImport } from './routes/curriculum/index'
 import { Route as AboutIndexImport } from './routes/about/index'
 import { Route as AppIndexImport } from './routes/_app/index'
 import { Route as AuthRegisterImport } from './routes/_auth/register'
@@ -26,6 +29,12 @@ import { Route as AuthLoginImport } from './routes/_auth/login'
 
 const AppRoute = AppImport.update({
   id: '/_app',
+  getParentRoute: () => rootRoute,
+} as any)
+
+const TermsIndexRoute = TermsIndexImport.update({
+  id: '/terms/',
+  path: '/terms/',
   getParentRoute: () => rootRoute,
 } as any)
 
@@ -41,9 +50,21 @@ const SessionsIndexRoute = SessionsIndexImport.update({
   getParentRoute: () => rootRoute,
 } as any)
 
+const ProgramsIndexRoute = ProgramsIndexImport.update({
+  id: '/programs/',
+  path: '/programs/',
+  getParentRoute: () => rootRoute,
+} as any)
+
 const DashboardIndexRoute = DashboardIndexImport.update({
   id: '/dashboard/',
   path: '/dashboard/',
+  getParentRoute: () => rootRoute,
+} as any)
+
+const CurriculumIndexRoute = CurriculumIndexImport.update({
+  id: '/curriculum/',
+  path: '/curriculum/',
   getParentRoute: () => rootRoute,
 } as any)
 
@@ -136,11 +157,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AboutIndexImport
       parentRoute: typeof rootRoute
     }
+    '/curriculum/': {
+      id: '/curriculum/'
+      path: '/curriculum'
+      fullPath: '/curriculum'
+      preLoaderRoute: typeof CurriculumIndexImport
+      parentRoute: typeof rootRoute
+    }
     '/dashboard/': {
       id: '/dashboard/'
       path: '/dashboard'
       fullPath: '/dashboard'
       preLoaderRoute: typeof DashboardIndexImport
+      parentRoute: typeof rootRoute
+    }
+    '/programs/': {
+      id: '/programs/'
+      path: '/programs'
+      fullPath: '/programs'
+      preLoaderRoute: typeof ProgramsIndexImport
       parentRoute: typeof rootRoute
     }
     '/sessions/': {
@@ -155,6 +190,13 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof SettingsIndexImport
+      parentRoute: typeof rootRoute
+    }
+    '/terms/': {
+      id: '/terms/'
+      path: '/terms'
+      fullPath: '/terms'
+      preLoaderRoute: typeof TermsIndexImport
       parentRoute: typeof rootRoute
     }
   }
@@ -180,9 +222,12 @@ export interface FileRoutesByFullPath {
   '/register': typeof AuthRegisterRoute
   '/': typeof AppIndexRoute
   '/about': typeof AboutIndexRoute
+  '/curriculum': typeof CurriculumIndexRoute
   '/dashboard': typeof DashboardIndexRoute
+  '/programs': typeof ProgramsIndexRoute
   '/sessions': typeof SessionsIndexRoute
   '/settings': typeof SettingsIndexRoute
+  '/terms': typeof TermsIndexRoute
 }
 
 export interface FileRoutesByTo {
@@ -192,9 +237,12 @@ export interface FileRoutesByTo {
   '/register': typeof AuthRegisterRoute
   '/': typeof AppIndexRoute
   '/about': typeof AboutIndexRoute
+  '/curriculum': typeof CurriculumIndexRoute
   '/dashboard': typeof DashboardIndexRoute
+  '/programs': typeof ProgramsIndexRoute
   '/sessions': typeof SessionsIndexRoute
   '/settings': typeof SettingsIndexRoute
+  '/terms': typeof TermsIndexRoute
 }
 
 export interface FileRoutesById {
@@ -206,9 +254,12 @@ export interface FileRoutesById {
   '/_auth/register': typeof AuthRegisterRoute
   '/_app/': typeof AppIndexRoute
   '/about/': typeof AboutIndexRoute
+  '/curriculum/': typeof CurriculumIndexRoute
   '/dashboard/': typeof DashboardIndexRoute
+  '/programs/': typeof ProgramsIndexRoute
   '/sessions/': typeof SessionsIndexRoute
   '/settings/': typeof SettingsIndexRoute
+  '/terms/': typeof TermsIndexRoute
 }
 
 export interface FileRouteTypes {
@@ -221,9 +272,12 @@ export interface FileRouteTypes {
     | '/register'
     | '/'
     | '/about'
+    | '/curriculum'
     | '/dashboard'
+    | '/programs'
     | '/sessions'
     | '/settings'
+    | '/terms'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/login'
@@ -232,9 +286,12 @@ export interface FileRouteTypes {
     | '/register'
     | '/'
     | '/about'
+    | '/curriculum'
     | '/dashboard'
+    | '/programs'
     | '/sessions'
     | '/settings'
+    | '/terms'
   id:
     | '__root__'
     | '/_app'
@@ -244,9 +301,12 @@ export interface FileRouteTypes {
     | '/_auth/register'
     | '/_app/'
     | '/about/'
+    | '/curriculum/'
     | '/dashboard/'
+    | '/programs/'
     | '/sessions/'
     | '/settings/'
+    | '/terms/'
   fileRoutesById: FileRoutesById
 }
 
@@ -257,9 +317,12 @@ export interface RootRouteChildren {
   AuthProfileRoute: typeof AuthProfileRoute
   AuthRegisterRoute: typeof AuthRegisterRoute
   AboutIndexRoute: typeof AboutIndexRoute
+  CurriculumIndexRoute: typeof CurriculumIndexRoute
   DashboardIndexRoute: typeof DashboardIndexRoute
+  ProgramsIndexRoute: typeof ProgramsIndexRoute
   SessionsIndexRoute: typeof SessionsIndexRoute
   SettingsIndexRoute: typeof SettingsIndexRoute
+  TermsIndexRoute: typeof TermsIndexRoute
 }
 
 const rootRouteChildren: RootRouteChildren = {
@@ -269,9 +332,12 @@ const rootRouteChildren: RootRouteChildren = {
   AuthProfileRoute: AuthProfileRoute,
   AuthRegisterRoute: AuthRegisterRoute,
   AboutIndexRoute: AboutIndexRoute,
+  CurriculumIndexRoute: CurriculumIndexRoute,
   DashboardIndexRoute: DashboardIndexRoute,
+  ProgramsIndexRoute: ProgramsIndexRoute,
   SessionsIndexRoute: SessionsIndexRoute,
   SettingsIndexRoute: SettingsIndexRoute,
+  TermsIndexRoute: TermsIndexRoute,
 }
 
 export const routeTree = rootRoute
@@ -290,9 +356,12 @@ export const routeTree = rootRoute
         "/_auth/profile",
         "/_auth/register",
         "/about/",
+        "/curriculum/",
         "/dashboard/",
+        "/programs/",
         "/sessions/",
-        "/settings/"
+        "/settings/",
+        "/terms/"
       ]
     },
     "/_app": {
@@ -320,14 +389,23 @@ export const routeTree = rootRoute
     "/about/": {
       "filePath": "about/index.tsx"
     },
+    "/curriculum/": {
+      "filePath": "curriculum/index.tsx"
+    },
     "/dashboard/": {
       "filePath": "dashboard/index.tsx"
+    },
+    "/programs/": {
+      "filePath": "programs/index.tsx"
     },
     "/sessions/": {
       "filePath": "sessions/index.tsx"
     },
     "/settings/": {
       "filePath": "settings/index.tsx"
+    },
+    "/terms/": {
+      "filePath": "terms/index.tsx"
     }
   }
 }
