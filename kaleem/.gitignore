@@ -281,3 +281,5 @@ kaleem/media/
 !.envs/.local/
 
 myapp_models.png
+core-plugins.json
+workspace.json
