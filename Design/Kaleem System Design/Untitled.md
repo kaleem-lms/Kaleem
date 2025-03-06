@@ -1,0 +1,14 @@
+- [ ] add programs or plans
+- [ ] add about
+- [ ] add social media 
+- [ ] book free trial
+- [ ] add student time select and automate assignment 
+- [ ] make teacher able to change session time
+- [ ] finance ![[Pasted image 20250128230010.png]]
+- [ ] add resources and documents
+- [ ] add rating and comments for each session 
+- [ ] improve session report and make it must for teacher 
+- [ ] add reminder before subscription end 
+- [ ] add timer on session join
+- [ ] add tests and rates 
+- [ ] add why us

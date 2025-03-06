@@ -20,8 +20,22 @@ services:
       - ./.envs/.local/.django
       - ./.envs/.local/.postgres
     ports:
-      - '8000:8000'
+      - "8000:8000"
     command: /start
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: ../compose/local/frontend/Dockerfile
+    image: kaleem_local_frontend
+    container_name: kaleem_local_frontend
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app:z
+      - /app/node_modules
+    env_file:
+      - ./.envs/.local/.frontend
 
   postgres:
     build:
@@ -34,6 +48,8 @@ services:
       - kaleem_local_postgres_data_backups:/backups
     env_file:
       - ./.envs/.local/.postgres
+    ports:
+      - "5432:5432"
 
   mailpit:
     image: docker.io/axllent/mailpit:latest
@@ -44,10 +60,9 @@ services:
   redis:
     image: docker.io/redis:6
     container_name: kaleem_local_redis
-    
+
     volumes:
       - kaleem_local_redis_data:/data
-    
 
   celeryworker:
     <<: *django
@@ -76,5 +91,5 @@ services:
     image: kaleem_local_flower
     container_name: kaleem_local_flower
     ports:
-      - '5555:5555'
+      - "5555:5555"
     command: /start-flower

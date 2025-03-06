@@ -1,3 +1,4 @@
+from django.contrib.auth.password_validation import validate_password as vp
 from rest_framework import serializers
 
 from kaleem.users.models import Parent
@@ -18,7 +19,10 @@ class UserProfileSerializer(serializers.ModelSerializer[UserProfile]):
         )
 
     def get_picture(self, obj: UserProfile) -> str:
-        return obj.profile_image.url if obj.profile_image else ""
+        request = self.context.get("request")
+        if obj.profile_image and request:
+            return request.build_absolute_uri(obj.profile_image.url)
+        return ""
 
 
 class UserSerializer(serializers.ModelSerializer[User]):
@@ -43,6 +47,30 @@ class UserSerializer(serializers.ModelSerializer[User]):
 
     def get_gender(self, obj: User) -> str:
         return obj.get_gender_display()
+
+    def update(self, instance, validated_data):
+        # Handle nested updates for profile
+        profile_data = validated_data.pop("profile", None)
+
+        # Update User fields
+        instance.name = validated_data.get("name", instance.name)
+        instance.email = validated_data.get("email", instance.email)
+        instance.save()
+
+        # Update or create the user's profile
+        if profile_data:
+            profile, created = UserProfile.objects.update_or_create(
+                user=instance,
+                defaults={
+                    "bio": profile_data.get("bio", instance.profile.bio),
+                    "profile_image": profile_data.get(
+                        "profile_image", instance.profile.profile_image
+                    ),
+                },
+            )
+            profile.save()
+
+        return instance
 
 
 class LoginSerializer(serializers.Serializer):
@@ -121,6 +149,10 @@ class StudentRegisterSerializer(serializers.ModelSerializer):
             "gender",
         )
 
+    def validate_password(self, value):
+        vp(value)
+        return value
+
     def create(self, validated_data):
         password = validated_data.pop("password")
         student = Student(**validated_data)
@@ -141,7 +173,13 @@ class TeacherRegisterSerializer(serializers.ModelSerializer):
             "password",
             "name",
             "gender",
+            "years_of_experience",
+            "zoom_email",
         )
+
+    def validate_password(self, value):
+        vp(value)
+        return value
 
     def create(self, validated_data):
         password = validated_data.pop("password")
@@ -164,6 +202,10 @@ class ParentRegisterSerializer(serializers.ModelSerializer):
             "name",
             "gender",
         )
+
+    def validate_password(self, value):
+        vp(value)
+        return value
 
     def create(self, validated_data):
         password = validated_data.pop("password")

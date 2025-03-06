@@ -1,5 +1,4 @@
-from datetime import date
-from enum import Enum
+import datetime
 from typing import ClassVar
 
 from django.contrib.auth.models import AbstractUser
@@ -9,22 +8,9 @@ from django.db.models import EmailField
 from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
 
+from .choices import Gender
+from .choices import Role
 from .managers import UserManager
-
-GENDER_CHOICES = (
-    ("M", _("Male")),
-    ("F", _("Female")),
-)
-
-class RoleEnum(Enum):
-    Unknown = "U"
-    Student = "S"
-    Teacher = "T"
-    Parent = "P"
-
-    @classmethod
-    def choices(cls):
-        return [(key.value, key.name.capitalize()) for key in cls]
 
 
 class User(AbstractUser):
@@ -32,7 +18,7 @@ class User(AbstractUser):
     Default custom user model for Kaleem.
     """
 
-    name = CharField(_("Name of User"), blank=True, max_length=255)
+    name = CharField(_("Name of User"), max_length=255)
     first_name = None  # type: ignore[assignment]
     last_name = None  # type: ignore[assignment]
     email = EmailField(_("Email Address"), unique=True)
@@ -41,13 +27,13 @@ class User(AbstractUser):
         _("Gender"),
         max_length=1,
         blank=True,
-        choices=GENDER_CHOICES,
+        choices=Gender,
     )
     role = models.CharField(
         _("Role"),
         max_length=1,
-        default=RoleEnum.Unknown.value,
-        choices=RoleEnum.choices(),
+        default=Role.Unknown,
+        choices=Role,
     )
 
     USERNAME_FIELD = "email"
@@ -85,7 +71,7 @@ class Student(User):
 
     def save(self, *args, **kwargs) -> None:
         if self.pk is None:  # Only set for new records
-            self.role = RoleEnum.Student.value
+            self.role = Role.Student
         super().save(*args, **kwargs)
 
     class Meta:
@@ -100,17 +86,25 @@ class Teacher(User):
         blank=True,
     )
     hire_date = models.DateField(_("Hire Date"), null=True, blank=True)
+    zoom_email = models.EmailField(
+        max_length=254,
+        default="",
+    )
     years_of_experience = models.IntegerField(_("Years of Experience"), default=0)
 
     def save(self, *args, **kwargs):
         if self.hire_date:
-            today = date.today()
-            self.years_of_experience = today.year - self.hire_date.year - (
-                (today.month, today.day) < (self.hire_date.month, self.hire_date.day)
+            today = datetime.datetime.now(tz=datetime.UTC).date()
+            self.years_of_experience = (
+                today.year
+                - self.hire_date.year
+                - (
+                    (today.month, today.day)
+                    < (self.hire_date.month, self.hire_date.day)
+                )
             )
         if self.pk is None:  # Only set for new records
-            self.role = RoleEnum.Teacher.value
-            self.is_active = False
+            self.role = Role.Teacher
         super().save(*args, **kwargs)
 
     class Meta:
@@ -127,7 +121,7 @@ class Parent(User):
 
     def save(self, *args, **kwargs) -> None:
         if self.pk is None:  # Only set for new records
-            self.role = RoleEnum.Parent.value
+            self.role = Role.Parent
         super().save(*args, **kwargs)
 
     class Meta:
@@ -194,8 +188,7 @@ class UserProfile(models.Model):
     profile_image = models.ImageField(
         _("Profile Image"),
         upload_to="profile_images/",
-        blank=True,
-        null=True,
+        default="",
     )
 
     class Meta:

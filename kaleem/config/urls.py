@@ -23,6 +23,8 @@ urlpatterns = [
     path(settings.ADMIN_URL, admin.site.urls),
     # User management
     path("users/", include("kaleem.users.urls", namespace="users")),
+    path("subscriptions/", include("kaleem.subscriptions.urls", namespace="subscriptions")),
+    path("resources/", include("kaleem.resources.urls", namespace="resources")),
     path("accounts/", include("allauth.urls")),
     # Your stuff: custom urls includes go here
     # ...
@@ -49,7 +51,7 @@ urlpatterns += [
 
 #
 urlpatterns += [
-    path('set_language/', set_language, name='set_language'),
+    path("set_language/", set_language, name="set_language"),
 ]
 
 if settings.DEBUG:
