@@ -9,12 +9,8 @@ import {
   ScanEye,
   ThumbsUp,
   GraduationCap,
-  Instagram,
-  Facebook,
   BrainCircuit,
-  Podcast,
 } from 'lucide-react'
-import { BsWhatsapp } from 'react-icons/bs'
 
 import {
   Carousel,
@@ -24,7 +20,8 @@ import {
   CarouselPrevious,
 } from '@/components/ui/carousel'
 import Header from '@/components/Landing/Header'
-import { Link, useNavigate } from '@tanstack/react-router'
+import Footer from '@/components/Landing/Footer'
+import { useNavigate } from '@tanstack/react-router'
 import { useAuth } from '@/hooks/useAuth'
 import { useTranslation } from 'react-i18next'
 
@@ -44,224 +41,221 @@ const AboutPage: React.FC = () => {
       <Header />
 
       {/* Hero Section */}
-      <section className="relative">
-        <Carousel className="w-full">
-          <CarouselContent>
-            {Array.from({ length: 5 }).map((_, index) => (
-              <CarouselItem key={index}>
-                <div className="flex flex-col md:flex-row h-[60vh] bg-gray-100">
-                  <div className="flex flex-col justify-center flex-1 p-8 md:p-16">
-                    <h1 className="text-4xl md:text-5xl font-bold mb-4">
-                      {t('Learn Quran with Kaleem')}
-                    </h1>
-                    <p className="text-lg md:text-xl mb-6">
-                      {t(
-                        'Discover the beauty of the Quran through our interactive and personalized learning platform.'
-                      )}
-                    </p>
-                    <Link to="/register" className="self-start">
-                      <Button className="w-fit text-lg px-6 py-3">
-                        {t('Get Started')}
-                      </Button>
-                    </Link>
-                  </div>
-                  <div className="flex-1 bg-slate-300 hidden md:block">
-                    {/* Add an image here */}
-                    <img
-                      src="/placeholder.svg?height=400&width=600"
-                      alt={t('Quran learning')}
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                </div>
-              </CarouselItem>
-            ))}
-          </CarouselContent>
-          <CarouselPrevious className="absolute left-4 top-1/2 transform -translate-y-1/2" />
-          <CarouselNext className="absolute right-4 top-1/2 transform -translate-y-1/2" />
-        </Carousel>
+      <section className="py-12 md:py-20 bg-gradient-to-b from-primary/10 to-background">
+        <div className="container px-4 md:px-6 mx-auto">
+          <div className="flex flex-col items-center text-center space-y-4">
+            <h1 className="text-3xl md:text-5xl font-bold tracking-tighter">
+              About Kaleem Institute
+            </h1>
+            <p className="text-muted-foreground max-w-[700px] md:text-xl">
+              Discover our journey, mission, and vision in providing excellence
+              in Arabic and Islamic education
+            </p>
+          </div>
+        </div>
       </section>
 
-      {/* Why Us Section */}
-      <section className="py-16 px-4 sm:px-6 lg:px-8 bg-white">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold leading-tight mb-4">
-              {t('Why choose Kaleem?')}
+      {/* About Section */}
+      <section className="py-12 md:py-16">
+        <div className="container px-4 md:px-6 mx-auto">
+          <div className="grid gap-6 lg:grid-cols-2 lg:gap-12 items-center">
+            <div className="space-y-4">
+              <div className="inline-block rounded-lg bg-primary/10 px-3 py-1 text-sm">
+                <BookOpenText className="inline-block mr-2 h-4 w-4" />
+                Our Story
+              </div>
+              <h2 className="text-3xl font-bold tracking-tighter md:text-4xl">
+                About Kaleem Institute
+              </h2>
+              <p className="text-muted-foreground md:text-lg">
+                Kaleem Institute is an online learning platform dedicated to
+                teaching Arabic, the Quran, Islamic sciences, and the Egyptian
+                dialect to French-speaking students. Our educational approach
+                combines academic excellence with accessibility, enabling
+                students of all levels to progress in an interactive and
+                engaging environment.
+              </p>
+              <div className="flex flex-wrap gap-4 mt-6">
+                <Button variant="outline" className="gap-2">
+                  <GraduationCap className="h-4 w-4" />
+                  Our Courses
+                </Button>
+                <Button variant="outline" className="gap-2">
+                  <BrainCircuit className="h-4 w-4" />
+                  Our Methodology
+                </Button>
+              </div>
+            </div>
+            <div className="rounded-lg overflow-hidden shadow-lg">
+              <img
+                src="/placeholder.svg?height=400&width=600"
+                alt="Kaleem Institute Learning Environment"
+                className="w-full h-auto object-cover aspect-video"
+              />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Mission & Vision Section */}
+      <section className="py-12 md:py-16 bg-muted/50">
+        <div className="container px-4 md:px-6 mx-auto">
+          <div className="grid gap-8 md:grid-cols-2">
+            <Card className="border-none shadow-md">
+              <CardHeader className="pb-2">
+                <div className="flex items-center gap-2 mb-2">
+                  <ScanEye className="h-5 w-5 text-primary" />
+                  <span className="text-sm font-medium text-primary">
+                    Our Purpose
+                  </span>
+                </div>
+                <CardTitle className="text-2xl">Mission</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground">
+                  Our mission is to provide high-quality education in Arabic and
+                  Islamic sciences, facilitating access to linguistic and
+                  religious knowledge. We support our students in learning the
+                  Quran and Arabic language, helping them master these
+                  disciplines while preserving their cultural and spiritual
+                  heritage.
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card className="border-none shadow-md">
+              <CardHeader className="pb-2">
+                <div className="flex items-center gap-2 mb-2">
+                  <Crown className="h-5 w-5 text-primary" />
+                  <span className="text-sm font-medium text-primary">
+                    Our Aspiration
+                  </span>
+                </div>
+                <CardTitle className="text-2xl">Vision</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground">
+                  We aspire to become a global leader in teaching Arabic and
+                  Islamic sciences, empowering learners to develop fluency and a
+                  deep understanding of Islamic teachings. Our goal is to bridge
+                  cultures and foster an authentic connection with the Arabic
+                  language and Islamic tradition through an immersive and
+                  enriching learning experience.
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </section>
+
+      {/* Values Section */}
+      <section className="py-12 md:py-16">
+        <div className="container px-4 md:px-6 mx-auto">
+          <div className="text-center mb-10">
+            <h2 className="text-3xl font-bold tracking-tighter md:text-4xl">
+              Our Core Values
             </h2>
-            <p className="max-w-2xl mx-auto text-lg text-gray-600">
-              {t(`Kaleem is designed to be the best platform for learning and teaching Quran. We are committed to providing
-              a world-class experience for all of our users.`)}
+            <p className="text-muted-foreground mt-4 max-w-[700px] mx-auto">
+              The principles that guide our educational approach and commitment
+              to excellence
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {[
-              {
-                icon: GraduationCap,
-                title: t('Expert Instructors'),
-                description: t(
-                  'Our teachers are highly qualified, with strong backgrounds in Arabic linguistics, Quranic studies, and Islamic sciences.'
-                ),
-              },
-              {
-                icon: Earth,
-                title: t('Interactive Online Learning'),
-                description: t(
-                  'We use innovative teaching methods, including live classes, multimedia resources, and one-on-one coaching.'
-                ),
-              },
-              {
-                icon: ThumbsUp,
-                title: t('Flexible and Accessible'),
-                description: t(
-                  'Study at your own pace from anywhere in the world.'
-                ),
-              },
-              {
-                icon: ScanEye,
-                title: t('Focus on Francophone Learners'),
-                description: t(
-                  'Our courses are designed specifically for French speakers, making it easier to understand and learn.'
-                ),
-              },
-              {
-                icon: BookOpenText,
-                title: t('Comprehensive Curriculum'),
-                description: t(
-                  'From learning to read Arabic to mastering the Quran and understanding Islamic sciences, we provide a holistic learning experience.'
-                ),
-              },
-            ].map((feature, index) => (
-              <Card
-                key={index}
-                className="transition-all duration-300 hover:shadow-lg"
-              >
-                <CardHeader>
-                  <feature.icon className="w-12 h-12 text-primary mb-4" />
-                  <CardTitle>{feature.title}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-gray-600">{feature.description}</p>
-                </CardContent>
-              </Card>
-            ))}
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            <Card>
+              <CardContent className="pt-6">
+                <div className="rounded-full bg-primary/10 p-3 w-12 h-12 flex items-center justify-center mb-4">
+                  <Book className="h-6 w-6 text-primary" />
+                </div>
+                <h3 className="text-xl font-bold mb-2">Academic Excellence</h3>
+                <p className="text-muted-foreground">
+                  We are committed to providing the highest quality education
+                  through structured curriculum and qualified instructors.
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="pt-6">
+                <div className="rounded-full bg-primary/10 p-3 w-12 h-12 flex items-center justify-center mb-4">
+                  <Earth className="h-6 w-6 text-primary" />
+                </div>
+                <h3 className="text-xl font-bold mb-2">Cultural Bridge</h3>
+                <p className="text-muted-foreground">
+                  We connect French-speaking students with authentic Arabic
+                  language and Islamic traditions.
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="pt-6">
+                <div className="rounded-full bg-primary/10 p-3 w-12 h-12 flex items-center justify-center mb-4">
+                  <ThumbsUp className="h-6 w-6 text-primary" />
+                </div>
+                <h3 className="text-xl font-bold mb-2">Accessibility</h3>
+                <p className="text-muted-foreground">
+                  We make quality education accessible to students of all levels
+                  through our interactive online platform.
+                </p>
+              </CardContent>
+            </Card>
           </div>
         </div>
       </section>
 
-      {/* Features Section */}
-      <section className="py-16 px-4 sm:px-6 lg:px-8 bg-gray-50">
-        <div className="max-w-7xl mx-auto">
-          <h2 className="text-3xl font-bold text-center mb-12">
-            {t('Our Programs')}
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {[
-              {
-                icon: Crown,
-                title: t('Standard Arabic'),
-                description: t(
-                  'Develop a strong foundation in Arabic grammar, vocabulary, and communication skills, progressing from beginner to advanced levels.'
-                ),
-              },
-              {
-                icon: Book,
-                title: t('Quran and Tajweed'),
-                description: t(
-                  'Learn the correct pronunciation and articulation of Quranic Arabic, apply Tajweed rules, and work towards Ijazah (certification in Quranic recitation).'
-                ),
-              },
-              {
-                icon: BrainCircuit,
-                title: t('Islamic Sciences'),
-                description: t(
-                  'Gain deep knowledge of Fiqh (Islamic jurisprudence), Tafsir (Quranic exegesis), Hadith studies, and Aqeedah (Islamic creed) to strengthen your understanding of Islam.'
-                ),
-              },
-              {
-                icon: Podcast,
-                title: t('Egyptian Accent and Culture'),
-                description: t(
-                  'Immerse yourself in the spoken Arabic of Egypt, one of the most widely understood dialects in the Arab world, while also discovering Egyptian customs and traditions.'
-                ),
-              },
-            ].map((feature, index) => (
-              <Card
-                key={index}
-                className="transition-all duration-300 hover:shadow-lg"
-              >
-                <CardHeader>
-                  <feature.icon className="w-8 h-8 text-primary mb-2" />
-                  <CardTitle>{feature.title}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-gray-600">{feature.description}</p>
-                </CardContent>
-              </Card>
-            ))}
+      {/* Testimonials Section */}
+      <section className="py-12 md:py-16 bg-muted/50">
+        <div className="container px-4 md:px-6 mx-auto">
+          <div className="text-center mb-10">
+            <h2 className="text-3xl font-bold tracking-tighter md:text-4xl">
+              What Our Students Say
+            </h2>
+            <p className="text-muted-foreground mt-4 max-w-[700px] mx-auto">
+              Hear from our community of learners about their experience with
+              Kaleem Institute
+            </p>
           </div>
+
+          <Carousel className="w-full max-w-4xl mx-auto">
+            <CarouselContent>
+              {[1, 2, 3].map((index) => (
+                <CarouselItem key={index} className="md:basis-1/1 lg:basis-1/1">
+                  <Card className="border-none shadow-sm">
+                    <CardContent className="p-6">
+                      <div className="flex flex-col items-center text-center space-y-4">
+                        <div className="rounded-full bg-primary/10 p-1">
+                          <img
+                            src={`/placeholder.svg?height=80&width=80&text=Student${index}`}
+                            alt={`Student ${index}`}
+                            className="rounded-full w-16 h-16"
+                          />
+                        </div>
+                        <p className="text-muted-foreground italic">
+                          "Kaleem Institute has transformed my understanding of
+                          Arabic and the Quran. The teachers are exceptional and
+                          the interactive learning environment makes every
+                          lesson engaging."
+                        </p>
+                        <div>
+                          <h4 className="font-semibold">Student Name</h4>
+                          <p className="text-sm text-muted-foreground">
+                            Arabic & Quran Student
+                          </p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </CarouselItem>
+              ))}
+            </CarouselContent>
+            <CarouselPrevious className="left-0" />
+            <CarouselNext className="right-0" />
+          </Carousel>
         </div>
       </section>
 
-      {/* Contact Us Section */}
-      <section className="py-16 px-4 sm:px-6 lg:px-8 bg-gray-100">
-        <div className="max-w-3xl mx-auto text-center">
-          <h2 className="text-3xl font-bold mb-6">{t('Contact Us')}</h2>
-          <p className="text-xl text-gray-600 mb-8">
-            {t(`If you have any questions or need help, please don't hesitate to contact us. We're here to support your
-            Quran learning journey.`)}
-          </p>
-          <div className="flex flex-wrap items-center justify-center gap-6">
-            <a
-              href="https://www.facebook.com/kaleem.io/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-2 text-blue-600 hover:text-blue-800 transition-colors"
-            >
-              <Facebook className="w-6 h-6" />
-              <span>{t('Facebook')}</span>
-            </a>
-            <a
-              href="https://www.instagram.com/kaleem.io/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-2 text-pink-600 hover:text-pink-800 transition-colors"
-            >
-              <Instagram className="w-6 h-6" />
-              <span>{t('Instagram')}</span>
-            </a>
-            <a
-              href="https://wa.me/+201114444444"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-2 text-green-600 hover:text-green-800 transition-colors"
-            >
-              <BsWhatsapp className="w-6 h-6" />
-              <span>{t('WhatsApp')}</span>
-            </a>
-          </div>
-        </div>
-      </section>
-
-      {/* Call to Action */}
-      <section className="py-16 px-4 sm:px-6 lg:px-8 bg-primary text-primary-foreground">
-        <div className="max-w-4xl mx-auto text-center">
-          <h2 className="text-3xl font-bold mb-4">
-            {t('Ready to start your Quran journey?')}
-          </h2>
-          <p className="text-xl mb-8">
-            {t(
-              'Join Kaleem today and experience the best way to learn and teach Quran online.'
-            )}
-          </p>
-          <Link to="/register">
-            <Button variant="secondary" size="lg" className="text-lg px-8 py-4">
-              {t('Get Started Now')}
-            </Button>
-          </Link>
-        </div>
-      </section>
+      <Footer />
     </div>
   )
 }

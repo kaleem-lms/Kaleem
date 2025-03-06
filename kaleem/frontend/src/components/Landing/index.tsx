@@ -27,6 +27,7 @@ import Header from './Header'
 import { Link, useNavigate } from '@tanstack/react-router'
 import { useAuth } from '@/hooks/useAuth'
 import { useTranslation } from 'react-i18next'
+import Footer from './Footer'
 
 const LandingPage: React.FC = () => {
   const auth = useAuth()
@@ -215,64 +216,7 @@ const LandingPage: React.FC = () => {
         </div>
       </section>
 
-      {/* Contact Us Section */}
-      <section className="py-16 px-4 sm:px-6 lg:px-8 bg-gray-100">
-        <div className="max-w-3xl mx-auto text-center">
-          <h2 className="text-3xl font-bold mb-6">{t('Contact Us')}</h2>
-          <p className="text-xl text-gray-600 mb-8">
-            {t(`If you have any questions or need help, please don't hesitate to contact us. We're here to support your
-            Quran learning journey.`)}
-          </p>
-          <div className="flex flex-wrap items-center justify-center gap-6">
-            <a
-              href="https://www.facebook.com/kaleem.io/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-2 text-blue-600 hover:text-blue-800 transition-colors"
-            >
-              <Facebook className="w-6 h-6" />
-              <span>{t('Facebook')}</span>
-            </a>
-            <a
-              href="https://www.instagram.com/kaleem.io/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-2 text-pink-600 hover:text-pink-800 transition-colors"
-            >
-              <Instagram className="w-6 h-6" />
-              <span>{t('Instagram')}</span>
-            </a>
-            <a
-              href="https://wa.me/+201114444444"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-2 text-green-600 hover:text-green-800 transition-colors"
-            >
-              <BsWhatsapp className="w-6 h-6" />
-              <span>{t('WhatsApp')}</span>
-            </a>
-          </div>
-        </div>
-      </section>
-
-      {/* Call to Action */}
-      <section className="py-16 px-4 sm:px-6 lg:px-8 bg-primary text-primary-foreground">
-        <div className="max-w-4xl mx-auto text-center">
-          <h2 className="text-3xl font-bold mb-4">
-            {t('Ready to start your Quran journey?')}
-          </h2>
-          <p className="text-xl mb-8">
-            {t(
-              'Join Kaleem today and experience the best way to learn and teach Quran online.'
-            )}
-          </p>
-          <Link to="/register">
-            <Button variant="secondary" size="lg" className="text-lg px-8 py-4">
-              {t('Get Started Now')}
-            </Button>
-          </Link>
-        </div>
-      </section>
+      <Footer/>
     </div>
   )
 }

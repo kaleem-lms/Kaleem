@@ -16,8 +16,10 @@ import { useToast } from '@/hooks/use-toast'
 
 import { logoutUser } from '@/api/axios'
 import { useNavigate } from '@tanstack/react-router'
+import { useTranslation } from 'react-i18next'
 
 export default function Logout() {
+  const { t } = useTranslation()
   const [isLoggingOut, setIsLoggingOut] = useState(false)
   const navigate = useNavigate()
   const { toast } = useToast()
