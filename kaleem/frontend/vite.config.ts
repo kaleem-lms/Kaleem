@@ -14,7 +14,7 @@ export default defineConfig({
     },
   },
   optimizeDeps: {
-    include: ['framer-motion'],
+    include: ['framer-motion', '@radix-ui/react-accordion'],
   },
   resolve: {
     alias: {
