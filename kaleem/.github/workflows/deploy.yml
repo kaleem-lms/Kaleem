@@ -1,0 +1,26 @@
+name: Deploy to Amazon Lightsail
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: SSH into Lightsail and Deploy
+      uses: appleboy/ssh-action@v0.1.8
+      with:
+        host: ${{ secrets.LIGHTSAIL_HOST }}
+        username: ${{ secrets.LIGHTSAIL_USERNAME }}
+        key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
+        script: |
+          mkdir -p /app
+          cd /app
+          sudo git pull origin main
+          docker compose -f ./docker-compose.production.yml up --build -d
