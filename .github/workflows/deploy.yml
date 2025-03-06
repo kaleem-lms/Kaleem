@@ -20,7 +20,7 @@ jobs:
         username: ${{ secrets.LIGHTSAIL_USERNAME }}
         key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
         script: |
-          mkdir -p /app
+          sudo mkdir -p /app
           cd /app
           sudo git pull origin main
           docker compose -f ./docker-compose.production.yml up --build -d
