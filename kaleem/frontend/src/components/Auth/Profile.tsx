@@ -5,9 +5,11 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Mail, UserIcon, Briefcase, FileText } from 'lucide-react'
 import { User } from '@/types'
 import { getCurrentUser } from '@/api/axios'
+import { useTranslation } from 'react-i18next'
 
 export default function ProfilePage() {
   const [user, setUser] = useState<User | null>(null)
+  const { t } = useTranslation()
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
@@ -30,12 +32,12 @@ export default function ProfilePage() {
   }
 
   if (!user) {
-    return <div className="text-center">User not found.</div>
+    return <div className="text-center">{t("User not found.")}</div>
   }
 
   return (
     <div className="container mx-auto p-4 md:p-8">
-      <h1 className="text-3xl font-bold mb-6 text-center">User Profile</h1>
+      <h1 className="text-3xl font-bold mb-6 text-center">{t("User Profile")}</h1>
       <Card className="max-w-2xl mx-auto shadow-lg">
         <CardContent className="p-6">
           <div className="flex flex-col items-center mb-6">
@@ -50,23 +52,23 @@ export default function ProfilePage() {
           <div className="grid gap-4">
             <ProfileItem
               icon={<Mail className="w-5 h-5" />}
-              label="Email"
+              label={t("Email")}
               value={user.email}
             />
             <ProfileItem
               icon={<UserIcon className="w-5 h-5" />}
-              label="Gender"
+              label={t("Gender")}
               value={user.gender}
             />
             <ProfileItem
               icon={<Briefcase className="w-5 h-5" />}
-              label="Role"
+              label={t("Role")}
               value={
                 user.role === 'T'
-                  ? 'Teacehr'
+                  ? t('Teacehr')
                   : user.role === 'P'
-                    ? 'Parent'
-                    : 'Student'
+                    ? t('Parent')
+                    : t('Student')
               }
             />
             <ProfileItem
