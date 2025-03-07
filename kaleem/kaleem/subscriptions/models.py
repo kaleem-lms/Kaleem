@@ -3,6 +3,7 @@ from datetime import timedelta
 from django.contrib.auth import get_user_model
 from django.db import models
 from django.utils import timezone
+from django.utils.translation import gettext_lazy as _
 
 User = get_user_model()
 
@@ -13,13 +14,18 @@ class SubscriptionPlan(models.Model):
         max_digits=8,
         decimal_places=2,
     )
+    sessions_count = models.PositiveIntegerField(_("Sessions Count"))
+    is_group = models.BooleanField(
+        help_text="Is this a group session?",
+        default=False,
+    )
     duration_days = models.PositiveIntegerField(
         help_text="Duration in days for this plan",
         default=30,
     )
-    trial_period_days = models.PositiveIntegerField(
-        default=0,
-        help_text="Trial period in days for new users",
+    session_duration = models.PositiveIntegerField(
+        help_text="Duration in minutes for each session",
+        default=30,
     )
 
     def __str__(self):
@@ -31,7 +37,6 @@ class UserSubscription(models.Model):
     plan = models.ForeignKey(SubscriptionPlan, on_delete=models.SET_NULL, null=True)
     start_date = models.DateTimeField(default=timezone.now)
     end_date = models.DateTimeField(null=True, blank=True)
-    is_trial = models.BooleanField(default=True)
 
     def __str__(self):
         return f"{self.user.username} - {self.plan.name if self.plan else 'No Plan'}"
@@ -39,15 +44,7 @@ class UserSubscription(models.Model):
     def activate_plan(self):
         self.start_date = timezone.now()
         self.end_date = self.start_date + timedelta(days=self.plan.duration_days)
-        self.is_trial = self.plan.trial_period_days > 0
         self.save()
-
-    def trial_remaining(self):
-        if self.is_trial and self.start_date:
-            trial_end = self.start_date + timedelta(days=self.plan.trial_period_days)
-            remaining = (trial_end - timezone.now()).days
-            return max(remaining, 0)
-        return 0
 
     def is_active(self):
         if self.end_date:
