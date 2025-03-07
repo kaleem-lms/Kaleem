@@ -157,7 +157,7 @@ export default function WeeklySchedule() {
         </Card>
       ))}
       <Button className="w-full" onClick={exportSchedule}>
-        Export Schedule
+        {t("Export Schedule")}
       </Button>
     </div>
   )
