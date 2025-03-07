@@ -9,7 +9,7 @@ export default function Footer() {
   return (
     <>
       {/* Contact Section */}
-      <section className="py-12 md:py-16">
+      <section className="py-12 md:py-16" id='contact'>
         <div className="container px-4 md:px-6 mx-auto">
           <div className="text-center mb-10">
             <h2 className="text-3xl font-bold tracking-tighter md:text-4xl">

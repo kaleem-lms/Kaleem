@@ -1,5 +1,10 @@
+import NotFoundPage from '@/components/404'
 import { AuthProvider } from '@/components/AuthContext'
-import { createRootRouteWithContext, Outlet } from '@tanstack/react-router'
+import { FullPageLoading } from '@/components/Pending'
+import {
+  createRootRouteWithContext,
+  Outlet,
+} from '@tanstack/react-router'
 // import LayoutProvider from '@/components/Layouts/LayoutProvider'
 // import RootComponent from '@/components/root-component'
 // import { getCurrentUser } from '@/api/axios'
@@ -19,7 +24,6 @@ export const Route = createRootRouteWithContext()({
   //     const user = await queryClient.ensureQueryData(userQueryOptions)
   //     return user
   // },
-  notFoundComponent: () => (
-    <div className="text-red-500 text-5xl font-bold">Not Found</div>
-  ),
+  notFoundComponent: NotFoundPage,
+  pendingComponent: FullPageLoading,
 })
