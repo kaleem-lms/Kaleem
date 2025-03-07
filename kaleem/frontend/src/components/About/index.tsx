@@ -45,11 +45,11 @@ const AboutPage: React.FC = () => {
         <div className="container px-4 md:px-6 mx-auto">
           <div className="flex flex-col items-center text-center space-y-4">
             <h1 className="text-3xl md:text-5xl font-bold tracking-tighter">
-              About Kaleem Institute
+              {t(`About Kaleem Institute`)}
             </h1>
             <p className="text-muted-foreground max-w-[700px] md:text-xl">
-              Discover our journey, mission, and vision in providing excellence
-              in Arabic and Islamic education
+              {t(`Discover our journey, mission, and vision in providing excellence
+              in Arabic and Islamic education`)}
             </p>
           </div>
         </div>
@@ -62,27 +62,27 @@ const AboutPage: React.FC = () => {
             <div className="space-y-4">
               <div className="inline-block rounded-lg bg-primary/10 px-3 py-1 text-sm">
                 <BookOpenText className="inline-block mr-2 h-4 w-4" />
-                Our Story
+                {t(`Our Story`)}
               </div>
               <h2 className="text-3xl font-bold tracking-tighter md:text-4xl">
-                About Kaleem Institute
+                {t(`About Kaleem Institute`)}
               </h2>
               <p className="text-muted-foreground md:text-lg">
-                Kaleem Institute is an online learning platform dedicated to
+                {t(`Kaleem Institute is an online learning platform dedicated to
                 teaching Arabic, the Quran, Islamic sciences, and the Egyptian
                 dialect to French-speaking students. Our educational approach
                 combines academic excellence with accessibility, enabling
                 students of all levels to progress in an interactive and
-                engaging environment.
+                engaging environment.`)}
               </p>
               <div className="flex flex-wrap gap-4 mt-6">
                 <Button variant="outline" className="gap-2">
                   <GraduationCap className="h-4 w-4" />
-                  Our Courses
+                  {t(`Our Courses`)}
                 </Button>
                 <Button variant="outline" className="gap-2">
                   <BrainCircuit className="h-4 w-4" />
-                  Our Methodology
+                  {t(`Our Methodology`)}
                 </Button>
               </div>
             </div>
@@ -106,19 +106,19 @@ const AboutPage: React.FC = () => {
                 <div className="flex items-center gap-2 mb-2">
                   <ScanEye className="h-5 w-5 text-primary" />
                   <span className="text-sm font-medium text-primary">
-                    Our Purpose
+                    {t(`Our Purpose`)}
                   </span>
                 </div>
-                <CardTitle className="text-2xl">Mission</CardTitle>
+                <CardTitle className="text-2xl">{t(`Mission`)}</CardTitle>
               </CardHeader>
               <CardContent>
                 <p className="text-muted-foreground">
-                  Our mission is to provide high-quality education in Arabic and
+                  {t(`Our mission is to provide high-quality education in Arabic and
                   Islamic sciences, facilitating access to linguistic and
                   religious knowledge. We support our students in learning the
                   Quran and Arabic language, helping them master these
                   disciplines while preserving their cultural and spiritual
-                  heritage.
+                  heritage.`)}
                 </p>
               </CardContent>
             </Card>
@@ -128,19 +128,19 @@ const AboutPage: React.FC = () => {
                 <div className="flex items-center gap-2 mb-2">
                   <Crown className="h-5 w-5 text-primary" />
                   <span className="text-sm font-medium text-primary">
-                    Our Aspiration
+                    {t(`Our Aspiration`)}
                   </span>
                 </div>
-                <CardTitle className="text-2xl">Vision</CardTitle>
+                <CardTitle className="text-2xl">{t(`Vision`)}</CardTitle>
               </CardHeader>
               <CardContent>
                 <p className="text-muted-foreground">
-                  We aspire to become a global leader in teaching Arabic and
+                  {t(`We aspire to become a global leader in teaching Arabic and
                   Islamic sciences, empowering learners to develop fluency and a
                   deep understanding of Islamic teachings. Our goal is to bridge
                   cultures and foster an authentic connection with the Arabic
                   language and Islamic tradition through an immersive and
-                  enriching learning experience.
+                  enriching learning experience.`)}
                 </p>
               </CardContent>
             </Card>
@@ -153,11 +153,11 @@ const AboutPage: React.FC = () => {
         <div className="container px-4 md:px-6 mx-auto">
           <div className="text-center mb-10">
             <h2 className="text-3xl font-bold tracking-tighter md:text-4xl">
-              Our Core Values
+              {t(`Our Core Values`)}
             </h2>
             <p className="text-muted-foreground mt-4 max-w-[700px] mx-auto">
-              The principles that guide our educational approach and commitment
-              to excellence
+              {t(`The principles that guide our educational approach and commitment
+              to excellence`)}
             </p>
           </div>
 
@@ -167,10 +167,10 @@ const AboutPage: React.FC = () => {
                 <div className="rounded-full bg-primary/10 p-3 w-12 h-12 flex items-center justify-center mb-4">
                   <Book className="h-6 w-6 text-primary" />
                 </div>
-                <h3 className="text-xl font-bold mb-2">Academic Excellence</h3>
+                <h3 className="text-xl font-bold mb-2">{t(`Academic Excellence`)}</h3>
                 <p className="text-muted-foreground">
-                  We are committed to providing the highest quality education
-                  through structured curriculum and qualified instructors.
+                  {t(`We are committed to providing the highest quality education
+                  through structured curriculum and qualified instructors.`)}
                 </p>
               </CardContent>
             </Card>
@@ -180,10 +180,10 @@ const AboutPage: React.FC = () => {
                 <div className="rounded-full bg-primary/10 p-3 w-12 h-12 flex items-center justify-center mb-4">
                   <Earth className="h-6 w-6 text-primary" />
                 </div>
-                <h3 className="text-xl font-bold mb-2">Cultural Bridge</h3>
+                <h3 className="text-xl font-bold mb-2">{t(`Cultural Bridge`)}</h3>
                 <p className="text-muted-foreground">
-                  We connect French-speaking students with authentic Arabic
-                  language and Islamic traditions.
+                  {t(`We connect French-speaking students with authentic Arabic
+                  language and Islamic traditions.`)}
                 </p>
               </CardContent>
             </Card>
@@ -193,10 +193,10 @@ const AboutPage: React.FC = () => {
                 <div className="rounded-full bg-primary/10 p-3 w-12 h-12 flex items-center justify-center mb-4">
                   <ThumbsUp className="h-6 w-6 text-primary" />
                 </div>
-                <h3 className="text-xl font-bold mb-2">Accessibility</h3>
+                <h3 className="text-xl font-bold mb-2">{t(`Accessibility`)}</h3>
                 <p className="text-muted-foreground">
-                  We make quality education accessible to students of all levels
-                  through our interactive online platform.
+                  {t(`We make quality education accessible to students of all levels
+                  through our interactive online platform.`)}
                 </p>
               </CardContent>
             </Card>
@@ -209,11 +209,11 @@ const AboutPage: React.FC = () => {
         <div className="container px-4 md:px-6 mx-auto">
           <div className="text-center mb-10">
             <h2 className="text-3xl font-bold tracking-tighter md:text-4xl">
-              What Our Students Say
+              {t(`What Our Students Say`)}
             </h2>
             <p className="text-muted-foreground mt-4 max-w-[700px] mx-auto">
-              Hear from our community of learners about their experience with
-              Kaleem Institute
+              {t(`Hear from our community of learners about their experience with
+              Kaleem Institute`)}
             </p>
           </div>
 
@@ -232,15 +232,15 @@ const AboutPage: React.FC = () => {
                           />
                         </div>
                         <p className="text-muted-foreground italic">
-                          "Kaleem Institute has transformed my understanding of
+                          {t(`"Kaleem Institute has transformed my understanding of
                           Arabic and the Quran. The teachers are exceptional and
                           the interactive learning environment makes every
-                          lesson engaging."
+                          lesson engaging."`)}
                         </p>
                         <div>
-                          <h4 className="font-semibold">Student Name</h4>
+                          <h4 className="font-semibold">{t(`Student Name`)}</h4>
                           <p className="text-sm text-muted-foreground">
-                            Arabic & Quran Student
+                            {t(`Arabic & Quran Student`)}
                           </p>
                         </div>
                       </div>
