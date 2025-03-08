@@ -22,6 +22,7 @@ import {
 } from '@/components/ui/form'
 import { loginUser } from '@/api/axios'
 import { Button } from '@/components/ui/button'
+import Header from '../Landing/Header'
 
 const Login: React.FC = () => {
   const { t } = useTranslation()
@@ -50,78 +51,84 @@ const Login: React.FC = () => {
   }
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-background">
-      <Card className="mx-auto max-w-sm">
-        <CardHeader>
-          <CardTitle className="text-2xl">{t('Login')}</CardTitle>
-          <CardDescription>
-            {t('Enter your email below to login to your account.')}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Form {...form}>
-            <form
-              onSubmit={form.handleSubmit(handleSubmit)}
-              className="grid gap-4"
-            >
-              <FormField
-                control={form.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>{t('Email')}</FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder="kaleem@kaleem.com"
-                        type="email"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
+    <div className="min-h-screen bg-background text-foreground flex flex-col">
+      <Header />
+      <div className="flex flex-1 items-center justify-center bg-background">
+        <Card className="mx-auto max-w-sm">
+          <CardHeader>
+            <CardTitle className="text-2xl">{t('Login')}</CardTitle>
+            <CardDescription>
+              {t('Enter your email below to login to your account.')}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Form {...form}>
+              <form
+                onSubmit={form.handleSubmit(handleSubmit)}
+                className="grid gap-4"
+              >
+                <FormField
+                  control={form.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t('Email')}</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="kaleem@kaleem.com"
+                          type="email"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="password"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t('Password')}</FormLabel>
+                      <FormControl>
+                        <Input
+                          {...field}
+                          type="password"
+                          placeholder="••••••••"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                {Object.keys(errors)?.map((error) =>
+                  errors[error].map((error) => (
+                    <p
+                      key={error}
+                      className={cn(
+                        'text-sm text-red-500 h-0 mb-2 font-medium overflow-hidden transition-all',
+                        error && 'h-auto'
+                      )}
+                    >
+                      {error}
+                    </p>
+                  ))
                 )}
-              />
-              <FormField
-                control={form.control}
-                name="password"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>{t('Password')}</FormLabel>
-                    <FormControl>
-                      <Input
-                        {...field}
-                        type="password"
-                        placeholder="••••••••"
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              {Object.keys(errors)?.map((error) =>
-                errors[error].map((error) => (
-                  <p
-                    key={error}
-                    className={cn(
-                      'text-sm text-red-500 h-0 mb-2 font-medium overflow-hidden transition-all',
-                      error && 'h-auto',
-                    )}
+                <Button type="submit">{t('Login')}</Button>
+                <p className="text-center mt-4">
+                  {t('Need an account?')}
+                  <Link
+                    to="/register"
+                    className="text-primary font-medium ml-1"
                   >
-                    {error}
-                  </p>
-                )),
-              )}
-              <Button type="submit">{t('Login')}</Button>
-              <p className="text-center mt-4">
-                {t('Need an account?')}
-                <Link to="/register" className="text-primary font-medium ml-1">
-                  {t('Register here')}
-                </Link>
-              </p>
-            </form>
-          </Form>
-        </CardContent>
-      </Card>
+                    {t('Register here')}
+                  </Link>
+                </p>
+              </form>
+            </Form>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   )
 }

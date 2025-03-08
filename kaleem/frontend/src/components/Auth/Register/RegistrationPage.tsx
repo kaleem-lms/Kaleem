@@ -14,6 +14,7 @@ import RegistrationForm from './RegisterForm'
 import TeacherTimeSelection from './TeacherTimeSelection'
 import { useTranslation } from 'react-i18next'
 import { Link } from '@tanstack/react-router'
+import Header from '@/components/Landing/Header'
 
 type Role = 'student' | 'teacher' | 'parent' | null
 
@@ -67,51 +68,53 @@ const RegistrationPage: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center">
-      <Card className="w-full max-w-lg">
-        <CardHeader>
-          <CardTitle>{t('Register for Kaleem')}</CardTitle>
-          <CardDescription>{t('Join our Quran learning platform')}</CardDescription>
-        </CardHeader>
-        <StepIndicator currentStep={step} totalSteps={getTotalSteps()} />
-        <CardContent>
-          <h2 className="text-lg font-semibold mb-4">
-            {t('Step')} {step} {t('of')} {getTotalSteps()}
-          </h2>
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={step}
-              initial="initial"
-              animate="in"
-              exit="out"
-              variants={pageVariants}
-              transition={pageTransition}
-            >
-              {step === 1 && <RoleSelection onSelect={handleRoleSelect} />}
-              {step === 2 && (
-                <RegistrationForm
-                  nextStep={nextStep}
-                  role={role}
-                />
-              )}
-              {step === 3 && role === 'teacher' && (
-                <TeacherTimeSelection/>
-              )}
-            </motion.div>
-          </AnimatePresence>
-        </CardContent>
-        <CardFooter className="flex justify-between">
-          {step > 1 && (
-            <Button onClick={prevStep} variant="outline">
-              {t('Back')}
-            </Button>
-          )}
-          {(step < 2 && step>1 &&  role === 'teacher') && (
-            <Button onClick={nextStep}>{t('Next')}</Button>
-          )}
-        <Link to="/login" className='text-muted-foreground underline'>{t('Or you can login')}</Link>
-        </CardFooter>
-      </Card>
+    <div className="min-h-screen bg-background text-foreground flex flex-col">
+      <Header />
+      <div className="flex-1 bg-background flex items-center justify-center">
+        <Card className="w-full max-w-lg">
+          <CardHeader>
+            <CardTitle>{t('Register for Kaleem')}</CardTitle>
+            <CardDescription>
+              {t('Join our Quran learning platform')}
+            </CardDescription>
+          </CardHeader>
+          <StepIndicator currentStep={step} totalSteps={getTotalSteps()} />
+          <CardContent>
+            <h2 className="text-lg font-semibold mb-4">
+              {t('Step')} {step} {t('of')} {getTotalSteps()}
+            </h2>
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={step}
+                initial="initial"
+                animate="in"
+                exit="out"
+                variants={pageVariants}
+                transition={pageTransition}
+              >
+                {step === 1 && <RoleSelection onSelect={handleRoleSelect} />}
+                {step === 2 && (
+                  <RegistrationForm nextStep={nextStep} role={role} />
+                )}
+                {step === 3 && role === 'teacher' && <TeacherTimeSelection />}
+              </motion.div>
+            </AnimatePresence>
+          </CardContent>
+          <CardFooter className="flex justify-between">
+            {step > 1 && (
+              <Button onClick={prevStep} variant="outline">
+                {t('Back')}
+              </Button>
+            )}
+            {step < 2 && step > 1 && role === 'teacher' && (
+              <Button onClick={nextStep}>{t('Next')}</Button>
+            )}
+            <Link to="/login" className="text-muted-foreground underline">
+              {t('Or you can login')}
+            </Link>
+          </CardFooter>
+        </Card>
+      </div>
     </div>
   )
 }
