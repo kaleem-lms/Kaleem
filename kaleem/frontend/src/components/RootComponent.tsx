@@ -1,18 +1,21 @@
 import { Outlet, ScrollRestoration } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { AuthProvider } from './AuthContext'
+import { useEffect } from 'react'
 
 export default function RootComponent() {
-    const { i18n } = useTranslation()
+  const { i18n } = useTranslation()
+  useEffect(() => {
+    // Set the direction attribute on the <html> element based on the current language
+    document.documentElement.dir = i18n.dir()
+  }, [i18n, i18n.language])
 
-    return (
-        <div className="flex min-h-screen w-full flex-col">
-            <div lang={i18n.language} dir={i18n.dir()}>
-                <AuthProvider>
-                    <Outlet />
-                    <ScrollRestoration />
-                </AuthProvider>
-            </div>
-        </div>
-    )
+  return (
+    <div className="flex min-h-screen w-full flex-col">
+      <AuthProvider>
+        <Outlet />
+        <ScrollRestoration />
+      </AuthProvider>
+    </div>
+  )
 }

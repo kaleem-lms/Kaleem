@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
@@ -10,7 +10,6 @@ import {
   ThumbsUp,
   GraduationCap,
   BrainCircuit,
-  Podcast,
 } from 'lucide-react'
 
 import {
@@ -25,11 +24,13 @@ import { Link, useNavigate } from '@tanstack/react-router'
 import { useAuth } from '@/hooks/useAuth'
 import { useTranslation } from 'react-i18next'
 import Footer from './Footer'
+import i18n from '@/i18n'
 
 const LandingPage: React.FC = () => {
   const auth = useAuth()
   const { t } = useTranslation()
   const navigate = useNavigate()
+  const [dir, setDir] = useState(i18n.dir());
 
   React.useEffect(() => {
     if (auth.user) {
@@ -37,13 +38,23 @@ const LandingPage: React.FC = () => {
     }
   }, [auth.user, navigate])
 
+
+  useEffect(() => {
+    const newDir = i18n.dir();
+    document.documentElement.dir = newDir; // Set the HTML attribute
+    setDir(newDir); // Update the context value
+  }, []);
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       <Header />
 
       {/* Hero Section */}
       <section className="relative">
-        <Carousel className="w-full">
+        <Carousel className="w-full" opts={{
+          direction: dir,
+          loop: true,
+        }}>
           <CarouselContent>
             {[
               {
