@@ -21,7 +21,7 @@ import {
 } from '@/components/ui/carousel'
 import Header from '@/components/Landing/Header'
 import Footer from '@/components/Landing/Footer'
-import { useNavigate } from '@tanstack/react-router'
+import { Link, useNavigate } from '@tanstack/react-router'
 import { useAuth } from '@/hooks/useAuth'
 import { useTranslation } from 'react-i18next'
 
@@ -76,14 +76,18 @@ const AboutPage: React.FC = () => {
                 engaging environment.`)}
               </p>
               <div className="flex flex-wrap gap-4 mt-6">
-                <Button variant="outline" className="gap-2">
-                  <GraduationCap className="h-4 w-4" />
-                  {t(`Our Courses`)}
-                </Button>
-                <Button variant="outline" className="gap-2">
-                  <BrainCircuit className="h-4 w-4" />
-                  {t(`Our Methodology`)}
-                </Button>
+                <Link to={'/pricing'}>
+                  <Button variant="outline" className="gap-2">
+                    <GraduationCap className="h-4 w-4" />
+                    {t(`Our Plans`)}
+                  </Button>
+                </Link>
+                <Link to={'/curriculum'}>
+                  <Button variant="outline" className="gap-2">
+                    <BrainCircuit className="h-4 w-4" />
+                    {t(`Our Methodology`)}
+                  </Button>
+                </Link>
               </div>
             </div>
             <div className="rounded-lg overflow-hidden shadow-lg">
@@ -167,7 +171,9 @@ const AboutPage: React.FC = () => {
                 <div className="rounded-full bg-primary/10 p-3 w-12 h-12 flex items-center justify-center mb-4">
                   <Book className="h-6 w-6 text-primary" />
                 </div>
-                <h3 className="text-xl font-bold mb-2">{t(`Academic Excellence`)}</h3>
+                <h3 className="text-xl font-bold mb-2">
+                  {t(`Academic Excellence`)}
+                </h3>
                 <p className="text-muted-foreground">
                   {t(`We are committed to providing the highest quality education
                   through structured curriculum and qualified instructors.`)}
@@ -180,7 +186,9 @@ const AboutPage: React.FC = () => {
                 <div className="rounded-full bg-primary/10 p-3 w-12 h-12 flex items-center justify-center mb-4">
                   <Earth className="h-6 w-6 text-primary" />
                 </div>
-                <h3 className="text-xl font-bold mb-2">{t(`Cultural Bridge`)}</h3>
+                <h3 className="text-xl font-bold mb-2">
+                  {t(`Cultural Bridge`)}
+                </h3>
                 <p className="text-muted-foreground">
                   {t(`We connect French-speaking students with authentic Arabic
                   language and Islamic traditions.`)}
