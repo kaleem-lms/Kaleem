@@ -177,8 +177,11 @@ LOGGING = {
 # django-rest-framework
 # -------------------------------------------------------------------------------
 # Tools that generate code samples can use SERVERS to point to the correct domain
-SPECTACULAR_SETTINGS["SERVERS"] = [
-    {"url": "https://kaleem.academy", "description": "Production server"},
-]
+SPECTACULAR_SETTINGS = {  # noqa: F811
+    "SERVERS": [
+        {"url": "https://kaleem.academy", "description": "Production server"},
+    ],
+    "SERVE_PERMISSIONS": ["rest_framework.permissions.IsAdminUser"],
+}
 # Your stuff...
 # ------------------------------------------------------------------------------
