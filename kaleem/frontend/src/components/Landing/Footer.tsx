@@ -33,7 +33,7 @@ export default function Footer() {
               </Button>
             </Link>
             <Link
-              to="https://facebook.com/kaleem.institute"
+              to="https://www.facebook.com/people/Institut-Kaleem/61573637921543/"
               target="_blank"
               rel="noopener noreferrer"
             >
