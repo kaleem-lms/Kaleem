@@ -13,7 +13,7 @@ import axios from 'axios'
 
 export const api = axios.create({
   // baseURL: 'http://localhost:8000/api/',
-  baseURL: 'https://ghkpq599-8000.euw.devtunnels.ms/api/',
+  baseURL: 'https://backend.kaleem.academy/api/',
   withCredentials: true,
   withXSRFToken: true,
   xsrfCookieName: 'csrftoken',
