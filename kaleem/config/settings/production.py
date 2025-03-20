@@ -197,3 +197,8 @@ CORS_ALLOW_CREDENTIALS = True
 CSRF_TRUSTED_ORIGINS = [
     "https://kaleem.academy",
 ]
+
+# Stripte API settings
+# ------------------------------------------------------------------------------
+STRIPE_SUCCESS_URL = "https://kaleem.academy/payment/success"
+STRIPE_CANCEL_URL = "https://kaleem.academy/"
