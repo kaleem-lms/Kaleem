@@ -5,6 +5,7 @@ from django.contrib import admin
 from django.contrib.staticfiles.urls import staticfiles_urlpatterns
 from django.urls import include
 from django.urls import path
+from kaleem.subscriptions.views import stripe_webhook
 from django.views import defaults as default_views
 from django.views.generic import TemplateView
 from drf_spectacular.views import SpectacularAPIView
@@ -23,9 +24,10 @@ urlpatterns = [
     path(settings.ADMIN_URL, admin.site.urls),
     # User management
     path("users/", include("kaleem.users.urls", namespace="users")),
-    path("subscriptions/", include("kaleem.subscriptions.urls", namespace="subscriptions")),
-    path("resources/", include("kaleem.resources.urls", namespace="resources")),
+    path("api/subscriptions/", include("kaleem.subscriptions.urls", namespace="subscriptions")),
+    path("api/resources/", include("kaleem.resources.urls", namespace="resources")),
     path("accounts/", include("allauth.urls")),
+    path("webhooks/stripe/", stripe_webhook, name="stripe-webhook"),
     # Your stuff: custom urls includes go here
     # ...
     # Media files

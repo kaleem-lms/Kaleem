@@ -8,13 +8,13 @@ app_name = "subscriptions"
 urlpatterns = [
     # List all subscription plans available.
     path(
-        "subscriptions/plans/",
+        "plans/",
         SubscriptionPlanList.as_view(),
         name="subscription_plans",
     ),
     # Activate a subscription for the authenticated user.
     path(
-        "subscriptions/activate/",
+        "activate/",
         ActivateSubscription.as_view(),
         name="activate_subscription",
     ),

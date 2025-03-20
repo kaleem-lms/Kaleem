@@ -27,16 +27,44 @@ class SubscriptionPlan(models.Model):
         help_text="Duration in minutes for each session",
         default=30,
     )
+    is_active = models.BooleanField(
+        default=True,
+        help_text="Is this plan active?",
+    )
 
     def __str__(self):
         return self.name
 
 
 class UserSubscription(models.Model):
-    user = models.OneToOneField(User, on_delete=models.CASCADE)
-    plan = models.ForeignKey(SubscriptionPlan, on_delete=models.SET_NULL, null=True)
-    start_date = models.DateTimeField(default=timezone.now)
-    end_date = models.DateTimeField(null=True, blank=True)
+    user = models.OneToOneField(
+        User,
+        on_delete=models.CASCADE,
+    )
+    plan = models.ForeignKey(
+        SubscriptionPlan,
+        on_delete=models.SET_NULL,
+        null=True,
+    )
+    start_date = models.DateTimeField(
+        default=timezone.now,
+    )
+    end_date = models.DateTimeField(
+        null=True,
+        blank=True,
+    )
+
+    # Stripe integration fields
+    stripe_customer_id = models.CharField(
+        max_length=255,
+        blank=True,
+        default="",
+    )
+    stripe_subscription_id = models.CharField(
+        max_length=255,
+        blank=True,
+        default="",
+    )
 
     def __str__(self):
         return f"{self.user.username} - {self.plan.name if self.plan else 'No Plan'}"

@@ -89,3 +89,8 @@ CSRF_TRUSTED_ORIGINS = [
     "https://ghkpq599-8000.euw.devtunnels.ms",
     "https://ghkpq599-5173.euw.devtunnels.ms",
 ]
+
+# Stripte API settings
+# ------------------------------------------------------------------------------
+STRIPE_SUCCESS_URL = "http://localhost:5173/payment/success"
+STRIPE_CANCEL_URL = "http://localhost:5173/"

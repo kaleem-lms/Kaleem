@@ -7,6 +7,7 @@ from kaleem.messaging.api.views import ChatMessageMediaViewSet
 from kaleem.messaging.api.views import ChatMessageViewSet
 from kaleem.timetables.api.views import TimeSlotViewSet
 from kaleem.users.api.views import AuthenticationViewSet
+from kaleem.subscriptions.api.views import CheckoutSessionViewSet
 from kaleem.users.api.views import UserViewSet
 
 router = DefaultRouter() if settings.DEBUG else SimpleRouter()
@@ -17,6 +18,7 @@ router.register("chat-group", ChatGroupViewSet)
 router.register("chat-message", ChatMessageViewSet)
 router.register("chat-message-media", ChatMessageMediaViewSet)
 router.register("time-slots", TimeSlotViewSet)
+router.register("checkout", CheckoutSessionViewSet, basename="checkout")
 
 
 app_name = "api"

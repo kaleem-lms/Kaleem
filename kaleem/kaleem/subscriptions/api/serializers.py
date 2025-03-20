@@ -7,7 +7,15 @@ from kaleem.subscriptions.models import UserSubscription
 class SubscriptionPlanSerializer(serializers.ModelSerializer):
     class Meta:
         model = SubscriptionPlan
-        fields = ["id", "name", "price", "duration_days", "trial_period_days"]
+        fields = [
+            "id",
+            "name",
+            "price",
+            "sessions_count",
+            "is_group",
+            "duration_days",
+            "session_duration",
+        ]
 
 
 class UserSubscriptionSerializer(serializers.ModelSerializer):
