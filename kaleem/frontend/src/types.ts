@@ -77,11 +77,26 @@ export type Session = {
   teacher_name: string
   students: number[]
   students_names: string[]
-  date: string,
+  date: string
   start_time: string
   end_time: string
   status: string
   created_at: string
   zoom_meeting_id: string
   zoom_meeting_link: string
+}
+
+export type SubscriptionPlan = {
+  id: number
+  name: string
+  price: string
+  sessions_count: number
+  is_group: boolean
+  duration_days: number
+  session_duration: number
+}
+
+export type CheckoutResponse = {
+  sessionId: string
+  error?: string
 }

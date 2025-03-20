@@ -15,6 +15,7 @@ export default defineConfig({
   },
   optimizeDeps: {
     include: ['framer-motion', '@radix-ui/react-accordion'],
+    exclude: ['@stripe/stripe-js'],
   },
   resolve: {
     alias: {

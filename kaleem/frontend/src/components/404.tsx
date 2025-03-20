@@ -2,6 +2,7 @@ import { Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { FileQuestion } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import CheckoutButton from './Payments/CheckoutButton'
 
 export default function NotFoundPage() {
   const { t } = useTranslation()
@@ -31,7 +32,6 @@ export default function NotFoundPage() {
           <Button asChild>
             <Link to="/">{t('Go to Home')}</Link>
           </Button>
-
           <Button variant="outline" asChild>
             <Link to="/programs">{t('Explore Programs')}</Link>
           </Button>
