@@ -4,6 +4,8 @@ import { api } from '@/api/axios'
 import { Button } from '../ui/button'
 import { useTranslation } from 'react-i18next'
 import { createCheckoutSession } from '@/api/axios'
+import { useAuth } from '@/hooks/useAuth'
+import { useNavigate } from '@tanstack/react-router'
 
 const stripePromise = loadStripe(
   'pk_test_51R2MYDKzvGrzIjASnK4PyVfdMlSxpImNAxKo47kkA69JD0r71g6GU1oBmfWCJgmx94fGtyuTWscuUjHI9etV1VhG00Z7ZkcixX'!
@@ -22,7 +24,14 @@ interface CheckoutButtonProps {
 
 const CheckoutButton: React.FC<CheckoutButtonProps> = ({ planId, variant }) => {
   const { t } = useTranslation()
+  const { user } = useAuth()
+  const navigate = useNavigate()
+
   const handleCheckout = async () => {
+    if (!user) {
+      navigate({ to: '/login' })
+      return;
+    }
     try {
       const data = await createCheckoutSession(planId)
       console.log(data.sessionId)
