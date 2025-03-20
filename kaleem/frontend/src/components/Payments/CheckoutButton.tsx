@@ -8,7 +8,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { useNavigate } from '@tanstack/react-router'
 
 const stripePromise = loadStripe(
-  'pk_test_51R2MYDKzvGrzIjASnK4PyVfdMlSxpImNAxKo47kkA69JD0r71g6GU1oBmfWCJgmx94fGtyuTWscuUjHI9etV1VhG00Z7ZkcixX'!
+  'pk_live_51R2MYDKzvGrzIjASU5fAvjfbHTXtpfqaNUjwu0D09xF3Vh1zjfewPlreVn2gTIS2tEIidjvbuyw78B3vhQMfF8Dd00Zxvm1foe'!
 )
 
 interface CheckoutButtonProps {
@@ -33,7 +33,7 @@ const CheckoutButton: React.FC<CheckoutButtonProps> = ({ planId, variant }) => {
       return;
     }
     try {
-      const data = await createCheckoutSession(planId)
+    const data = await createCheckoutSession(planId)
       console.log(data.sessionId)
 
       if (data.error) {
