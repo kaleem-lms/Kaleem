@@ -189,3 +189,6 @@ CORS_ALLOWED_ORIGINS = [
     "https://kaleem.academy",
 ]
 CORS_ALLOW_CREDENTIALS = True
+CSRF_TRUSTED_ORIGINS = [
+    "https://kaleem.academy",
+]
