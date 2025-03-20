@@ -3,6 +3,7 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
 from django.contrib.staticfiles.urls import staticfiles_urlpatterns
+from django.http import JsonResponse
 from django.urls import include
 from django.urls import path
 from kaleem.subscriptions.views import stripe_webhook
@@ -13,18 +14,27 @@ from drf_spectacular.views import SpectacularSwaggerView
 from rest_framework.authtoken.views import obtain_auth_token
 from django.views.i18n import set_language
 
+
+def health_check(request):
+    return JsonResponse({"status": "ok"})
+
+
 urlpatterns = [
-    path("", TemplateView.as_view(template_name="pages/home.html"), name="home"),
-    path(
-        "about/",
-        TemplateView.as_view(template_name="pages/about.html"),
-        name="about",
-    ),
+    path("health/", health_check),
+    # path("", TemplateView.as_view(template_name="pages/home.html"), name="home"),
+    # path(
+    #     "about/",
+    #     TemplateView.as_view(template_name="pages/about.html"),
+    #     name="about",
+    # ),
     # Django Admin, use {% url 'admin:index' %}
     path(settings.ADMIN_URL, admin.site.urls),
     # User management
     path("users/", include("kaleem.users.urls", namespace="users")),
-    path("api/subscriptions/", include("kaleem.subscriptions.urls", namespace="subscriptions")),
+    path(
+        "api/subscriptions/",
+        include("kaleem.subscriptions.urls", namespace="subscriptions"),
+    ),
     path("api/resources/", include("kaleem.resources.urls", namespace="resources")),
     path("accounts/", include("allauth.urls")),
     path("webhooks/stripe/", stripe_webhook, name="stripe-webhook"),
