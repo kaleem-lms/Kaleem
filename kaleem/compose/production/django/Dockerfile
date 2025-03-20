@@ -42,6 +42,8 @@ RUN addgroup --system django \
 RUN apt-get update && apt-get install --no-install-recommends -y \
   # psycopg dependencies
   libpq-dev \
+  # curl for healthcheck
+  curl \
   # Translations dependencies
   gettext \
   # cleaning up unused files
