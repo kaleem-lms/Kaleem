@@ -1,5 +1,3 @@
-"use client"
-
 import type React from "react"
 import { useRef, useEffect, useState } from "react"
 import Header from "@/components/Landing/Header"
@@ -46,7 +44,14 @@ const PricesPage: React.FC = () => {
 
       const containerWidth = scrollContainer.clientWidth
       const scrollPosition = scrollContainer.scrollLeft
-      const cardWidth = containerWidth / 3 // Assuming 3 visible cards
+
+      // Responsive card width calculation
+      let cardsPerView = 1 // Mobile default
+      if (containerWidth >= 1024)
+        cardsPerView = 3 // Large screens
+      else if (containerWidth >= 768) cardsPerView = 2 // Medium screens
+
+      const cardWidth = containerWidth / cardsPerView
 
       // Calculate which card is most centered
       const newActiveIndex = Math.round(scrollPosition / cardWidth)
@@ -62,7 +67,14 @@ const PricesPage: React.FC = () => {
     if (!scrollContainerRef.current) return
 
     const containerWidth = scrollContainerRef.current.clientWidth
-    const cardWidth = containerWidth / 3
+
+    // Responsive card width calculation
+    let cardsPerView = 1 // Mobile default
+    if (containerWidth >= 1024)
+      cardsPerView = 3 // Large screens
+    else if (containerWidth >= 768) cardsPerView = 2 // Medium screens
+
+    const cardWidth = containerWidth / cardsPerView
     const newScrollPosition = index * cardWidth
 
     scrollContainerRef.current.scrollTo({
@@ -94,10 +106,10 @@ const PricesPage: React.FC = () => {
     <div className="min-h-screen bg-background text-foreground">
       <Header />
 
-      <main className="container mx-auto px-4 py-16">
-        <div className="text-center mb-12">
-          <h1 className="text-4xl font-bold mb-4">{t("Our Plans")}</h1>
-          <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+      <main className="container mx-auto px-4 py-8 md:py-16">
+        <div className="text-center mb-8 md:mb-12">
+          <h1 className="text-3xl md:text-4xl font-bold mb-3 md:mb-4">{t("Our Plans")}</h1>
+          <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto">
             {t("Choose the perfect plan for your Quran learning journey")}
           </p>
         </div>
@@ -113,37 +125,40 @@ const PricesPage: React.FC = () => {
               <button
                 onClick={handlePrevious}
                 disabled={activeIndex === 0}
-                className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-4 z-10 bg-background rounded-full p-2 shadow-md disabled:opacity-30"
+                className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-2 md:-translate-x-4 z-10 bg-background rounded-full p-1 md:p-2 shadow-md disabled:opacity-30"
                 aria-label="Previous plan"
               >
-                <ChevronLeft className="h-6 w-6" />
+                <ChevronLeft className="h-4 w-4 md:h-6 md:w-6" />
               </button>
 
               <button
                 onClick={handleNext}
                 disabled={activeIndex === plans.length - 1}
-                className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-4 z-10 bg-background rounded-full p-2 shadow-md disabled:opacity-30"
+                className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-2 md:translate-x-4 z-10 bg-background rounded-full p-1 md:p-2 shadow-md disabled:opacity-30"
                 aria-label="Next plan"
               >
-                <ChevronRight className="h-6 w-6" />
+                <ChevronRight className="h-4 w-4 md:h-6 md:w-6" />
               </button>
 
               {/* Scrollable container */}
               <div
                 ref={scrollContainerRef}
-                className="overflow-x-auto p-8 hide-scrollbar snap-x snap-mandatory"
+                className="overflow-x-auto p-4 md:p-8 hide-scrollbar snap-x snap-mandatory"
                 style={{
                   scrollbarWidth: "none",
                   msOverflowStyle: "none",
                 }}
               >
-                <div className="flex gap-4 px-12">
+                <div className="flex gap-4 px-4 md:px-12">
                   {plans.map((plan, index) => {
                     const originalPrice = Number.parseFloat(plan.price) * 1.5
                     const discountPercentage = calculateDiscount(plan.price, originalPrice)
 
                     return (
-                      <div key={plan.id} className="min-w-[calc(100%/3-16px)] snap-center">
+                      <div
+                        key={plan.id}
+                        className="min-w-[85%] sm:min-w-[70%] md:min-w-[calc(100%/2-16px)] lg:min-w-[calc(100%/3-16px)] snap-center"
+                      >
                         <Card
                           className={`flex flex-col h-full border-2 transition-all duration-300 shadow-lg ${
                             index === activeIndex
@@ -164,12 +179,14 @@ const PricesPage: React.FC = () => {
                             </CardDescription>
                           </CardHeader>
                           <CardContent className="flex-grow">
-                            <div className="mb-6">
+                            <div className="mb-4 md:mb-6">
                               <div className="flex flex-col mb-2">
                                 <div className="flex items-center gap-2">
-                                  <p className="text-4xl font-bold">
+                                  <p className="text-3xl md:text-4xl font-bold">
                                     {plan.price}
-                                    <span className="text-lg font-normal text-muted-foreground ml-1">{t("EUR")}</span>
+                                    <span className="text-base md:text-lg font-normal text-muted-foreground ml-1">
+                                      {t("EUR")}
+                                    </span>
                                   </p>
                                 </div>
                                 <div className="flex items-center">
@@ -258,7 +275,7 @@ const PricesPage: React.FC = () => {
           )}
         </div>
 
-        <div className="mt-16 text-center bg-muted p-8 rounded-lg max-w-3xl mx-auto">
+        <div className="mt-10 md:mt-16 text-center bg-muted p-4 md:p-8 rounded-lg max-w-3xl mx-auto">
           <h2 className="text-2xl font-bold mb-4">{t("Need a Custom Plan?")}</h2>
           <p className="mb-6 text-muted-foreground">
             {t("Contact us for custom plans tailored to your specific learning needs and goals")}
@@ -275,4 +292,3 @@ const PricesPage: React.FC = () => {
 }
 
 export default PricesPage
-
