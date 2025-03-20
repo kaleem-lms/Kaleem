@@ -1,3 +1,6 @@
 Design/Kaleem System Design/.obsidian/core-plugins.json
 Design/Kaleem System Design/.obsidian/workspace.json
 kaleem/frontend/src/routeTree.gen.ts
+kaleem/frontend/package-lock.json
+.gitignore
+kaleem/frontend/pnpm-lock.yaml
