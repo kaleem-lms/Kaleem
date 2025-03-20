@@ -158,27 +158,22 @@ LOGGING = {
             "class": "logging.StreamHandler",
             "formatter": "verbose",
         },
-        "file": {
-            "level": "DEBUG",
-            "class": "logging.FileHandler",
-            "filename": "/var/log/django/debug.log",
-        },
     },
     "root": {"level": "INFO", "handlers": ["console"]},
     "loggers": {
         "django": {
-            "handlers": ["file"],
+            "handlers": ["console"],
             "level": "DEBUG",
             "propagate": True,
         },
         "django.db.backends": {
             "level": "ERROR",
-            "handlers": ["console", "file"],
+            "handlers": ["console"],
             "propagate": False,
         },
         "django.security.DisallowedHost": {
             "level": "ERROR",
-            "handlers": ["console", "file"],
+            "handlers": ["console"],
             "propagate": False,
         },
     },
