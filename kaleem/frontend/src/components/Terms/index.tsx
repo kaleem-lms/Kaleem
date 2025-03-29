@@ -25,8 +25,8 @@ import {
 import Header from '@/components/Landing/Header'
 import Footer from '@/components/Landing/Footer'
 import { useNavigate } from '@tanstack/react-router'
-import { useAuth } from '@/hooks/useAuth'
 import { useTranslation } from 'react-i18next'
+import { useAuth } from '../AuthContext'
 
 const TermsPage: React.FC = () => {
   const auth = useAuth()

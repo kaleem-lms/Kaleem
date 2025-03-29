@@ -20,23 +20,20 @@ import {
   CarouselPrevious,
 } from '@/components/ui/carousel'
 import Header from './Header'
-import { Link, useNavigate } from '@tanstack/react-router'
-import { useAuth } from '@/hooks/useAuth'
+import { Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import Footer from './Footer'
 import i18n from '@/i18n'
 
 const LandingPage: React.FC = () => {
-  const auth = useAuth()
   const { t } = useTranslation()
-  const navigate = useNavigate()
   const [dir, setDir] = useState(i18n.dir());
 
-  React.useEffect(() => {
-    if (auth.user) {
-      navigate({ to: '/dashboard' })
-    }
-  }, [auth.user, navigate])
+  // React.useEffect(() => {
+  //   if (auth.user) {
+  //     navigate({ to: '/dashboard' })
+  //   }
+  // }, [auth.user, navigate])
 
 
   useEffect(() => {

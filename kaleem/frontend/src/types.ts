@@ -100,3 +100,9 @@ export type CheckoutResponse = {
   sessionId: string
   error?: string
 }
+
+export interface AuthContextType {
+  user: User | null
+  login: (userData: User) => void
+  logout: () => void
+}

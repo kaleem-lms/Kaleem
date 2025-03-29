@@ -8,4 +8,4 @@ class IsTeacher(permissions.BasePermission):
     """
 
     def has_permission(self, request, view):
-        return request.user and request.user.is_staff
+        return request.user

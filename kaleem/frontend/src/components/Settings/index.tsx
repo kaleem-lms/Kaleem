@@ -14,10 +14,10 @@ import { LoadingScreen } from '@/components/LoadingScreen'
 import { useTheme } from '../ThemeProvider'
 import TeacherTimeSelection from '../Auth/Register/TeacherTimeSelection'
 import { getTimeSlots } from '@/api/axios'
-import { useAuth } from '@/hooks/useAuth'
 import { TeacherTimeslot } from '@/types'
 import { useTranslation } from 'react-i18next'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
+import { useAuth } from '../AuthContext'
 
 // Mock function to fetch user data - replace with actual API call
 // const fetchUserData = async () => {

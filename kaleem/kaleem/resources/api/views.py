@@ -1,5 +1,6 @@
 from django.contrib.auth.models import User
 from rest_framework import permissions
+from rest_framework import viewsets
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -81,3 +82,13 @@ class StudentAssignedResourcesAPIView(APIView):
         # Convert dictionary to list
         grouped_data = list(category_dict.values())
         return Response({"assigned_resources": grouped_data})
+
+
+class ResourceViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    API endpoint that allows resources to be viewed.
+    """
+
+    queryset = Resource.objects.all()
+    serializer_class = ResourceSerializer
+    permission_classes = [permissions.IsAuthenticated]
