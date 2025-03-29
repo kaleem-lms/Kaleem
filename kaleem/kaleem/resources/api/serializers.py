@@ -52,3 +52,21 @@ class AssignedResourceSerializer(serializers.ModelSerializer):
             "resource",
             "assigned_at",
         ]
+
+
+class ResourceSerializer(serializers.ModelSerializer):
+    file = serializers.SerializerMethodField()
+    category = serializers.CharField(source="category.name")
+
+    class Meta:
+        model = Resource
+        fields = "__all__"  # Includes all model fields
+        extra_kwargs = {
+            "file": {"write_only": True},  # Keep the file path hidden in response
+        }
+
+    def get_file(self, obj):
+        request = self.context.get("request")
+        if obj.file:
+            return request.build_absolute_uri(obj.file.url) if request else obj.file.url
+        return None

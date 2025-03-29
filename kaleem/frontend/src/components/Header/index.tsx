@@ -21,7 +21,7 @@ export default function Header() {
         </Link>
         {user?.role === 'T' && (
           <Link
-            href="#"
+            to="/dashboard"
             className="text-foreground transition-colors text-nowrap hover:text-foreground"
           >
             Dashboard
@@ -67,7 +67,7 @@ export default function Header() {
               <span>Kaleem</span>
             </Link>
             {user?.role === 'T' && (
-              <Link href="#" className="text-foreground hover:text-foreground">
+              <Link to="#" className="text-foreground hover:text-foreground">
                 Dashboard
               </Link>
             )}
