@@ -2,9 +2,9 @@ import { Link } from '@tanstack/react-router'
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
 import { Bell, GraduationCap, Menu } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { useAuth } from '@/hooks/useAuth'
 import { HeaderDropdown } from './HeaderDropdown'
 import { cn } from '@/lib/utils'
+import { useAuth } from '../AuthContext'
 
 export default function Header() {
   const { user } = useAuth()

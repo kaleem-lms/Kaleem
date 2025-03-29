@@ -1,9 +1,8 @@
 import NotFoundPage from '@/components/404'
-import { AuthProvider } from '@/components/AuthContext'
 import { FullPageLoading } from '@/components/Pending'
+import RootComponent from '@/components/RootComponent'
 import {
-  createRootRouteWithContext,
-  Outlet,
+  createRootRoute,
 } from '@tanstack/react-router'
 // import LayoutProvider from '@/components/Layouts/LayoutProvider'
 // import RootComponent from '@/components/root-component'
@@ -14,12 +13,8 @@ import {
 //     queryFn: getCurrentUser,
 // })
 
-export const Route = createRootRouteWithContext()({
-  component: () => (
-    <AuthProvider>
-      <Outlet />
-    </AuthProvider>
-  ),
+export const Route = createRootRoute({
+  component: RootComponent,
   // loader: async ({ context: { queryClient } }) => {
   //     const user = await queryClient.ensureQueryData(userQueryOptions)
   //     return user

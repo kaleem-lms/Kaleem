@@ -11,7 +11,8 @@ import {
   DropdownMenuSeparator,
 } from '../ui/dropdown-menu'
 import { Link } from '@tanstack/react-router'
-import { useAuth } from '@/hooks/useAuth'
+import { useAuth } from '../AuthContext'
+
 
 export function HeaderDropdown() {
   const { user } = useAuth()
