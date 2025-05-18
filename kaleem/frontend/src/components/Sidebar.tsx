@@ -1,5 +1,4 @@
-
-import { useLocation } from '@tanstack/react-router'
+import { useState } from 'react'
 import {
   BookOpen,
   Calendar,
@@ -8,14 +7,19 @@ import {
   Settings,
   Users,
   LogOut,
+  Menu,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { Link } from '@tanstack/react-router'
+import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
+import { Link, useLocation } from '@tanstack/react-router'
+import { useAuth } from './AuthContext'
 
 export function Sidebar() {
   const location = useLocation()
+  const { user } = useAuth()
+  const [open, setOpen] = useState(false)
 
   const routes = [
     {
@@ -48,53 +52,83 @@ export function Sidebar() {
       path: '/profile',
       icon: Settings,
     },
+    {
+      name: 'Logout',
+      path: '/logout',
+      icon: LogOut,
+    },
   ]
 
-  return (
-    <div className="hidden border-r bg-muted/40 md:block md:w-64 lg:w-72">
-      <div className="flex h-full flex-col gap-2">
-        <div className="flex h-14 items-center border-b px-4 lg:h-[60px] lg:px-6">
-          <Link to="/" className="flex items-center gap-2 font-semibold">
-            <BookOpen className="h-6 w-6" />
-            <span>Teacher Dashboard</span>
-          </Link>
-        </div>
-        <div className="flex-1 overflow-auto py-2">
-          <nav className="grid items-start px-2 lg:px-4">
-            {routes.map((route) => (
-              <Link key={route.path} to={route.path}>
-                <span
-                  className={cn(
-                    'group flex items-center rounded-md px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground',
-                    location.pathname === route.path ? 'bg-accent' : 'transparent',
-                  )}
-                >
-                  <route.icon className="mr-2 h-4 w-4" />
-                  <span>{route.name}</span>
-                </span>
-              </Link>
-            ))}
-          </nav>
-        </div>
-        <div className="mt-auto p-4">
-          <div className="flex items-center gap-2 rounded-lg border p-4">
-            <Avatar>
-              <AvatarImage src="/placeholder.svg" alt="John Doe" />
-              <AvatarFallback>JD</AvatarFallback>
-            </Avatar>
-            <div className="flex flex-col">
-              <span className="text-sm font-medium">John Doe</span>
-              <span className="text-xs text-muted-foreground">
-                teacher@example.com
+  const SidebarContent = () => (
+    <div className="flex h-full flex-col gap-2">
+      <div className="flex h-14 items-center border-b px-4 lg:h-[60px] lg:px-6">
+        <Link to="/" className="flex items-center gap-2 font-semibold">
+          <BookOpen className="h-6 w-6" />
+          <span>Teacher Dashboard</span>
+        </Link>
+      </div>
+      <div className="flex-1 overflow-auto py-2">
+        <nav className="grid items-start px-2 lg:px-4">
+          {routes.map((route) => (
+            <Link
+              key={route.path}
+              to={route.path}
+              className='my-0.5'
+              onClick={() => setOpen(false)}
+            >
+              <span
+                className={cn(
+                  'group flex items-center rounded-md px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground',
+                  location.pathname === route.path
+                    ? 'bg-accent text-accent-foreground'
+                    : 'transparent',
+                )}
+              >
+                <route.icon className="mr-2 h-4 w-4" />
+                <span>{route.name}</span>
               </span>
-            </div>
-            <Button variant="ghost" size="icon" className="ml-auto">
-              <LogOut className="h-4 w-4" />
-              <span className="sr-only">Log out</span>
-            </Button>
+            </Link>
+          ))}
+        </nav>
+      </div>
+      <div className="mt-auto p-4">
+        <div className="flex items-center gap-2 rounded-lg border p-4">
+          <Avatar>
+            <AvatarImage src={user?.profile?.picture || '/placeholder.jpg'} className='object-cover' alt="profile image" />
+            <AvatarFallback>{user?.name.slice(0, 2).toUpperCase()}</AvatarFallback>
+          </Avatar>
+          <div className="flex flex-col">
+            <span className="text-sm font-medium">{user?.name}</span>
+            <span className="text-xs text-muted-foreground">{user?.email}</span>
           </div>
         </div>
       </div>
     </div>
+  )
+
+  return (
+    <>
+      {/* Mobile Sidebar */}
+      <Sheet open={open} onOpenChange={setOpen}>
+        <SheetTrigger asChild className="md:hidden">
+          <Button
+            variant="outline"
+            size="icon"
+            className="absolute left-4 top-3 z-40"
+          >
+            <Menu className="h-5 w-5" />
+            <span className="sr-only">Toggle Menu</span>
+          </Button>
+        </SheetTrigger>
+        <SheetContent side="left" className="w-64 p-0">
+          <SidebarContent />
+        </SheetContent>
+      </Sheet>
+
+      {/* Desktop Sidebar */}
+      <div className="hidden border-r bg-muted/40 md:block md:w-80 lg:w-72">
+        <SidebarContent />
+      </div>
+    </>
   )
 }

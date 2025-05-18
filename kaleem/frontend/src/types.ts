@@ -106,3 +106,16 @@ export interface AuthContextType {
   login: (userData: User) => void
   logout: () => void
 }
+
+export type TeacherDashboardData = {
+  upcoming_sessions: {
+    count: number
+    next_session_timestamp: number | null
+  }
+  pending_reports: Array<{
+    session_id: number
+    student: string
+    due_date: string
+  }>
+}
+

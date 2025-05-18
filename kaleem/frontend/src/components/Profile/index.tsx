@@ -1,327 +1,223 @@
-'use client'
-
-import { useState } from 'react'
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card'
-import { profileData } from '@/lib/data'
+import { useState, useEffect } from 'react'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Switch } from '@/components/ui/switch'
-import { Separator } from '@/components/ui/separator'
-import { toast } from '@/components/ui/use-toast'
-import { User, Video, Bell } from 'lucide-react'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { DaySchedule, TeacherTimeslot, TimeRange } from '@/types'
+import { timeslotsBulkCreate } from '@/api/axios'
+import { useNavigate } from '@tanstack/react-router'
+import { useTranslation } from 'react-i18next'
+import { getTimeSlots } from '@/api/axios'
 
-export default function ProfilePage() {
-  const [profile, setProfile] = useState(profileData.profile)
+export default function WeeklySchedule() {
+  const navigate = useNavigate()
+  const { t } = useTranslation()
 
-  const handleSaveProfile = () => {
-    toast({
-      title: 'Profile updated',
-      description: 'Your profile information has been updated successfully.',
-    })
+  const daysOfWeek = {
+    0: t('Saturday'),
+    1: t('Sunday'),
+    2: t('Monday'),
+    3: t('Tuesday'),
+    4: t('Wednesday'),
+    5: t('Thursday'),
+    6: t('Friday'),
   }
 
-  const handleSaveNotifications = () => {
-    toast({
-      title: 'Notification preferences updated',
-      description:
-        'Your notification preferences have been updated successfully.',
-    })
+  const [schedule, setSchedule] = useState<Record<number, TimeRange[]>>(
+    Object.keys(daysOfWeek).reduce((acc, day) => ({ ...acc, [day]: [] }), {})
+  )
+
+  // Initial data schema
+  const initialTimeSlots = [
+    { "id": 1, "day_of_week": 0, "start_time": "09:00:00", "end_time": "17:00:00", "is_free": true, "student": null },
+    { "id": 2, "day_of_week": 1, "start_time": "09:00:00", "end_time": "17:00:00", "is_free": true, "student": null },
+    { "id": 3, "day_of_week": 1, "start_time": "20:00:00", "end_time": "23:00:00", "is_free": true, "student": null },
+    { "id": 4, "day_of_week": 3, "start_time": "09:00:00", "end_time": "17:00:00", "is_free": true, "student": null },
+    { "id": 5, "day_of_week": 5, "start_time": "09:00:00", "end_time": "17:00:00", "is_free": true, "student": null }
+  ]
+
+  // Fetch time slots on component mount
+  useEffect(() => {
+    const processTimeSlots = (slots: any[]) => {
+      // Ensure slots is an array and handle potential undefined
+      const validSlots = Array.isArray(slots) ? slots : initialTimeSlots;
+
+      return validSlots.reduce((acc, slot) => {
+        // Ensure slot has the expected properties
+        if (!slot || typeof slot.day_of_week === 'undefined') return acc;
+
+        const day = slot.day_of_week.toString()
+        const timeRange = {
+          start_time: (slot.start_time || '09:00:00').slice(0, 5), // Convert "HH:MM:SS" to "HH:MM"
+          end_time: (slot.end_time || '17:00:00').slice(0, 5)
+        }
+
+        // Add the time range to the corresponding day
+        return {
+          ...acc,
+          [day]: [...(acc[day] || []), timeRange]
+        }
+      }, {})
+    }
+
+    getTimeSlots()
+      .then(response => {
+        // Handle different possible response structures
+        const slots = response?.data || response || initialTimeSlots;
+
+        const fetchedSchedule = processTimeSlots(slots);
+
+        // If no time slots from API, use initial data
+        setSchedule(Object.keys(fetchedSchedule).length > 0 ? fetchedSchedule :
+          processTimeSlots(initialTimeSlots)
+        )
+      })
+      .catch(error => {
+        console.error('Error fetching time slots:', error)
+        // Fallback to initial data if API call fails
+        setSchedule(processTimeSlots(initialTimeSlots))
+      })
+  }, [])
+
+  const addTimeRange = (day: number) => {
+    setSchedule((prev) => ({
+      ...prev,
+      [day]: [...prev[day], { start_time: '09:00', end_time: '17:00' }],
+    }))
   }
 
-  const handleSaveZoom = () => {
-    toast({
-      title: 'Zoom settings updated',
-      description:
-        'Your Zoom integration settings have been updated successfully.',
-    })
+  const updateTimeRange = (
+    day: number,
+    index: number,
+    field: keyof TimeRange,
+    value: string,
+  ) => {
+    setSchedule((prev) => ({
+      ...prev,
+      [day]: prev[day].map((range, i) =>
+        i === index ? { ...range, [field]: value } : range,
+      ),
+    }))
   }
+
+  const removeTimeRange = (day: number, index: number) => {
+    setSchedule((prev) => ({
+      ...prev,
+      [day]: prev[day].filter((_, i) => i !== index),
+    }))
+  }
+
+  const exportSchedule = () => {
+    const exportData: TeacherTimeslot[] = Object.entries(schedule).flatMap(
+      ([day, ranges]) =>
+        ranges.map((range) => ({
+          day_of_week: parseInt(day),
+          start_time: range.start_time,
+          end_time: range.end_time,
+          is_free: true,
+        })),
+    )
+
+    timeslotsBulkCreate(exportData)
+      .then(() => {
+        navigate({ to: '/' })
+      })
+      .catch((error) => {
+        console.error(error)
+      })
+  }
+
+  const TimeRangeSelector = ({
+    day,
+    range,
+    index,
+  }: {
+    day: number
+    range: TimeRange
+    index: number
+  }) => (
+    <div className="flex space-x-2 items-center mb-2">
+      <Select
+        value={range.start_time}
+        onValueChange={(value) => {
+          updateTimeRange(day, index, 'start_time', value)
+        }}
+      >
+        <SelectTrigger className="w-[180px]">
+          <SelectValue placeholder="Start Time" />
+        </SelectTrigger>
+        <SelectContent>
+          {[...Array(24)].map((_, hour) => (
+            <SelectItem key={`start-${hour}`} value={`${hour.toString().padStart(2, '0')}:00`}>
+              {`${hour.toString().padStart(2, '0')}:00`}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+
+      <Select
+        value={range.end_time}
+        onValueChange={(value) => {
+          updateTimeRange(day, index, 'end_time', value)
+        }}
+      >
+        <SelectTrigger className="w-[180px]">
+          <SelectValue placeholder="End Time" />
+        </SelectTrigger>
+        <SelectContent>
+          {[...Array(24)].map((_, hour) => (
+            <SelectItem key={`end-${hour}`} value={`${hour.toString().padStart(2, '0')}:00`}>
+              {`${hour.toString().padStart(2, '0')}:00`}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+
+      <Button
+        variant="destructive"
+        onClick={() => removeTimeRange(day, index)}
+      >
+        {t('Remove')}
+      </Button>
+    </div>
+  )
 
   return (
-    <div className="flex flex-col">
-      <div className="flex-1 space-y-4 p-8 pt-6">
-        <div className="flex items-center justify-between space-y-2">
-          <h2 className="text-3xl font-bold tracking-tight">
-            Profile & Settings
-          </h2>
+    <Card className="w-full max-w-4xl mx-auto">
+      <CardHeader>
+        <CardTitle>{t('Weekly Schedule')}</CardTitle>
+      </CardHeader>
+      <CardContent>
+        {Object.entries(daysOfWeek).map(([day, dayName]) => (
+          <div key={day} className="mb-4">
+            <h3 className="text-lg font-semibold mb-2">{dayName}</h3>
+            {schedule[parseInt(day)].map((range, index) => (
+              <TimeRangeSelector
+                key={index}
+                day={parseInt(day)}
+                range={range}
+                index={index}
+              />
+            ))}
+            <Button
+              variant="outline"
+              onClick={() => addTimeRange(parseInt(day))}
+            >
+              {t('Add Time Range')}
+            </Button>
+          </div>
+        ))}
+        <div className="mt-4">
+          <Button onClick={exportSchedule}>
+            {t('Export Schedule')}
+          </Button>
         </div>
-
-        <Tabs defaultValue="profile" className="space-y-4">
-          <TabsList>
-            <TabsTrigger value="profile">
-              <User className="mr-2 h-4 w-4" />
-              Profile
-            </TabsTrigger>
-            <TabsTrigger value="notifications">
-              <Bell className="mr-2 h-4 w-4" />
-              Notifications
-            </TabsTrigger>
-            <TabsTrigger value="zoom">
-              <Video className="mr-2 h-4 w-4" />
-              Zoom Settings
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="profile" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Personal Information</CardTitle>
-                <CardDescription>
-                  Update your personal information
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="name">Full Name</Label>
-                  <Input
-                    id="name"
-                    value={profile.name}
-                    onChange={(e) =>
-                      setProfile({ ...profile, name: e.target.value })
-                    }
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={profile.email}
-                    onChange={(e) =>
-                      setProfile({ ...profile, email: e.target.value })
-                    }
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="bio">Bio</Label>
-                  <textarea
-                    id="bio"
-                    className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                    placeholder="Tell your students about yourself"
-                  />
-                </div>
-              </CardContent>
-              <CardFooter>
-                <Button onClick={handleSaveProfile}>Save Changes</Button>
-              </CardFooter>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Password</CardTitle>
-                <CardDescription>Update your password</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="current-password">Current Password</Label>
-                  <Input id="current-password" type="password" />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="new-password">New Password</Label>
-                  <Input id="new-password" type="password" />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="confirm-password">Confirm New Password</Label>
-                  <Input id="confirm-password" type="password" />
-                </div>
-              </CardContent>
-              <CardFooter>
-                <Button>Change Password</Button>
-              </CardFooter>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="notifications" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Notification Preferences</CardTitle>
-                <CardDescription>
-                  Manage how you receive notifications
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center justify-between space-x-2">
-                  <Label
-                    htmlFor="email-notifications"
-                    className="flex flex-col space-y-1"
-                  >
-                    <span>Email Notifications</span>
-                    <span className="font-normal text-sm text-muted-foreground">
-                      Receive notifications via email
-                    </span>
-                  </Label>
-                  <Switch
-                    id="email-notifications"
-                    checked={profile.notifications.email}
-                    onCheckedChange={(checked) =>
-                      setProfile({
-                        ...profile,
-                        notifications: {
-                          ...profile.notifications,
-                          email: checked,
-                        },
-                      })
-                    }
-                  />
-                </div>
-                <Separator />
-                <div className="flex items-center justify-between space-x-2">
-                  <Label
-                    htmlFor="sms-notifications"
-                    className="flex flex-col space-y-1"
-                  >
-                    <span>SMS Notifications</span>
-                    <span className="font-normal text-sm text-muted-foreground">
-                      Receive notifications via SMS
-                    </span>
-                  </Label>
-                  <Switch
-                    id="sms-notifications"
-                    checked={profile.notifications.sms}
-                    onCheckedChange={(checked) =>
-                      setProfile({
-                        ...profile,
-                        notifications: {
-                          ...profile.notifications,
-                          sms: checked,
-                        },
-                      })
-                    }
-                  />
-                </div>
-                <Separator />
-                <div className="flex items-center justify-between space-x-2">
-                  <Label
-                    htmlFor="session-reminders"
-                    className="flex flex-col space-y-1"
-                  >
-                    <span>Session Reminders</span>
-                    <span className="font-normal text-sm text-muted-foreground">
-                      Receive reminders before scheduled sessions
-                    </span>
-                  </Label>
-                  <Switch id="session-reminders" defaultChecked />
-                </div>
-                <Separator />
-                <div className="flex items-center justify-between space-x-2">
-                  <Label
-                    htmlFor="marketing-emails"
-                    className="flex flex-col space-y-1"
-                  >
-                    <span>Marketing Emails</span>
-                    <span className="font-normal text-sm text-muted-foreground">
-                      Receive marketing and promotional emails
-                    </span>
-                  </Label>
-                  <Switch id="marketing-emails" />
-                </div>
-              </CardContent>
-              <CardFooter>
-                <Button onClick={handleSaveNotifications}>
-                  Save Preferences
-                </Button>
-              </CardFooter>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="zoom" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Zoom Integration</CardTitle>
-                <CardDescription>
-                  Configure your Zoom integration settings
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="zoom-email">Zoom Email</Label>
-                  <Input
-                    id="zoom-email"
-                    type="email"
-                    value={profile.zoom_email}
-                    onChange={(e) =>
-                      setProfile({ ...profile, zoom_email: e.target.value })
-                    }
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="zoom-api-key">Zoom API Key</Label>
-                  <Input
-                    id="zoom-api-key"
-                    type="password"
-                    placeholder="Enter your Zoom API key"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="zoom-api-secret">Zoom API Secret</Label>
-                  <Input
-                    id="zoom-api-secret"
-                    type="password"
-                    placeholder="Enter your Zoom API secret"
-                  />
-                </div>
-                <div className="flex items-center space-x-2 pt-2">
-                  <Switch id="auto-create-meetings" defaultChecked />
-                  <Label htmlFor="auto-create-meetings">
-                    Automatically create Zoom meetings for new sessions
-                  </Label>
-                </div>
-              </CardContent>
-              <CardFooter>
-                <Button onClick={handleSaveZoom}>Save Zoom Settings</Button>
-              </CardFooter>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Meeting Defaults</CardTitle>
-                <CardDescription>
-                  Configure default settings for your Zoom meetings
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center space-x-2">
-                  <Switch id="waiting-room" defaultChecked />
-                  <Label htmlFor="waiting-room">Enable waiting room</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Switch id="host-video" defaultChecked />
-                  <Label htmlFor="host-video">Start with host video on</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Switch id="participant-video" />
-                  <Label htmlFor="participant-video">
-                    Start with participant video on
-                  </Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Switch id="mute-participants" defaultChecked />
-                  <Label htmlFor="mute-participants">
-                    Mute participants upon entry
-                  </Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Switch id="recording" />
-                  <Label htmlFor="recording">
-                    Automatically record meetings
-                  </Label>
-                </div>
-              </CardContent>
-              <CardFooter>
-                <Button>Save Meeting Defaults</Button>
-              </CardFooter>
-            </Card>
-          </TabsContent>
-        </Tabs>
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   )
 }

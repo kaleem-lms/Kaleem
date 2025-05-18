@@ -19,6 +19,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     async function fetchUser() {
       const currentUser = await getCurrentUser()
+      if (!currentUser) {
+        navigate({ to: '/login' })
+      }
       setUser(currentUser)
       setLoading(false)
     }
@@ -26,13 +29,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, [])
 
   const login = (userData: User) => {
-    localStorage.setItem('user', JSON.stringify(userData))
     setUser(userData)
     navigate({ to: '/dashboard' })
   }
 
   const logout = () => {
-    localStorage.removeItem('user')
     setUser(null)
     navigate({ to: '/login' })
   }

@@ -8,6 +8,8 @@ import {
   TeacherRegisterData,
   SubscriptionPlan,
   CheckoutResponse,
+  Session,
+  TeacherDashboardData,
 } from '@/types'
 import axios from 'axios'
 
@@ -80,7 +82,8 @@ export async function getTimeSlots(
   return data
 }
 
-export async function getUserSessions() {
+export async function getUserSessions(): Promise<Session[]> {
+  console.log("getUserSessions");
   const { data } = await api.get('/time-slots/user_sessions/')
   return data
 }
@@ -97,8 +100,8 @@ export async function createCheckoutSession(
   return data
 }
 
-export async function getTeacherDashboard() {
-  const { data } = await api.get('/teacher-dahboard/')
+export async function getTeacherDashboard(): Promise<TeacherDashboardData> {
+  const { data } = await api.get('/teacher-dashboard/')
   return data
 }
 

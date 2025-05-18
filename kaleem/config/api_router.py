@@ -46,9 +46,9 @@ router.register(
     basename="checkout",
 )
 router.register(
-    "teacher-dahboard",
+    "teacher-dashboard",
     TeacherDashboardViewSet,
-    basename="teacher_dahboard",
+    basename="teacher_dashboard",
 )
 router.register(
     "resuorces",

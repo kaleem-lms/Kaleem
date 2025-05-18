@@ -23,9 +23,11 @@ import {
 import { loginUser } from '@/api/axios'
 import { Button } from '@/components/ui/button'
 import Header from '../Landing/Header'
+import { useAuth } from '../AuthContext'
 
 const Login: React.FC = () => {
   const { t } = useTranslation()
+  const { login } = useAuth()
   const navigate = useNavigate()
 
   const form = useForm({
@@ -39,7 +41,8 @@ const Login: React.FC = () => {
 
   async function handleSubmit(values: { email: string; password: string }) {
     try {
-      await loginUser(values)
+      const user = await loginUser(values)
+      login(user)
       navigate({ to: '/' })
     } catch (error) {
       if (error instanceof AxiosError && error.response) {
@@ -107,12 +110,12 @@ const Login: React.FC = () => {
                       key={error}
                       className={cn(
                         'text-sm text-red-500 h-0 mb-2 font-medium overflow-hidden transition-all',
-                        error && 'h-auto'
+                        error && 'h-auto',
                       )}
                     >
                       {error}
                     </p>
-                  ))
+                  )),
                 )}
                 <Button type="submit">{t('Login')}</Button>
                 <p className="text-center mt-4">
