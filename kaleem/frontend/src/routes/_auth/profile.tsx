@@ -1,12 +1,13 @@
-import ProfilePage from '@/components/Auth/Profile'
-import Header from '@/components/Header'
+import AppLayout from '@/components/Layouts/AppLayout'
+import ProfilePage from '@/components/Profile'
 import { createFileRoute } from '@tanstack/react-router'
 
 export const Route = createFileRoute('/_auth/profile')({
-  component: () => (
-    <>
-      <Header />
-      <ProfilePage />
-    </>
-  ),
+  component: () => {
+    return (
+      <AppLayout>
+        <ProfilePage />
+      </AppLayout>
+    )
+  },
 })

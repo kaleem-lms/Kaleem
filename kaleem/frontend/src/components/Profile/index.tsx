@@ -1,5 +1,3 @@
-'use client'
-
 import { useState } from 'react'
 import {
   Card,
@@ -9,18 +7,28 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
-import { profileData } from '@/lib/data'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Switch } from '@/components/ui/switch'
 import { Separator } from '@/components/ui/separator'
-import { toast } from '@/components/ui/use-toast'
-import { User, Video, Bell } from 'lucide-react'
+import { User, Video, Bell, Calendar } from 'lucide-react'
+import { useToast } from '@/hooks/use-toast'
+import TeacherTimeSelection from '../Auth/Register/TeacherTimeSelection'
+
+export const profileData = {
+  profile: {
+    name: 'John Doe',
+    email: 'teacher@example.com',
+    zoom_email: 'teacher.zoom@example.com',
+    notifications: { email: true, sms: false },
+  },
+}
 
 export default function ProfilePage() {
   const [profile, setProfile] = useState(profileData.profile)
+  const { toast } = useToast()
 
   const handleSaveProfile = () => {
     toast({
@@ -67,6 +75,10 @@ export default function ProfilePage() {
             <TabsTrigger value="zoom">
               <Video className="mr-2 h-4 w-4" />
               Zoom Settings
+            </TabsTrigger>
+            <TabsTrigger value="timetable">
+              <Calendar className="mr-2 h-4 w-4" />
+              Timetable
             </TabsTrigger>
           </TabsList>
 
@@ -175,31 +187,6 @@ export default function ProfilePage() {
                 <Separator />
                 <div className="flex items-center justify-between space-x-2">
                   <Label
-                    htmlFor="sms-notifications"
-                    className="flex flex-col space-y-1"
-                  >
-                    <span>SMS Notifications</span>
-                    <span className="font-normal text-sm text-muted-foreground">
-                      Receive notifications via SMS
-                    </span>
-                  </Label>
-                  <Switch
-                    id="sms-notifications"
-                    checked={profile.notifications.sms}
-                    onCheckedChange={(checked) =>
-                      setProfile({
-                        ...profile,
-                        notifications: {
-                          ...profile.notifications,
-                          sms: checked,
-                        },
-                      })
-                    }
-                  />
-                </div>
-                <Separator />
-                <div className="flex items-center justify-between space-x-2">
-                  <Label
                     htmlFor="session-reminders"
                     className="flex flex-col space-y-1"
                   >
@@ -252,35 +239,13 @@ export default function ProfilePage() {
                     }
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="zoom-api-key">Zoom API Key</Label>
-                  <Input
-                    id="zoom-api-key"
-                    type="password"
-                    placeholder="Enter your Zoom API key"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="zoom-api-secret">Zoom API Secret</Label>
-                  <Input
-                    id="zoom-api-secret"
-                    type="password"
-                    placeholder="Enter your Zoom API secret"
-                  />
-                </div>
-                <div className="flex items-center space-x-2 pt-2">
-                  <Switch id="auto-create-meetings" defaultChecked />
-                  <Label htmlFor="auto-create-meetings">
-                    Automatically create Zoom meetings for new sessions
-                  </Label>
-                </div>
               </CardContent>
               <CardFooter>
                 <Button onClick={handleSaveZoom}>Save Zoom Settings</Button>
               </CardFooter>
             </Card>
 
-            <Card>
+            {/* <Card>
               <CardHeader>
                 <CardTitle>Meeting Defaults</CardTitle>
                 <CardDescription>
@@ -318,6 +283,23 @@ export default function ProfilePage() {
               <CardFooter>
                 <Button>Save Meeting Defaults</Button>
               </CardFooter>
+            </Card> */}
+          </TabsContent>
+
+          <TabsContent value="timetable" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Zoom Integration</CardTitle>
+                <CardDescription>
+                  Configure your Zoom integration settings
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <TeacherTimeSelection/>
+              </CardContent>
+              <CardFooter>
+                <Button onClick={handleSaveZoom}>Save Zoom Settings</Button>
+              </CardFooter>
             </Card>
           </TabsContent>
         </Tabs>
@@ -325,3 +307,4 @@ export default function ProfilePage() {
     </div>
   )
 }
+
