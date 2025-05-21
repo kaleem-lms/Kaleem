@@ -1,11 +1,10 @@
 import React from 'react'
 import { loadStripe } from '@stripe/stripe-js'
-import { api } from '@/api/axios'
 import { Button } from '../ui/button'
 import { useTranslation } from 'react-i18next'
 import { createCheckoutSession } from '@/api/axios'
-import { useAuth } from '@/hooks/useAuth'
 import { useNavigate } from '@tanstack/react-router'
+import { useAuth } from '../AuthContext'
 
 const stripePromise = loadStripe(
   'pk_live_51R2MYDKzvGrzIjASU5fAvjfbHTXtpfqaNUjwu0D09xF3Vh1zjfewPlreVn2gTIS2tEIidjvbuyw78B3vhQMfF8Dd00Zxvm1foe'!

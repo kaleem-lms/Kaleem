@@ -8,6 +8,8 @@ import {
   TeacherRegisterData,
   SubscriptionPlan,
   CheckoutResponse,
+  Session,
+  TeacherDashboardData,
 } from '@/types'
 import axios from 'axios'
 
@@ -30,31 +32,31 @@ export async function getCurrentUser(): Promise<User | null> {
 }
 
 export async function registerTeacher(
-  registerData: TeacherRegisterData
+  registerData: TeacherRegisterData,
 ): Promise<LoginResponse> {
   const { data } = await api.post<LoginResponse>(
     '/authentication/register/teachers/',
-    registerData
+    registerData,
   )
   return data
 }
 
 export async function registerStudent(
-  registerData: StudentRegisterData
+  registerData: StudentRegisterData,
 ): Promise<LoginResponse> {
   const { data } = await api.post<LoginResponse>(
     '/authentication/register/students/',
-    registerData
+    registerData,
   )
   return data
 }
 
 export async function registerParent(
-  registerData: ParentRegisterData
+  registerData: ParentRegisterData,
 ): Promise<LoginResponse> {
   const { data } = await api.post<LoginResponse>(
     '/authentication/register/parents/',
-    registerData
+    registerData,
   )
   return data
 }
@@ -74,13 +76,14 @@ export function timeslotsBulkCreate(slots: TeacherTimeslot[]) {
 }
 
 export async function getTimeSlots(
-  teacherId: number
+  teacherId: number,
 ): Promise<TeacherTimeslot[]> {
   const { data } = await api.get(`/time-slots/${teacherId}/teacher_slots/`)
   return data
 }
 
-export async function getUserSessions() {
+export async function getUserSessions(): Promise<Session[]> {
+  console.log("getUserSessions");
   const { data } = await api.get('/time-slots/user_sessions/')
   return data
 }
@@ -91,9 +94,24 @@ export async function getPlans(): Promise<SubscriptionPlan[]> {
 }
 
 export async function createCheckoutSession(
-  planId: number | string
+  planId: number | string,
 ): Promise<CheckoutResponse> {
   const { data } = await api.post('/checkout/create/', { plan_id: planId })
+  return data
+}
+
+export async function getTeacherDashboard(): Promise<TeacherDashboardData> {
+  const { data } = await api.get('/teacher-dashboard/')
+  return data
+}
+
+export async function getTeacherStudents() {
+  const { data } = await api.get('/teachers/students/')
+  return data
+}
+
+export async function getStudentReports(studentId: number) {
+  const { data } = await api.get(`/reports/by-student/${studentId}/`)
   return data
 }
 

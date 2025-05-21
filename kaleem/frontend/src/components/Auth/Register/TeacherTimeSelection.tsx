@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import {
@@ -12,10 +12,14 @@ import { DaySchedule, TeacherTimeslot, TimeRange } from '@/types'
 import { timeslotsBulkCreate } from '@/api/axios'
 import { useNavigate } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
+import { getTimeSlots } from '@/api/axios'
+import { useAuth } from '@/components/AuthContext'
 
 export default function WeeklySchedule() {
   const navigate = useNavigate()
   const { t } = useTranslation()
+  const { user } = useAuth()
+
   const daysOfWeek = {
     0: t('Saturday'),
     1: t('Sunday'),
@@ -25,10 +29,62 @@ export default function WeeklySchedule() {
     5: t('Thursday'),
     6: t('Friday'),
   }
-  const [schedule, setSchedule] = useState<DaySchedule>(
-    Object.keys(daysOfWeek).reduce((acc, day) => ({ ...acc, [day]: [] }), {}),
+
+  const [schedule, setSchedule] = useState<Record<number, TimeRange[]>>(
+    Object.keys(daysOfWeek).reduce((acc, day) => ({ ...acc, [day]: [] }), {})
   )
 
+  // Initial data schema
+  const initialTimeSlots = [
+    { "id": 1, "day_of_week": 0, "start_time": "09:00:00", "end_time": "17:00:00", "is_free": true, "student": null },
+    { "id": 2, "day_of_week": 1, "start_time": "09:00:00", "end_time": "17:00:00", "is_free": true, "student": null },
+    { "id": 3, "day_of_week": 1, "start_time": "20:00:00", "end_time": "23:00:00", "is_free": true, "student": null },
+    { "id": 4, "day_of_week": 3, "start_time": "09:00:00", "end_time": "17:00:00", "is_free": true, "student": null },
+    { "id": 5, "day_of_week": 5, "start_time": "09:00:00", "end_time": "17:00:00", "is_free": true, "student": null }
+  ]
+
+  // Fetch time slots on component mount
+  useEffect(() => {
+    const processTimeSlots = (slots: any[]) => {
+      // Ensure slots is an array and handle potential undefined
+      const validSlots = Array.isArray(slots) ? slots : initialTimeSlots;
+
+      return validSlots.reduce((acc, slot) => {
+        // Ensure slot has the expected properties
+        if (!slot || typeof slot.day_of_week === 'undefined') return acc;
+
+        const day = slot.day_of_week.toString()
+        const timeRange = {
+          start_time: (slot.start_time || '09:00:00').slice(0, 5), // Convert "HH:MM:SS" to "HH:MM"
+          end_time: (slot.end_time || '17:00:00').slice(0, 5)
+        }
+
+        // Add the time range to the corresponding day
+        return {
+          ...acc,
+          [day]: [...(acc[day] || []), timeRange]
+        }
+      }, {})
+    }
+
+    getTimeSlots(user?.id)
+      .then(response => {
+        // Handle different possible response structures
+        const slots = response?.data || response || initialTimeSlots;
+
+        const fetchedSchedule = processTimeSlots(slots);
+
+        // If no time slots from API, use initial data
+        setSchedule(Object.keys(fetchedSchedule).length > 0 ? fetchedSchedule :
+          processTimeSlots(initialTimeSlots)
+        )
+      })
+      .catch(error => {
+        console.error('Error fetching time slots:', error)
+        // Fallback to initial data if API call fails
+        setSchedule(processTimeSlots(initialTimeSlots))
+      })
+  }, [user])
 
   const addTimeRange = (day: number) => {
     setSchedule((prev) => ({
@@ -87,61 +143,61 @@ export default function WeeklySchedule() {
     range: TimeRange
     index: number
   }) => (
-    <div className="flex items-center space-x-2 mb-2">
+    <div className="flex space-x-2 items-center mb-2">
       <Select
         value={range.start_time}
-        onValueChange={(value) =>
+        onValueChange={(value) => {
           updateTimeRange(day, index, 'start_time', value)
-        }
+        }}
       >
         <SelectTrigger className="w-[180px]">
           <SelectValue placeholder="Start Time" />
         </SelectTrigger>
         <SelectContent>
           {[...Array(24)].map((_, hour) => (
-            <SelectItem
-              key={hour}
-              value={`${hour.toString().padStart(2, '0')}:00`}
-            >
+            <SelectItem key={`start-${hour}`} value={`${hour.toString().padStart(2, '0')}:00`}>
               {`${hour.toString().padStart(2, '0')}:00`}
             </SelectItem>
           ))}
         </SelectContent>
       </Select>
+
       <Select
         value={range.end_time}
-        onValueChange={(value) =>
+        onValueChange={(value) => {
           updateTimeRange(day, index, 'end_time', value)
-        }
+        }}
       >
         <SelectTrigger className="w-[180px]">
           <SelectValue placeholder="End Time" />
         </SelectTrigger>
         <SelectContent>
           {[...Array(24)].map((_, hour) => (
-            <SelectItem
-              key={hour}
-              value={`${hour.toString().padStart(2, '0')}:00`}
-            >
+            <SelectItem key={`end-${hour}`} value={`${hour.toString().padStart(2, '0')}:00`}>
               {`${hour.toString().padStart(2, '0')}:00`}
             </SelectItem>
           ))}
         </SelectContent>
       </Select>
-      <Button variant="destructive" onClick={() => removeTimeRange(day, index)}>
+
+      <Button
+        variant="destructive"
+        onClick={() => removeTimeRange(day, index)}
+      >
         {t('Remove')}
       </Button>
     </div>
   )
 
   return (
-    <div className="space-y-4">
-      {Object.entries(daysOfWeek).map(([day, dayName]) => (
-        <Card key={day}>
-          <CardHeader>
-            <CardTitle>{dayName}</CardTitle>
-          </CardHeader>
-          <CardContent>
+    <Card className="w-full max-w-4xl mx-auto">
+      <CardHeader>
+        <CardTitle>{t('Weekly Schedule')}</CardTitle>
+      </CardHeader>
+      <CardContent>
+        {Object.entries(daysOfWeek).map(([day, dayName]) => (
+          <div key={day} className="mb-4">
+            <h3 className="text-lg font-semibold mb-2">{dayName}</h3>
             {schedule[parseInt(day)].map((range, index) => (
               <TimeRangeSelector
                 key={index}
@@ -150,15 +206,20 @@ export default function WeeklySchedule() {
                 index={index}
               />
             ))}
-            <Button onClick={() => addTimeRange(parseInt(day))}>
+            <Button
+              variant="outline"
+              onClick={() => addTimeRange(parseInt(day))}
+            >
               {t('Add Time Range')}
             </Button>
-          </CardContent>
-        </Card>
-      ))}
-      <Button className="w-full" onClick={exportSchedule}>
-        {t("Export Schedule")}
-      </Button>
-    </div>
+          </div>
+        ))}
+        <div className="mt-4">
+          <Button onClick={exportSchedule}>
+            {t('Export Schedule')}
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
   )
 }

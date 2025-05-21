@@ -11,10 +11,11 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
 from kaleem.users.models import Student
+from kaleem.users.models import Teacher
 from kaleem.users.models import User
 from kaleem.users.services import AuthenticationService
 
-from .serializers import LoginSerializer
+from .serializers import LoginSerializer, StudentSerializer
 from .serializers import ParentRegisterSerializer
 from .serializers import StudentRegisterSerializer
 from .serializers import TeacherRegisterSerializer
@@ -175,3 +176,25 @@ class AuthenticationViewSet(viewsets.ViewSet):
     def logout_user(self, request):
         logout(request)
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class TeachersViewSet(viewsets.ViewSet):
+    """
+    ViewSet for teacher-related actions.
+    """
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    @action(detail=False, methods=["get"])
+    def students(self, request):
+        """Return students assigned to the authenticated teacher."""
+        teacher = request.user
+
+        students = Student.objects.filter(assigned_teacher=teacher)
+        serializer = StudentSerializer(
+            students,
+            many=True,
+            context={"request": request},
+        )
+
+        return Response(serializer.data)

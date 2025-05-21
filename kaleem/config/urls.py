@@ -20,6 +20,7 @@ def health_check(request):
 
 
 urlpatterns = [
+    path("health/", health_check),
     # Django Admin, use {% url 'admin:index' %}
     path(settings.ADMIN_URL, admin.site.urls),
     # User management

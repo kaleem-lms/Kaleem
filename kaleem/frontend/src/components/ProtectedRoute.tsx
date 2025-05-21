@@ -1,6 +1,6 @@
 import React from 'react'
 import { Navigate } from '@tanstack/react-router'
-import { useAuth } from '@/hooks/useAuth'
+import { useAuth } from './AuthContext'
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({
   children,

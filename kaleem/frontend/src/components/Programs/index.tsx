@@ -4,9 +4,9 @@ import React from "react"
 import Header from "@/components/Landing/Header"
 import Footer from "@/components/Landing/Footer"
 import { useNavigate } from "@tanstack/react-router"
-import { useAuth } from "@/hooks/useAuth"
 import { useTranslation } from "react-i18next"
 import { Book, BookOpen, Languages, GraduationCap } from "lucide-react"
+import { useAuth } from "../AuthContext"
 
 const ProgramsPage: React.FC = () => {
   const auth = useAuth()
