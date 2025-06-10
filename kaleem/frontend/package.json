@@ -31,6 +31,7 @@
     "@radix-ui/react-toast": "^1.2.6",
     "@stripe/stripe-js": "^6.1.0",
     "@tanstack/react-router": "^1.58.12",
+    "@tanstack/react-router-devtools": "^1.120.20",
     "@types/node": "^22.5.5",
     "axios": "^1.7.7",
     "class-variance-authority": "^0.7.0",
