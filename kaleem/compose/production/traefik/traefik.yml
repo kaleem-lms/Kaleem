@@ -59,6 +59,15 @@ http:
         # https://doc.traefik.io/traefik/master/routing/routers/#certresolver
         certResolver: letsencrypt
 
+    catchall-secure-router:
+      rule: 'HostRegexp(`{subdomain:.+}.kaleem.academy`)'
+      entryPoints:
+        - web-secure
+      service: django
+      priority: 1
+      tls:
+        certResolver: letsencrypt
+
   middlewares:
     csrf:
       # https://doc.traefik.io/traefik/master/middlewares/http/headers/#hostsproxyheaders
