@@ -1,14 +1,14 @@
-import DashboardPage from './Teacher'
-import { useAuth } from '../AuthContext'
+import { useAuth } from '../AuthContext';
+import DashboardPage from './Teacher';
 
 export default function Dashboard() {
-  const { user } = useAuth()
+	const { user } = useAuth();
 
-  return (
-    <>
-      {user?.role === 'T' && <DashboardPage />}
-      {user?.role === 'S' && <p>You are a student.</p>}
-      {user?.role === 'P' && <p>You are a parent.</p>}
-    </>
-  )
+	return (
+		<>
+			{user?.role === 'T' && <DashboardPage />}
+			{user?.role === 'S' && <p>You are a student.</p>}
+			{user?.role === 'P' && <p>You are a parent.</p>}
+		</>
+	);
 }
