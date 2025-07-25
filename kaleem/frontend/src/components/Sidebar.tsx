@@ -81,9 +81,14 @@ export function Sidebar() {
 						<AvatarImage src={user?.profile?.picture || '/placeholder.jpg'} className="object-cover" alt="profile image" />
 						<AvatarFallback>{user?.name.slice(0, 2).toUpperCase()}</AvatarFallback>
 					</Avatar>
-					<div className="flex flex-col">
+					<div className="flex flex-col min-w-0">
 						<span className="font-medium text-sm">{user?.name}</span>
-						<span className="text-muted-foreground text-xs">{user?.email}</span>
+						<span
+							className="text-muted-foreground text-xs truncate overflow-hidden whitespace-nowrap"
+							title={user?.email}
+						>
+							{user?.email}
+						</span>
 					</div>
 				</div>
 			</div>
