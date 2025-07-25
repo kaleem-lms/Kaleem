@@ -47,6 +47,7 @@ export interface User {
 	role: string;
 	url: string;
 	profile: UserProfile;
+	zoom_email: string | null;
 }
 
 export interface UserProfile {

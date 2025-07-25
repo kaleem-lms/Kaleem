@@ -34,6 +34,11 @@ export async function getCurrentUser(): Promise<User | null> {
 	}
 }
 
+export async function updateUser(userData: User): Promise<User> {
+	const { data } = await api.put<User>('/users/edit/', userData);
+	return data;
+}
+
 export async function getProfile(): Promise<Profile> {
 	const { data } = await api.get<Profile>('/users/profile/');
 	return data;
