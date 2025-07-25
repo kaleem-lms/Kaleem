@@ -91,4 +91,4 @@ class ResourceViewSet(viewsets.ReadOnlyModelViewSet):
 
     queryset = Resource.objects.all()
     serializer_class = ResourceSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, IsTeacher]
