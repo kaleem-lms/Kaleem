@@ -142,3 +142,29 @@ export type Student = {
 	completed_sessions_count: number;
 	user: User;
 };
+
+type ResourceType = 'document' | 'video' | 'file';
+
+type ResourceStudent = {
+	id: number;
+	name: string;
+	email: string;
+	enrolled_at: string;
+};
+
+export type Resource = {
+	id: number;
+	file: string;
+	category: string;
+	title: string;
+	description: string;
+	resource_type: ResourceType;
+	students_assigned: ResourceStudent[];
+	video_url: string;
+	created_at: string;
+};
+
+export type ResourceAssign = {
+	resource_id: number;
+	student_ids: number[];
+};
