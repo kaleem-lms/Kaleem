@@ -4,6 +4,7 @@ import type {
 	LoginData,
 	LoginResponse,
 	ParentRegisterData,
+	ResourceAssign,
 	Session,
 	Student,
 	StudentRegisterData,
@@ -58,6 +59,10 @@ export async function logoutUser(): Promise<null> {
 
 export function timeslotsBulkCreate(slots: TeacherTimeslot[]) {
 	return api.post('/time-slots/bulk_create/', slots);
+}
+
+export function assignResource(resourceAssign: ResourceAssign) {
+	return api.post('/resources/assign-resource/', resourceAssign);
 }
 
 export async function getTimeSlots(teacherId: number): Promise<TeacherTimeslot[]> {
