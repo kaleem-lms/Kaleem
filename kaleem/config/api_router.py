@@ -51,7 +51,7 @@ router.register(
     basename="teacher_dashboard",
 )
 router.register(
-    "resuorces",
+    "resources",
     ResourceViewSet,
 )
 router.register(
