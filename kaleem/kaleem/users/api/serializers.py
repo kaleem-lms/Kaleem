@@ -220,3 +220,67 @@ class ParentRegisterSerializer(serializers.ModelSerializer):
         parent.set_password(password)
         parent.save()
         return parent
+
+
+class StudentProfileSerializer(serializers.ModelSerializer):
+    profile = UserProfileSerializer()
+
+    class Meta:
+        model = Student
+        exclude = ("password",)
+
+
+class TeacherProfileSerializer(serializers.ModelSerializer):
+    profile = UserProfileSerializer()
+
+    class Meta:
+        model = Teacher
+        exclude = ("password",)
+
+
+class ParentProfileSerializer(serializers.ModelSerializer):
+    profile = UserProfileSerializer()
+
+    class Meta:
+        model = Parent
+        exclude = ("password",)
+
+
+class EditProfileSerializer(serializers.ModelSerializer):
+    profile = UserProfileSerializer(required=False)
+    zoom_email = serializers.EmailField(
+        required=False,
+        allow_null=True,
+        allow_blank=True,
+    )
+
+    class Meta:
+        model = User
+        fields = (
+            "name",
+            "email",
+            "profile",
+            "zoom_email",
+        )  # include other fields you allow updating
+
+    def update(self, instance, validated_data):
+        profile_data = validated_data.pop("profile", {})
+        zoom_email = validated_data.pop("zoom_email", None)
+
+        # Update User fields
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+
+        # Update UserProfile
+        if hasattr(instance, "profile"):
+            for attr, value in profile_data.items():
+                setattr(instance.profile, attr, value)
+            instance.profile.save()
+
+        # Update Teacher.zoom_email
+        if zoom_email is not None and hasattr(instance, "teacher"):
+            instance.teacher.zoom_email = zoom_email
+            instance.teacher.save()
+
+        return instance

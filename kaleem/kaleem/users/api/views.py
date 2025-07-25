@@ -10,14 +10,21 @@ from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
+from kaleem.users.choices import Role
+from kaleem.users.models import Parent
 from kaleem.users.models import Student
 from kaleem.users.models import Teacher
 from kaleem.users.models import User
 from kaleem.users.services import AuthenticationService
 
-from .serializers import LoginSerializer, StudentSerializer
+from .serializers import EditProfileSerializer
+from .serializers import LoginSerializer
+from .serializers import ParentProfileSerializer
 from .serializers import ParentRegisterSerializer
+from .serializers import StudentProfileSerializer
 from .serializers import StudentRegisterSerializer
+from .serializers import StudentSerializer
+from .serializers import TeacherProfileSerializer
 from .serializers import TeacherRegisterSerializer
 from .serializers import UserSerializer
 
@@ -54,15 +61,21 @@ class UserViewSet(viewsets.ViewSet):
     @extend_schema(
         summary="Edit the current user",
         description="Update the authenticated user's profile information.",
-        request=UserSerializer,
-        responses={200: UserSerializer, 403: OpenApiResponse(description="Forbidden")},
+        request=EditProfileSerializer,
+        responses={
+            200: EditProfileSerializer,
+            403: OpenApiResponse(description="Forbidden"),
+        },
     )
     @action(detail=False, methods=["put"])
     def edit(self, request):
-        user = request.user  # Current authenticated user
+        user = request.user
 
-        serializer = UserSerializer(
-            user, data=request.data, partial=True, context={"request": request}
+        serializer = EditProfileSerializer(
+            user,
+            data=request.data,
+            partial=True,
+            context={"request": request},
         )
         serializer.is_valid(raise_exception=True)
         serializer.save()
@@ -72,6 +85,36 @@ class UserViewSet(viewsets.ViewSet):
     def me(self, request):
         serializer = UserSerializer(request.user, context={"request": request})
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+    @extend_schema(
+        summary="Get current user profile",
+        description="Returns profile details based on the authenticated user's role.",
+        responses={
+            200: OpenApiResponse(description="Profile data returned successfully."),
+            403: OpenApiResponse(description="User role not recognized."),
+        },
+    )
+    @action(detail=False, methods=["get"])
+    def profile(self, request):
+        user = request.user
+        role = user.role
+
+        if role == Role.Student:
+            student = Student.objects.get(id=user.id)
+            serializer = StudentProfileSerializer(student, context={"request": request})
+        elif role == Role.Teacher:
+            teacher = Teacher.objects.get(id=user.id)
+            serializer = TeacherProfileSerializer(teacher, context={"request": request})
+        elif role == Role.Parent:
+            parent = Parent.objects.get(id=user.id)
+            serializer = ParentProfileSerializer(parent, context={"request": request})
+        else:
+            return Response(
+                {"detail": "Unknown user role."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        return Response(serializer.data)
 
 
 class AuthenticationViewSet(viewsets.ViewSet):
