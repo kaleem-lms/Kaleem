@@ -1,6 +1,6 @@
 import { Link } from '@tanstack/react-router';
 import { Award, BookMarked, BookOpen, CheckCircle2, GraduationCap, Languages } from 'lucide-react';
-import React from 'react';
+import type React from 'react';
 import { useTranslation } from 'react-i18next';
 import Footer from '@/components/Landing/Footer';
 import Header from '@/components/Landing/Header';

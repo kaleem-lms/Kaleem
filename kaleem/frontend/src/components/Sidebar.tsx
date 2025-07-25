@@ -1,20 +1,11 @@
-import { Link, useLocation } from "@tanstack/react-router";
-import {
-	BookOpen,
-	Calendar,
-	CreditCard,
-	Home,
-	LogOut,
-	Menu,
-	Settings,
-	Users,
-} from "lucide-react";
-import { useState } from "react";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { cn } from "@/lib/utils";
-import { useAuth } from "./AuthContext";
+import { Link, useLocation } from '@tanstack/react-router';
+import { BookOpen, Calendar, CreditCard, Home, LogOut, Menu, Settings, Users } from 'lucide-react';
+import { useState } from 'react';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Button } from '@/components/ui/button';
+import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { cn } from '@/lib/utils';
+import { useAuth } from './AuthContext';
 
 export function Sidebar() {
 	const location = useLocation();
@@ -23,38 +14,38 @@ export function Sidebar() {
 
 	const routes = [
 		{
-			name: "Dashboard",
-			path: "/",
+			name: 'Dashboard',
+			path: '/',
 			icon: Home,
 		},
 		{
-			name: "Sessions",
-			path: "/sessions",
+			name: 'Sessions',
+			path: '/sessions',
 			icon: Calendar,
 		},
 		{
-			name: "Students",
-			path: "/students",
+			name: 'Students',
+			path: '/students',
 			icon: Users,
 		},
 		{
-			name: "Resources",
-			path: "/resources",
+			name: 'Resources',
+			path: '/resources',
 			icon: BookOpen,
 		},
 		{
-			name: "Subscription",
-			path: "/subscription",
+			name: 'Subscription',
+			path: '/subscription',
 			icon: CreditCard,
 		},
 		{
-			name: "Profile & Settings",
-			path: "/profile",
+			name: 'Profile & Settings',
+			path: '/profile',
 			icon: Settings,
 		},
 		{
-			name: "Logout",
-			path: "/logout",
+			name: 'Logout',
+			path: '/logout',
 			icon: LogOut,
 		},
 	];
@@ -70,18 +61,11 @@ export function Sidebar() {
 			<div className="flex-1 overflow-auto py-2">
 				<nav className="grid items-start px-2 lg:px-4">
 					{routes.map((route) => (
-						<Link
-							key={route.path}
-							to={route.path}
-							className="my-0.5"
-							onClick={() => setOpen(false)}
-						>
+						<Link key={route.path} to={route.path} className="my-0.5" onClick={() => setOpen(false)}>
 							<span
 								className={cn(
-									"group flex items-center rounded-md px-3 py-2 font-medium text-sm hover:bg-accent hover:text-accent-foreground",
-									location.pathname === route.path
-										? "bg-accent text-accent-foreground"
-										: "transparent",
+									'group flex items-center rounded-md px-3 py-2 font-medium text-sm hover:bg-accent hover:text-accent-foreground',
+									location.pathname === route.path ? 'bg-accent text-accent-foreground' : 'transparent',
 								)}
 							>
 								<route.icon className="mr-2 h-4 w-4" />
@@ -94,14 +78,8 @@ export function Sidebar() {
 			<div className="mt-auto p-4">
 				<div className="flex items-center gap-2 rounded-lg border p-4">
 					<Avatar>
-						<AvatarImage
-							src={user?.profile?.picture || "/placeholder.jpg"}
-							className="object-cover"
-							alt="profile image"
-						/>
-						<AvatarFallback>
-							{user?.name.slice(0, 2).toUpperCase()}
-						</AvatarFallback>
+						<AvatarImage src={user?.profile?.picture || '/placeholder.jpg'} className="object-cover" alt="profile image" />
+						<AvatarFallback>{user?.name.slice(0, 2).toUpperCase()}</AvatarFallback>
 					</Avatar>
 					<div className="flex flex-col">
 						<span className="font-medium text-sm">{user?.name}</span>
@@ -117,11 +95,7 @@ export function Sidebar() {
 			{/* Mobile Sidebar */}
 			<Sheet open={open} onOpenChange={setOpen}>
 				<SheetTrigger asChild className="md:hidden">
-					<Button
-						variant="outline"
-						size="icon"
-						className="absolute top-3 left-4 z-40"
-					>
+					<Button variant="outline" size="icon" className="absolute top-3 left-4 z-40">
 						<Menu className="h-5 w-5" />
 						<span className="sr-only">Toggle Menu</span>
 					</Button>

@@ -1,125 +1,49 @@
-'use client';
-
-import { Plus, Search, User } from 'lucide-react';
-import { useState } from 'react';
+import { CalendarDays, Clock, Search, User } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
 	Dialog,
 	DialogContent,
-	DialogDescription,
-	DialogFooter,
 	DialogHeader,
 	DialogTitle,
 	DialogTrigger,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { getTeacherStudents } from '@/api/axios';
+import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
+import { Separator } from '../ui/separator';
+import { Student } from '@/types';
 
-const studentsData = {
-	students: [
-		{
-			id: 1,
-			name: 'Ali Ahmed',
-			age: 10,
-			last_activity: '2025-03-28',
-			performance: 'Good',
-		},
-		{
-			id: 2,
-			name: 'Sara Khaled',
-			age: 12,
-			last_activity: '2025-03-27',
-			performance: 'Excellent',
-		},
-		{
-			id: 3,
-			name: 'Mohamed Hassan',
-			age: 9,
-			last_activity: '2025-03-26',
-			performance: 'Average',
-		},
-		{
-			id: 4,
-			name: 'Fatima Ali',
-			age: 11,
-			last_activity: '2025-03-25',
-			performance: 'Good',
-		},
-		{
-			id: 5,
-			name: 'Ahmed Mahmoud',
-			age: 10,
-			last_activity: '2025-03-24',
-			performance: 'Excellent',
-		},
-	],
+
+const getGenderBadge = (gender: string) => {
+	switch (gender.toLowerCase()) {
+		case 'male':
+			return 'bg-blue-500/10 text-blue-500 hover:bg-blue-500/20';
+		case 'female':
+			return 'bg-pink-500/10 text-pink-500 hover:bg-pink-500/20';
+		default:
+			return '';
+	}
 };
 
 export default function StudentsPage() {
 	const [searchTerm, setSearchTerm] = useState('');
+	const [students, setStudents] = useState<Student[]>([]);
 
-	const filteredStudents = studentsData.students.filter((student) =>
-		student.name.toLowerCase().includes(searchTerm.toLowerCase()),
-	);
-
-	const getPerformanceBadge = (performance: string) => {
-		switch (performance.toLowerCase()) {
-			case 'excellent':
-				return 'bg-green-500/10 text-green-500 hover:bg-green-500/20';
-			case 'good':
-				return 'bg-blue-500/10 text-blue-500 hover:bg-blue-500/20';
-			case 'average':
-				return 'bg-yellow-500/10 text-yellow-500 hover:bg-yellow-500/20';
-			default:
-				return '';
-		}
-	};
+	useEffect(() => {
+		getTeacherStudents().then((data) => {
+			setStudents(data);
+		});
+	}, []);
 
 	return (
 		<div className="flex flex-col">
 			<div className="flex-1 space-y-4 p-8 pt-6">
 				<div className="flex items-center justify-between space-y-2">
 					<h2 className="font-bold text-3xl tracking-tight">Students</h2>
-					<Dialog>
-						<DialogTrigger asChild>
-							<Button>
-								<Plus className="mr-2 h-4 w-4" />
-								Add Student
-							</Button>
-						</DialogTrigger>
-						<DialogContent className="sm:max-w-[425px]">
-							<DialogHeader>
-								<DialogTitle>Add New Student</DialogTitle>
-								<DialogDescription>Add a new student to your roster. Click save when you're done.</DialogDescription>
-							</DialogHeader>
-							<div className="grid gap-4 py-4">
-								<div className="grid grid-cols-4 items-center gap-4">
-									<Label htmlFor="name" className="text-right">
-										Name
-									</Label>
-									<Input id="name" placeholder="Student name" className="col-span-3" />
-								</div>
-								<div className="grid grid-cols-4 items-center gap-4">
-									<Label htmlFor="age" className="text-right">
-										Age
-									</Label>
-									<Input id="age" type="number" placeholder="Student age" className="col-span-3" />
-								</div>
-								<div className="grid grid-cols-4 items-center gap-4">
-									<Label htmlFor="email" className="text-right">
-										Email
-									</Label>
-									<Input id="email" type="email" placeholder="Parent/Guardian email" className="col-span-3" />
-								</div>
-							</div>
-							<DialogFooter>
-								<Button type="submit">Add Student</Button>
-							</DialogFooter>
-						</DialogContent>
-					</Dialog>
 				</div>
 
 				<Card>
@@ -145,20 +69,18 @@ export default function StudentsPage() {
 										<TableRow>
 											<TableHead>Name</TableHead>
 											<TableHead>Age</TableHead>
-											<TableHead>Last Activity</TableHead>
-											<TableHead>Performance</TableHead>
+											<TableHead>Gender</TableHead>
 											<TableHead className="text-right">Actions</TableHead>
 										</TableRow>
 									</TableHeader>
 									<TableBody>
-										{filteredStudents.map((student) => (
+										{students.map((student) => (
 											<TableRow key={student.id}>
-												<TableCell className="font-medium">{student.name}</TableCell>
+												<TableCell className="font-medium">{student.user.name}</TableCell>
 												<TableCell>{student.age}</TableCell>
-												<TableCell>{student.last_activity}</TableCell>
 												<TableCell>
-													<Badge className={getPerformanceBadge(student.performance)} variant="outline">
-														{student.performance}
+													<Badge className={getGenderBadge(student.user.gender)} variant="outline">
+														{student.user.gender}
 													</Badge>
 												</TableCell>
 												<TableCell className="text-right">
@@ -166,45 +88,97 @@ export default function StudentsPage() {
 														<Dialog>
 															<DialogTrigger asChild>
 																<Button size="sm" variant="outline">
-																	View
+																	View Profile
 																</Button>
 															</DialogTrigger>
-															<DialogContent>
-																<DialogHeader>
-																	<DialogTitle>Student Profile</DialogTitle>
+															<DialogContent className="max-w-md">
+																<DialogHeader className="text-center pb-2">
+																	<DialogTitle className="text-xl">Student Profile</DialogTitle>
 																</DialogHeader>
-																<div className="flex flex-col items-center py-4">
-																	<div className="mb-4 rounded-full bg-muted p-6">
-																		<User className="h-12 w-12" />
+
+																{/* Profile Header */}
+																<div className="flex flex-col items-center space-y-4 py-6">
+																	<Avatar className="h-24 w-24 ring-2 ring-border">
+																		<AvatarImage
+																			src={student.user?.profile?.picture || '/placeholder.svg?height=96&width=96&query=student+avatar'}
+																			className="object-cover"
+																			alt={`${student.user.name}'s profile picture`}
+																		/>
+																		<AvatarFallback className="text-lg font-semibold">
+																			{student.user.name
+																				.split(' ')
+																				.map((name) => name[0])
+																				.join('')
+																				.toUpperCase()
+																				.slice(0, 2)}
+																		</AvatarFallback>
+																	</Avatar>
+
+																	<div className="text-center space-y-1">
+																		<h3 className="font-semibold text-lg">{student.user.name}</h3>
+																		<div className="flex items-center justify-center gap-4 text-sm text-muted-foreground">
+																			<span className="flex items-center gap-1">
+																				<User className="h-3 w-3" />
+																				Age {student.age}
+																			</span>
+																		</div>
 																	</div>
-																	<h3 className="font-bold text-xl">{student.name}</h3>
-																	<p className="text-muted-foreground text-sm">Age: {student.age}</p>
 																</div>
-																<div className="grid gap-4">
-																	<div className="grid grid-cols-4 items-center gap-4">
-																		<Label className="text-right font-medium">Last Activity:</Label>
-																		<span className="col-span-3">{student.last_activity}</span>
-																	</div>
-																	<div className="grid grid-cols-4 items-center gap-4">
-																		<Label className="text-right font-medium">Performance:</Label>
-																		<span className="col-span-3">
-																			<Badge className={getPerformanceBadge(student.performance)} variant="outline">
-																				{student.performance}
-																			</Badge>
-																		</span>
+
+																<Separator />
+
+																{/* Profile Details */}
+																<div className="space-y-4 py-4">
+																	{student.user?.profile?.bio && (
+																		<div className="space-y-2">
+																			<h4 className="text-sm font-medium text-muted-foreground">About</h4>
+																			<p className="text-sm leading-relaxed">{student.user.profile.bio}</p>
+																		</div>
+																	)}
+
+																	<div className="grid grid-cols-2 gap-4">
+																		{student.enrolled_at && (
+																			<Card>
+																				<CardContent className="p-3 text-center">
+																					<div className="flex items-center justify-center mb-1">
+																						<CalendarDays className="h-4 w-4 text-muted-foreground" />
+																					</div>
+																					<div className="text-xs text-muted-foreground">Enrolled</div>
+																					<div className="text-sm font-medium">{student.enrolled_at ? new Date(student.enrolled_at).toLocaleDateString() : 'Unknown'}</div>
+																				</CardContent>
+																			</Card>
+																		)}
+
+																		{student.completed_sessions_count !== undefined && (
+																			<Card>
+																				<CardContent className="p-3 text-center">
+																					<div className="flex items-center justify-center mb-1">
+																						<Clock className="h-4 w-4 text-muted-foreground" />
+																					</div>
+																					<div className="text-xs text-muted-foreground">Sessions</div>
+																					<div className="text-sm font-medium">{student.completed_sessions_count}</div>
+																				</CardContent>
+																			</Card>
+																		)}
 																	</div>
 																</div>
-																<DialogFooter className="flex justify-between">
-																	<Button variant="outline">Schedule Session</Button>
-																	<Button>View Progress</Button>
-																</DialogFooter>
+
+																{/* <Separator /> */}
+
+																{/* Action Buttons */}
+																{/* <div className="flex gap-2 pt-4">
+																	<Button variant="outline" className="flex-1 bg-transparent">
+																		Schedule Session
+																	</Button>
+																	<Button className="flex-1">View Progress</Button>
+																</div> */}
 															</DialogContent>
 														</Dialog>
 													</div>
 												</TableCell>
 											</TableRow>
 										))}
-										{filteredStudents.length === 0 && (
+										{students.length === 0 && (
 											<TableRow>
 												<TableCell colSpan={5} className="h-24 text-center">
 													No students found.

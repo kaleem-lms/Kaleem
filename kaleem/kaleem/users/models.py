@@ -68,6 +68,7 @@ class Student(User):
         related_name="students",
         verbose_name=_("Assigned Teacher"),
     )
+    enrolled_at = models.DateTimeField(_("Enrolled At"), auto_now_add=True)
 
     def save(self, *args, **kwargs) -> None:
         if self.pk is None:  # Only set for new records

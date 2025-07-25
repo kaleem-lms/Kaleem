@@ -8,19 +8,21 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import RegistrationForm from './RegisterForm';
 import RoleSelection from './RoleSelection';
-import TeacherTimeSelection from './TeacherTimeSelection';
 
 type Role = 'student' | 'teacher' | 'parent' | null;
 
 const StepIndicator: React.FC<{ currentStep: number; totalSteps: number }> = ({ currentStep, totalSteps }) => {
 	return (
 		<div className="mb-4 flex justify-between">
-			{Array.from({ length: totalSteps }, (_, i) => (
-				<div
-					key={i}
-					className={`h-2 w-full rounded-full ${i < currentStep ? 'bg-primary' : 'bg-gray-200'} ${i > 0 ? 'ml-1' : ''}`}
-				/>
-			))}
+			{Array.from({ length: totalSteps }).map((_, i) => {
+				const stepKey = `step-${i + 1}-of-${totalSteps}`;
+				return (
+					<div
+						key={stepKey}
+						className={`h-2 w-full rounded-full ${i < currentStep ? 'bg-primary' : 'bg-gray-200'} ${i > 0 ? 'ml-1' : ''}`}
+					/>
+				);
+			})}
 		</div>
 	);
 };
@@ -51,8 +53,8 @@ const RegistrationPage: React.FC = () => {
 	};
 
 	const getTotalSteps = () => {
-		if (role === 'teacher') return 3;
-		if (role === 'student' || role === 'parent') return 2;
+		// if (role === 'teacher') return 3;
+		if (role === 'student' || role === 'parent' || role === 'teacher') return 2;
 		return 1;
 	};
 
@@ -81,7 +83,6 @@ const RegistrationPage: React.FC = () => {
 							>
 								{step === 1 && <RoleSelection onSelect={handleRoleSelect} />}
 								{step === 2 && <RegistrationForm nextStep={nextStep} role={role} />}
-								{step === 3 && role === 'teacher' && <TeacherTimeSelection />}
 							</motion.div>
 						</AnimatePresence>
 					</CardContent>

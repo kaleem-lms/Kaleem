@@ -7,7 +7,7 @@ import { useAuth } from '../AuthContext';
 import { Button } from '../ui/button';
 
 const stripePromise = loadStripe(
-	'pk_live_51R2MYDKzvGrzIjASU5fAvjfbHTXtpfqaNUjwu0D09xF3Vh1zjfewPlreVn2gTIS2tEIidjvbuyw78B3vhQMfF8Dd00Zxvm1foe'!,
+	'pk_live_51R2MYDKzvGrzIjASU5fAvjfbHTXtpfqaNUjwu0D09xF3Vh1zjfewPlreVn2gTIS2tEIidjvbuyw78B3vhQMfF8Dd00Zxvm1foe',
 );
 
 interface CheckoutButtonProps {
