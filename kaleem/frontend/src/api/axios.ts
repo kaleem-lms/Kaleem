@@ -112,6 +112,11 @@ export async function getTeacherResources(): Promise<Resource[]> {
 	return data;
 }
 
+export async function getStrudentResources(): Promise<Resource[]> {
+	const { data } = await api.get('/resources/my-resources/');
+	return data;
+}
+
 export async function getTeacherStudents(): Promise<Student[]> {
 	const { data } = await api.get('/teachers/students/');
 	return data;

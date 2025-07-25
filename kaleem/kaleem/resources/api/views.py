@@ -11,7 +11,6 @@ from rest_framework.views import APIView
 
 from kaleem.resources.api.serializers import AssignedResourceSerializer
 from kaleem.resources.api.serializers import AssignResourceInputSerializer
-from kaleem.resources.api.serializers import ResourceCategorySerializer
 from kaleem.resources.api.serializers import ResourceSerializer
 from kaleem.resources.models import AssignedResource
 from kaleem.resources.models import Resource
@@ -66,7 +65,6 @@ User = get_user_model()
 )
 class AssignResourceAPIView(APIView):
     permission_classes = [permissions.IsAuthenticated, IsTeacher]
-
 
     def post(self, request):
         serializer = AssignResourceInputSerializer(data=request.data)
@@ -123,32 +121,21 @@ class StudentAssignedResourcesAPIView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        # Get assignments for the current student
-        assignments = AssignedResource.objects.filter(
+        assigned_resources = AssignedResource.objects.filter(
             student=request.user,
         ).select_related("resource__category")
-        # Group resources by category
-        category_dict = {}
-        for assignment in assignments:
-            category = assignment.resource.category
-            if category.id not in category_dict:
-                category_dict[category.id] = {
-                    "category": ResourceCategorySerializer(
-                        category,
-                        context={"request": request},
-                    ).data,
-                    "resources": [],
-                }
-            category_dict[category.id]["resources"].append(
-                ResourceSerializer(
-                    assignment.resource,
-                    context={"request": request},
-                ).data,
-            )
 
-        # Convert dictionary to list
-        grouped_data = list(category_dict.values())
-        return Response({"assigned_resources": grouped_data})
+        # Extract resources
+        resources = [ar.resource for ar in assigned_resources]
+
+        # Serialize all in one go
+        serialized = ResourceSerializer(
+            resources,
+            many=True,
+            context={"request": request},
+        ).data
+
+        return Response(serialized)
 
 
 class ResourceViewSet(viewsets.ReadOnlyModelViewSet):

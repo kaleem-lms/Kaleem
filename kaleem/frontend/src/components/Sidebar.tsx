@@ -42,11 +42,6 @@ const roleBasedRoutes: Record<string, typeof commonRoutes> = {
 			path: '/resources',
 			icon: BookOpen,
 		},
-		{
-			name: 'Subscription',
-			path: '/subscription',
-			icon: CreditCard,
-		},
 	],
 	S: [
 		{

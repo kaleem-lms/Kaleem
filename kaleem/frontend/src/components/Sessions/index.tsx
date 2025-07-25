@@ -1,28 +1,37 @@
-import { ExternalLink, Plus, Search } from 'lucide-react';
+import { ExternalLink, Search } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { getUserSessions } from '@/api/axios';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-	Dialog,
-	DialogContent,
-	DialogDescription,
-	DialogFooter,
-	DialogHeader,
-	DialogTitle,
-	DialogTrigger,
-} from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import type { Session } from '@/types';
+import { useAuth } from '../AuthContext';
+
+const getStatusColor = (status: string) => {
+	switch (status.toLowerCase()) {
+		case 'scheduled':
+			return 'bg-blue-500/10 text-blue-500 hover:bg-blue-500/20';
+		case 'completed':
+		case 'joined':
+			return 'bg-green-500/10 text-green-500 hover:bg-green-500/20';
+		case 'cancelled':
+		case 'missed':
+			return 'bg-red-500/10 text-red-500 hover:bg-red-500/20';
+		default:
+			return '';
+	}
+};
 
 export default function SessionsPage() {
 	const [searchTerm, setSearchTerm] = useState('');
 	const [statusFilter, setStatusFilter] = useState('all');
 	const [sessionsData, setSessionsData] = useState<Session[]>([]);
+	const { user } = useAuth();
 
 	useEffect(() => {
 		getUserSessions().then((data) => {
@@ -30,33 +39,7 @@ export default function SessionsPage() {
 		});
 	}, []);
 
-	// const filteredSessions = sessionsData.sessions.filter((session) => {
-	//   const matchesSearch = session.student
-	//     .toLowerCase()
-	//     .includes(searchTerm.toLowerCase())
-	//   const matchesStatus =
-	//     statusFilter === 'all' ||
-	//     session.status.toLowerCase() === statusFilter.toLowerCase()
-	//   return matchesSearch && matchesStatus
-	// })
-
-	const getStatusColor = (status: string) => {
-		switch (status.toLowerCase()) {
-			case 'scheduled':
-				return 'bg-blue-500/10 text-blue-500 hover:bg-blue-500/20';
-			case 'completed':
-			case 'joined':
-				return 'bg-green-500/10 text-green-500 hover:bg-green-500/20';
-			case 'cancelled':
-			case 'missed':
-				return 'bg-red-500/10 text-red-500 hover:bg-red-500/20';
-			default:
-				return '';
-		}
-	};
-
 	return (
-		// <h1>Hello</h1>
 		<div className="flex flex-col">
 			<div className="flex-1 space-y-4 p-8 pt-6">
 				<div className="flex items-center justify-between space-y-2">
@@ -97,7 +80,7 @@ export default function SessionsPage() {
 								<Table>
 									<TableHeader>
 										<TableRow>
-											<TableHead>Student</TableHead>
+											<TableHead>{user?.role === 'T' ? 'Students' : 'Teacher'}</TableHead>
 											<TableHead>Date</TableHead>
 											<TableHead>Time</TableHead>
 											<TableHead>Status</TableHead>
@@ -107,7 +90,9 @@ export default function SessionsPage() {
 									<TableBody>
 										{sessionsData.map((session) => (
 											<TableRow key={session.id}>
-												<TableCell className="font-medium">{session.students_names.join(', ')}</TableCell>
+												<TableCell className="font-medium">
+													{user?.role === 'T' ? session.students_names.join(', ') : session.teacher_name}
+												</TableCell>
 												<TableCell>{session.date}</TableCell>
 												<TableCell>
 													{session.start_time} {'->'} {session.end_time}
@@ -139,8 +124,10 @@ export default function SessionsPage() {
 																</DialogHeader>
 																<div className="grid gap-4 py-4">
 																	<div className="grid grid-cols-4 items-center gap-4">
-																		<Label className="text-right font-medium">Student:</Label>
-																		<span className="col-span-3">{session.students_names.join(', ')}</span>
+																		<Label className="text-right font-medium">{user?.role === 'T' ? 'Students' : 'Teacher'}:</Label>
+																		<span className="col-span-3">
+																			{user?.role === 'T' ? session.students_names.join(', ') : session.teacher_name}
+																		</span>
 																	</div>
 																	<div className="grid grid-cols-4 items-center gap-4">
 																		<Label className="text-right font-medium">Date:</Label>
