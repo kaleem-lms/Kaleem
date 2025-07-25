@@ -147,6 +147,34 @@ class TimeSlotViewSet(viewsets.ViewSet):
         serializer = SessionSlotSerializer(queryset, many=True)
         return Response(serializer.data)
 
+    @extend_schema(
+        description="Delete a specific time slot by its ID.",
+        responses={
+            204: OpenApiResponse(description="Time slot deleted successfully."),
+            404: OpenApiResponse(description="Time slot not found."),
+        },
+    )
+    @action(detail=True, methods=["delete"])
+    def delete(self, request, pk=None):
+        """
+        Delete a time slot by its primary key.
+        Only the teacher who owns the slot can delete it.
+        """
+        time_slot = get_object_or_404(TimeSlot, pk=pk)
+
+        # check if the requesting user is the owner (teacher)
+        if (
+            not hasattr(request.user, "teacher")
+            or time_slot.teacher != request.user.teacher
+        ):
+            return Response(
+                {"detail": "You do not have permission to delete this time slot."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        time_slot.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
 
 class TrialViewSet(viewsets.ViewSet):
     permission_classes = [IsAuthenticated]
@@ -159,7 +187,8 @@ class TrialViewSet(viewsets.ViewSet):
         # Check if the current user is a teacher
         if not getattr(request.user, "is_teacher", False):
             return Response(
-                {"detail": "Not authorized."}, status=status.HTTP_403_FORBIDDEN,
+                {"detail": "Not authorized."},
+                status=status.HTTP_403_FORBIDDEN,
             )
 
         # Get all reservations that are not approved yet
@@ -180,7 +209,8 @@ class TrialViewSet(viewsets.ViewSet):
         """  # noqa: E501
         if not getattr(request.user, "is_teacher", False):
             return Response(
-                {"detail": "Not authorized."}, status=status.HTTP_403_FORBIDDEN,
+                {"detail": "Not authorized."},
+                status=status.HTTP_403_FORBIDDEN,
             )
 
         # Extract data from request
@@ -198,7 +228,9 @@ class TrialViewSet(viewsets.ViewSet):
 
         # Retrieve the reservation ensuring it's not already approved
         reservation = get_object_or_404(
-            StudenTrialSessionReservation, id=reservation_id, is_approved=False,
+            StudenTrialSessionReservation,
+            id=reservation_id,
+            is_approved=False,
         )
 
         # Mark the reservation as approved
