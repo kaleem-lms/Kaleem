@@ -1,222 +1,536 @@
-import { useNavigate } from '@tanstack/react-router';
-import { useEffect, useState } from 'react';
-import { useTranslation } from 'react-i18next';
-import { getTimeSlots, timeslotsBulkCreate } from '@/api/axios';
-import { useAuth } from '@/components/AuthContext';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import type { TeacherTimeslot, TimeRange } from '@/types';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import { Plus, Trash2, Clock, Save, Loader2, AlertTriangle } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { getTimeSlots, timeslotDelete, timeslotsBulkCreate } from '@/api/axios';
+import { useAuth } from '@/components/AuthContext';
+import { TeacherTimeslot } from '@/types';
 
-export default function WeeklySchedule() {
-	const navigate = useNavigate();
-	const { t } = useTranslation();
-	const { user } = useAuth();
+interface TimeRange {
+	id: string;
+	start_time: string;
+	end_time: string;
+	isExisting?: boolean; // Track if this is from API
+	apiId?: number; // Original API ID for existing timeslots
+	hasStudent?: boolean; // Track if timeslot has a student assigned
+}
 
-	const daysOfWeek = {
-		0: t('Saturday'),
-		1: t('Sunday'),
-		2: t('Monday'),
-		3: t('Tuesday'),
-		4: t('Wednesday'),
-		5: t('Thursday'),
-		6: t('Friday'),
-	};
+interface WeeklySchedule {
+	[key: number]: TimeRange[];
+}
 
-	const [schedule, setSchedule] = useState<Record<number, TimeRange[]>>(
-		Object.keys(daysOfWeek).reduce((acc, day) => ({ ...acc, [day]: [] }), {}),
-	);
+const DAYS_OF_WEEK = [
+	{ id: 0, name: 'Saturday', short: 'Sat' },
+	{ id: 1, name: 'Sunday', short: 'Sun' },
+	{ id: 2, name: 'Monday', short: 'Mon' },
+	{ id: 3, name: 'Tuesday', short: 'Tue' },
+	{ id: 4, name: 'Wednesday', short: 'Wed' },
+	{ id: 5, name: 'Thursday', short: 'Thu' },
+	{ id: 6, name: 'Friday', short: 'Fri' },
+];
 
-	// Initial data schema
-	const initialTimeSlots = [
-		{
-			id: 1,
-			day_of_week: 0,
-			start_time: '09:00:00',
-			end_time: '17:00:00',
-			is_free: true,
-			student: null,
-		},
-		{
-			id: 2,
-			day_of_week: 1,
-			start_time: '09:00:00',
-			end_time: '17:00:00',
-			is_free: true,
-			student: null,
-		},
-		{
-			id: 3,
-			day_of_week: 1,
-			start_time: '20:00:00',
-			end_time: '23:00:00',
-			is_free: true,
-			student: null,
-		},
-		{
-			id: 4,
-			day_of_week: 3,
-			start_time: '09:00:00',
-			end_time: '17:00:00',
-			is_free: true,
-			student: null,
-		},
-		{
-			id: 5,
-			day_of_week: 5,
-			start_time: '09:00:00',
-			end_time: '17:00:00',
-			is_free: true,
-			student: null,
-		},
-	];
+// Convert API timeslots to internal schedule format
+const convertApiToSchedule = (timeslots: TeacherTimeslot[]): WeeklySchedule => {
+	const schedule: WeeklySchedule = {};
 
-	// Fetch time slots on component mount
-	useEffect(() => {
-		const processTimeSlots = (slots: any[]) => {
-			// Ensure slots is an array and handle potential undefined
-			const validSlots = Array.isArray(slots) ? slots : initialTimeSlots;
-
-			return validSlots.reduce((acc, slot) => {
-				// Ensure slot has the expected properties
-				if (!slot || typeof slot.day_of_week === 'undefined') return acc;
-
-				const day = slot.day_of_week.toString();
-				const timeRange = {
-					start_time: (slot.start_time || '09:00:00').slice(0, 5), // Convert "HH:MM:SS" to "HH:MM"
-					end_time: (slot.end_time || '17:00:00').slice(0, 5),
-				};
-
-				// Add the time range to the corresponding day
-				return {
-					...acc,
-					[day]: [...(acc[day] || []), timeRange],
-				};
-			}, {});
+	timeslots.forEach((slot) => {
+		const dayId = slot.day_of_week;
+		const timeRange: TimeRange = {
+			id: `existing-${slot.id}`,
+			start_time: slot.start_time.substring(0, 5), // Remove seconds
+			end_time: slot.end_time.substring(0, 5),
+			isExisting: true,
+			apiId: slot.id,
+			hasStudent: slot.student !== null,
 		};
 
-		getTimeSlots(user?.id)
-			.then((response) => {
-				// Handle different possible response structures
-				const slots = response?.data || response || initialTimeSlots;
+		if (!schedule[dayId]) {
+			schedule[dayId] = [];
+		}
+		schedule[dayId].push(timeRange);
+	});
 
-				const fetchedSchedule = processTimeSlots(slots);
+	return schedule;
+};
 
-				// If no time slots from API, use initial data
-				setSchedule(Object.keys(fetchedSchedule).length > 0 ? fetchedSchedule : processTimeSlots(initialTimeSlots));
-			})
-			.catch((error) => {
-				console.error('Error fetching time slots:', error);
-				// Fallback to initial data if API call fails
-				setSchedule(processTimeSlots(initialTimeSlots));
+// Helper function to convert time string to minutes for comparison
+const timeToMinutes = (time: string): number => {
+	const [hours, minutes] = time.split(':').map(Number);
+	return hours * 60 + minutes;
+};
+
+// Helper function to check if two time ranges overlap
+const hasOverlap = (range1: TimeRange, range2: TimeRange): boolean => {
+	const start1 = timeToMinutes(range1.start_time);
+	const end1 = timeToMinutes(range1.end_time);
+	const start2 = timeToMinutes(range2.start_time);
+	const end2 = timeToMinutes(range2.end_time);
+
+	return start1 < end2 && start2 < end1;
+};
+
+export default function TeacherScheduleSelector() {
+	const [schedule, setSchedule] = useState<WeeklySchedule>({});
+	const [isSubmitting, setIsSubmitting] = useState(false);
+	const [isLoading, setIsLoading] = useState(true);
+	const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
+	const { toast } = useToast();
+	const { user } = useAuth();
+
+	useEffect(() => {
+		loadExistingSchedule();
+	}, []);
+
+	const loadExistingSchedule = async () => {
+		setIsLoading(true);
+		try {
+			const existingTimeslots = await getTimeSlots(user?.id);
+			const convertedSchedule = convertApiToSchedule(existingTimeslots);
+			setSchedule(convertedSchedule);
+
+			toast({
+				title: 'Schedule Loaded',
+				description: `Loaded ${existingTimeslots.length} existing time slots.`,
 			});
-	}, [user]);
+		} catch (error) {
+			console.error('Failed to load schedule:', error);
+			toast({
+				title: 'Load Error',
+				description: 'Failed to load existing schedule. Please refresh the page.',
+				variant: 'destructive',
+			});
+		} finally {
+			setIsLoading(false);
+		}
+	};
 
-	const addTimeRange = (day: number) => {
+	// Check if a new time range overlaps with existing ones for a day
+	const checkForOverlaps = (dayId: number, newRange: TimeRange, excludeId?: string): boolean => {
+		const dayRanges = schedule[dayId] || [];
+		return dayRanges.some((range) => range.id !== excludeId && hasOverlap(range, newRange));
+	};
+
+	// Add a new time range to a specific day
+	const addTimeRange = (dayId: number) => {
+		const existingRanges = schedule[dayId] || [];
+
+		// Convert ranges to minutes and sort them
+		const sortedRanges = existingRanges
+			.map((r) => ({
+				...r,
+				startMin: timeToMinutes(r.start_time),
+				endMin: timeToMinutes(r.end_time),
+			}))
+			.sort((a, b) => a.startMin - b.startMin);
+
+		const DAY_START = 8 * 60; // 08:00
+		const DAY_END = 20 * 60; // 20:00
+		const SLOT_LENGTH = 60; // 1 hour
+
+		let availableStart = DAY_START;
+
+		for (let i = 0; i <= sortedRanges.length; i++) {
+			const nextRangeStart = i < sortedRanges.length ? sortedRanges[i].startMin : DAY_END;
+
+			if (nextRangeStart - availableStart >= SLOT_LENGTH) {
+				// Found a free slot
+				const startHour = String(Math.floor(availableStart / 60)).padStart(2, '0');
+				const startMin = String(availableStart % 60).padStart(2, '0');
+				const endHour = String(Math.floor((availableStart + SLOT_LENGTH) / 60)).padStart(2, '0');
+				const endMin = String((availableStart + SLOT_LENGTH) % 60).padStart(2, '0');
+
+				const newRange: TimeRange = {
+					id: `new-${dayId}-${Date.now()}`,
+					start_time: `${startHour}:${startMin}`,
+					end_time: `${endHour}:${endMin}`,
+					isExisting: false,
+				};
+
+				setSchedule((prev) => ({
+					...prev,
+					[dayId]: [...(prev[dayId] || []), newRange],
+				}));
+
+				return;
+			}
+
+			// Move to next available minute after current range
+			if (i < sortedRanges.length) {
+				availableStart = Math.max(availableStart, sortedRanges[i].endMin);
+			}
+		}
+
+		toast({
+			title: 'No Free Slot Available',
+			description: 'All available time ranges are full for this day.',
+			variant: 'destructive',
+		});
+	};
+
+	// Update a time range
+	const updateTimeRange = (dayId: number, rangeId: string, field: 'start_time' | 'end_time', value: string) => {
+		setSchedule((prev) => {
+			const dayRanges = prev[dayId] || [];
+			const updatedRanges = dayRanges.map((range) => {
+				if (range.id === rangeId) {
+					const updatedRange = { ...range, [field]: value };
+
+					// Validate the time range
+					if (timeToMinutes(updatedRange.start_time) >= timeToMinutes(updatedRange.end_time)) {
+						toast({
+							title: 'Invalid Time Range',
+							description: 'Start time must be before end time.',
+							variant: 'destructive',
+						});
+						return range; // Return original range if invalid
+					}
+
+					// Check for overlaps
+					if (checkForOverlaps(dayId, updatedRange, rangeId)) {
+						toast({
+							title: 'Time Overlap',
+							description: 'This time range overlaps with an existing one.',
+							variant: 'destructive',
+						});
+						return range; // Return original range if overlap
+					}
+
+					return updatedRange;
+				}
+				return range;
+			});
+
+			return { ...prev, [dayId]: updatedRanges };
+		});
+	};
+
+	// Delete a timeslot (either from API or just remove locally)
+	const deleteTimeRange = async (dayId: number, rangeId: string) => {
+		const range = schedule[dayId]?.find((r) => r.id === rangeId);
+
+		if (!range) return;
+
+		// Check if timeslot has a student assigned
+		if (range.hasStudent) {
+			toast({
+				title: 'Cannot Delete',
+				description: 'This time slot has a student assigned and cannot be deleted.',
+				variant: 'destructive',
+			});
+			return;
+		}
+
+		// If it's an existing timeslot, delete from API
+		if (range.isExisting && range.apiId) {
+			setDeletingIds((prev) => new Set(prev).add(rangeId));
+
+			try {
+				await timeslotDelete(range.apiId);
+
+				toast({
+					title: 'Time Slot Deleted',
+					description: 'The time slot has been successfully deleted.',
+				});
+			} catch (error) {
+				console.error('Failed to delete timeslot:', error);
+				toast({
+					title: 'Delete Error',
+					description: 'Failed to delete the time slot. Please try again.',
+					variant: 'destructive',
+				});
+				setDeletingIds((prev) => {
+					const newSet = new Set(prev);
+					newSet.delete(rangeId);
+					return newSet;
+				});
+				return;
+			} finally {
+				setDeletingIds((prev) => {
+					const newSet = new Set(prev);
+					newSet.delete(rangeId);
+					return newSet;
+				});
+			}
+		}
+
+		// Remove from local state
 		setSchedule((prev) => ({
 			...prev,
-			[day]: [...prev[day], { start_time: '09:00', end_time: '17:00' }],
+			[dayId]: (prev[dayId] || []).filter((range) => range.id !== rangeId),
 		}));
 	};
 
-	const updateTimeRange = (day: number, index: number, field: keyof TimeRange, value: string) => {
-		setSchedule((prev) => ({
-			...prev,
-			[day]: prev[day].map((range, i) => (i === index ? { ...range, [field]: value } : range)),
-		}));
+	// Convert schedule to API format (only new timeslots)
+	const convertToApiFormat = () => {
+		const timeslots = [];
+
+		for (const [dayId, ranges] of Object.entries(schedule)) {
+			for (const range of ranges) {
+				// Only include new timeslots (not existing ones)
+				if (!range.isExisting) {
+					timeslots.push({
+						day_of_week: Number.parseInt(dayId),
+						start_time: range.start_time,
+						end_time: range.end_time,
+						is_free: true,
+						student: null,
+					});
+				}
+			}
+		}
+
+		return timeslots;
 	};
 
-	const removeTimeRange = (day: number, index: number) => {
-		setSchedule((prev) => ({
-			...prev,
-			[day]: prev[day].filter((_, i) => i !== index),
-		}));
+	// Submit new timeslots to API
+	const handleSubmit = async () => {
+		const newTimeslots = convertToApiFormat();
+
+		if (newTimeslots.length === 0) {
+			toast({
+				title: 'No New Time Slots',
+				description: 'No new time slots to save. Add some time ranges first.',
+				variant: 'destructive',
+			});
+			return;
+		}
+
+		setIsSubmitting(true);
+
+		try {
+			console.log('Submitting new timeslots:', JSON.stringify(newTimeslots, null, 2));
+
+			await timeslotsBulkCreate(newTimeslots);
+
+			toast({
+				title: 'Schedule Saved',
+				description: `Successfully created ${newTimeslots.length} new time slots.`,
+			});
+
+			// Reload the schedule to get the updated data with IDs
+			await loadExistingSchedule();
+		} catch (error) {
+			console.error(error);
+			toast({
+				title: 'Error',
+				description: 'Failed to save schedule. Please try again.',
+				variant: 'destructive',
+			});
+		} finally {
+			setIsSubmitting(false);
+		}
 	};
 
-	const exportSchedule = () => {
-		const exportData: TeacherTimeslot[] = Object.entries(schedule).flatMap(([day, ranges]) =>
-			ranges.map((range) => ({
-				day_of_week: parseInt(day),
-				start_time: range.start_time,
-				end_time: range.end_time,
-				is_free: true,
-			})),
+	// Get counts for different types of slots
+	const getSlotCounts = () => {
+		let existing = 0;
+		let newSlots = 0;
+		let withStudents = 0;
+
+		Object.values(schedule).forEach((ranges) => {
+			ranges.forEach((range) => {
+				if (range.isExisting) {
+					existing++;
+					if (range.hasStudent) withStudents++;
+				} else {
+					newSlots++;
+				}
+			});
+		});
+
+		return { existing, newSlots, withStudents, total: existing + newSlots };
+	};
+
+	const slotCounts = getSlotCounts();
+
+	if (isLoading) {
+		return (
+			<div className="max-w-6xl mx-auto p-6">
+				<div className="flex items-center justify-center min-h-[400px]">
+					<div className="text-center space-y-4">
+						<Loader2 className="w-8 h-8 animate-spin mx-auto" />
+						<p className="text-muted-foreground">Loading your schedule...</p>
+					</div>
+				</div>
+			</div>
 		);
-
-		timeslotsBulkCreate(exportData)
-			.then(() => {
-				navigate({ to: '/' });
-			})
-			.catch((error) => {
-				console.error(error);
-			});
-	};
-
-	const TimeRangeSelector = ({ day, range, index }: { day: number; range: TimeRange; index: number }) => (
-		<div className="mb-2 flex items-center space-x-2">
-			<Select
-				value={range.start_time}
-				onValueChange={(value) => {
-					updateTimeRange(day, index, 'start_time', value);
-				}}
-			>
-				<SelectTrigger className="w-[180px]">
-					<SelectValue placeholder="Start Time" />
-				</SelectTrigger>
-				<SelectContent>
-					{[...Array(24)].map((_, hour) => (
-						<SelectItem key={`start-${hour}`} value={`${hour.toString().padStart(2, '0')}:00`}>
-							{`${hour.toString().padStart(2, '0')}:00`}
-						</SelectItem>
-					))}
-				</SelectContent>
-			</Select>
-
-			<Select
-				value={range.end_time}
-				onValueChange={(value) => {
-					updateTimeRange(day, index, 'end_time', value);
-				}}
-			>
-				<SelectTrigger className="w-[180px]">
-					<SelectValue placeholder="End Time" />
-				</SelectTrigger>
-				<SelectContent>
-					{[...Array(24)].map((_, hour) => (
-						<SelectItem key={`end-${hour}`} value={`${hour.toString().padStart(2, '0')}:00`}>
-							{`${hour.toString().padStart(2, '0')}:00`}
-						</SelectItem>
-					))}
-				</SelectContent>
-			</Select>
-
-			<Button variant="destructive" onClick={() => removeTimeRange(day, index)}>
-				{t('Remove')}
-			</Button>
-		</div>
-	);
+	}
 
 	return (
-		<Card className="mx-auto w-full max-w-4xl">
-			<CardHeader>
-				<CardTitle>{t('Weekly Schedule')}</CardTitle>
-			</CardHeader>
-			<CardContent>
-				{Object.entries(daysOfWeek).map(([day, dayName]) => (
-					<div key={day} className="mb-4">
-						<h3 className="mb-2 font-semibold text-lg">{dayName}</h3>
-						{schedule[parseInt(day)].map((range, index) => (
-							<TimeRangeSelector key={index} day={parseInt(day)} range={range} index={index} />
-						))}
-						<Button variant="outline" onClick={() => addTimeRange(parseInt(day))}>
-							{t('Add Time Range')}
-						</Button>
-					</div>
-				))}
-				<div className="mt-4">
-					<Button onClick={exportSchedule}>{t('Export Schedule')}</Button>
+		<div className="mx-auto py-6 space-y-6">
+			<div className="flex items-center justify-between">
+				<div>
+					<h1 className="text-3xl font-bold">Weekly Schedule</h1>
+					<p className="text-muted-foreground">Manage your available time ranges for each day of the week</p>
 				</div>
-			</CardContent>
-		</Card>
+				<div className="flex items-center gap-4">
+					<div className="flex gap-2">
+						<Badge variant="secondary" className="text-sm">
+							<Clock className="w-4 h-4 mr-1" />
+							{slotCounts.total} total
+						</Badge>
+						{slotCounts.existing > 0 && (
+							<Badge variant="outline" className="text-sm">
+								{slotCounts.existing} existing
+							</Badge>
+						)}
+						{slotCounts.newSlots > 0 && (
+							<Badge variant="default" className="text-sm">
+								{slotCounts.newSlots} new
+							</Badge>
+						)}
+						{slotCounts.withStudents > 0 && (
+							<Badge variant="destructive" className="text-sm">
+								<AlertTriangle className="w-3 h-3 mr-1" />
+								{slotCounts.withStudents} booked
+							</Badge>
+						)}
+					</div>
+					<Button onClick={handleSubmit} disabled={isSubmitting || slotCounts.newSlots === 0} className="min-w-[120px]">
+						{isSubmitting ? (
+							<>
+								<Loader2 className="w-4 h-4 animate-spin mr-2" />
+								Saving...
+							</>
+						) : (
+							<>
+								<Save className="w-4 h-4 mr-2" />
+								Save New Slots
+							</>
+						)}
+					</Button>
+				</div>
+			</div>
+
+			<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+				{DAYS_OF_WEEK.map((day) => (
+					<Card key={day.id} className="h-fit">
+						<CardHeader className="pb-3">
+							<CardTitle className="text-lg flex items-center justify-between">
+								{day.name}
+								<Button variant="outline" size="sm" onClick={() => addTimeRange(day.id)} className="h-8 w-8 p-0">
+									<Plus className="w-4 h-4" />
+								</Button>
+							</CardTitle>
+						</CardHeader>
+						<CardContent className="space-y-3">
+							{schedule[day.id]?.length === 0 || !schedule[day.id] ? (
+								<p className="text-sm text-muted-foreground text-center py-4">No time ranges set</p>
+							) : (
+								schedule[day.id]?.map((range) => (
+									<div
+										key={range.id}
+										className={`space-y-2 p-3 border rounded-lg ${
+											range.hasStudent
+												? 'bg-red-50 border-red-200'
+												: range.isExisting
+													? 'bg-blue-50 border-blue-200'
+													: 'bg-green-50 border-green-200'
+										}`}
+									>
+										<div className="flex items-center justify-between mb-2">
+											<div className="flex gap-1">
+												{range.isExisting && (
+													<Badge variant="outline" className="text-xs">
+														{range.hasStudent ? 'Booked' : 'Existing'}
+													</Badge>
+												)}
+												{!range.isExisting && (
+													<Badge variant="default" className="text-xs">
+														New
+													</Badge>
+												)}
+											</div>
+											<Button
+												variant="ghost"
+												size="sm"
+												onClick={() => deleteTimeRange(day.id, range.id)}
+												disabled={deletingIds.has(range.id) || range.hasStudent}
+												className="h-6 w-6 p-0 text-destructive hover:text-destructive"
+												title={range.hasStudent ? 'Cannot delete - student assigned' : 'Delete time slot'}
+											>
+												{deletingIds.has(range.id) ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
+											</Button>
+										</div>
+										<div className="grid grid-cols-2 gap-2">
+											<div>
+												<Label htmlFor={`start-${range.id}`} className="text-xs">
+													Start
+												</Label>
+												<Input
+													id={`start-${range.id}`}
+													type="time"
+													value={range.start_time}
+													onChange={(e) => updateTimeRange(day.id, range.id, 'start_time', e.target.value)}
+													className="h-8"
+													disabled={range.isExisting}
+												/>
+											</div>
+											<div>
+												<Label htmlFor={`end-${range.id}`} className="text-xs">
+													End
+												</Label>
+												<Input
+													id={`end-${range.id}`}
+													type="time"
+													value={range.end_time}
+													onChange={(e) => updateTimeRange(day.id, range.id, 'end_time', e.target.value)}
+													className="h-8"
+													disabled={range.isExisting}
+												/>
+											</div>
+										</div>
+										<div className="flex items-center justify-between">
+											<span className="text-xs text-muted-foreground">
+												{range.start_time} - {range.end_time}
+											</span>
+											{range.hasStudent && <span className="text-xs text-red-600 font-medium">Student assigned</span>}
+										</div>
+									</div>
+								))
+							)}
+						</CardContent>
+					</Card>
+				))}
+			</div>
+
+			{slotCounts.total > 0 && (
+				<Card>
+					<CardHeader>
+						<CardTitle className="text-lg">Schedule Overview</CardTitle>
+					</CardHeader>
+					<CardContent>
+						<div className="space-y-2">
+							{DAYS_OF_WEEK.map((day) => {
+								const dayRanges = schedule[day.id] || [];
+								if (dayRanges.length === 0) return null;
+
+								return (
+									<div key={day.id} className="flex items-center gap-4">
+										<div className="w-20 text-sm font-medium">{day.short}</div>
+										<div className="flex flex-wrap gap-2">
+											{dayRanges.map((range) => (
+												<Badge
+													key={range.id}
+													variant={range.hasStudent ? 'destructive' : range.isExisting ? 'outline' : 'default'}
+													className="text-xs"
+												>
+													{range.start_time} - {range.end_time}
+													{range.hasStudent && ' (Booked)'}
+												</Badge>
+											))}
+										</div>
+									</div>
+								);
+							})}
+						</div>
+					</CardContent>
+				</Card>
+			)}
+		</div>
 	);
 }
