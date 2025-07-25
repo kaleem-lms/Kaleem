@@ -5,6 +5,7 @@ import type {
 	LoginResponse,
 	ParentRegisterData,
 	Session,
+	Student,
 	StudentRegisterData,
 	SubscriptionPlan,
 	TeacherDashboardData,
@@ -85,7 +86,7 @@ export async function getTeacherDashboard(): Promise<TeacherDashboardData> {
 	return data;
 }
 
-export async function getTeacherStudents() {
+export async function getTeacherStudents(): Promise<Student[]> {
 	const { data } = await api.get('/teachers/students/');
 	return data;
 }

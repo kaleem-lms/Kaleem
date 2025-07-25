@@ -118,3 +118,26 @@ export type TeacherDashboardData = {
 		due_date: string;
 	}>;
 };
+
+export type Teacher = {
+	id: number;
+	phone_number: string;
+	hire_date: string | null;
+	years_of_experience: number;
+	user: User;
+};
+
+export type Parent = {
+	id: number;
+	phone_number: string;
+	user: User;
+};
+
+export type Student = {
+	id: number;
+	age: number;
+	assigned_parent: Parent | null;
+	assigned_teacher: Teacher;
+	enrollment_date: Date;
+	user: User;
+};
