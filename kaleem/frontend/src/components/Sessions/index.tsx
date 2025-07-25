@@ -61,52 +61,6 @@ export default function SessionsPage() {
 			<div className="flex-1 space-y-4 p-8 pt-6">
 				<div className="flex items-center justify-between space-y-2">
 					<h2 className="font-bold text-3xl tracking-tight">Sessions</h2>
-					<Dialog>
-						<DialogTrigger asChild>
-							<Button>
-								<Plus className="mr-2 h-4 w-4" />
-								New Session
-							</Button>
-						</DialogTrigger>
-						<DialogContent className="sm:max-w-[425px]">
-							<DialogHeader>
-								<DialogTitle>Schedule New Session</DialogTitle>
-								<DialogDescription>Create a new session with a student. Click save when you're done.</DialogDescription>
-							</DialogHeader>
-							<div className="grid gap-4 py-4">
-								<div className="grid grid-cols-4 items-center gap-4">
-									<Label htmlFor="student" className="text-right">
-										Student
-									</Label>
-									<Select>
-										<SelectTrigger className="col-span-3">
-											<SelectValue placeholder="Select student" />
-										</SelectTrigger>
-										<SelectContent>
-											<SelectItem value="ali">Ali Ahmed</SelectItem>
-											<SelectItem value="sara">Sara Khaled</SelectItem>
-											<SelectItem value="mohamed">Mohamed Hassan</SelectItem>
-										</SelectContent>
-									</Select>
-								</div>
-								<div className="grid grid-cols-4 items-center gap-4">
-									<Label htmlFor="date" className="text-right">
-										Date
-									</Label>
-									<Input id="date" type="date" className="col-span-3" />
-								</div>
-								<div className="grid grid-cols-4 items-center gap-4">
-									<Label htmlFor="time" className="text-right">
-										Time
-									</Label>
-									<Input id="time" type="time" className="col-span-3" />
-								</div>
-							</div>
-							<DialogFooter>
-								<Button type="submit">Schedule Session</Button>
-							</DialogFooter>
-						</DialogContent>
-					</Dialog>
 				</div>
 
 				<Card>
