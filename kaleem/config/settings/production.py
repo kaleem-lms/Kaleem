@@ -110,6 +110,8 @@ STORAGES = {
     },
 }
 MEDIA_URL = f"https://{aws_s3_domain}/media/"
+STATIC_ROOT = None
+STATICFILES_DIRS = []
 
 # EMAIL
 # ------------------------------------------------------------------------------
