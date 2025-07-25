@@ -168,3 +168,21 @@ export type ResourceAssign = {
 	resource_id: number;
 	student_ids: number[];
 };
+
+export interface StudentProfile extends User {
+	role: 'S';
+	age: number;
+	enrolled_at: string;
+	assigned_parent: number | null;
+	assigned_teacher: number | null;
+}
+
+export interface TeacherProfile extends User {
+	role: 'T';
+	phone_number: string;
+	hire_date: string | null;
+	zoom_email: string;
+	years_of_experience: number;
+}
+
+export type Profile = StudentProfile | TeacherProfile;

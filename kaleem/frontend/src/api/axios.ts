@@ -4,6 +4,7 @@ import type {
 	LoginData,
 	LoginResponse,
 	ParentRegisterData,
+	Profile,
 	Resource,
 	ResourceAssign,
 	Session,
@@ -31,6 +32,11 @@ export async function getCurrentUser(): Promise<User | null> {
 	} catch {
 		return null;
 	}
+}
+
+export async function getProfile(): Promise<Profile> {
+	const { data } = await api.get<Profile>('/users/profile/');
+	return data;
 }
 
 export async function registerTeacher(registerData: TeacherRegisterData): Promise<LoginResponse> {
