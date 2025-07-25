@@ -1,4 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useNavigate } from '@tanstack/react-router';
 import { AxiosError } from 'axios';
 import type React from 'react';
 import { useState } from 'react';
@@ -13,12 +14,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { cn } from '@/lib/utils';
 import { teacherRegisterSchema } from '@/schemas/teacherRegisterSchema';
 
-interface TeacherRegisterFormProps {
-	nextStep: () => void;
-}
-
-const TeacherRegisterForm: React.FC<TeacherRegisterFormProps> = ({ nextStep }) => {
+const TeacherRegisterForm: React.FC = () => {
 	const { t } = useTranslation();
+	const navigate = useNavigate();
 
 	const form = useForm<z.infer<typeof teacherRegisterSchema>>({
 		resolver: zodResolver(teacherRegisterSchema),
@@ -33,7 +31,7 @@ const TeacherRegisterForm: React.FC<TeacherRegisterFormProps> = ({ nextStep }) =
 		};
 		try {
 			await registerTeacher(updatedValues);
-			nextStep();
+			navigate({ to: '/login' });
 		} catch (error) {
 			if (error instanceof AxiosError && error.response) {
 				setErrors(error.response.data);
