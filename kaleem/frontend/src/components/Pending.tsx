@@ -124,7 +124,6 @@ export function Pending({
 		<div
 			className={containerClasses}
 			style={{ minHeight: minHeight || (fullPage ? '80vh' : 'auto') }}
-			// biome-ignore lint/a11y/useSemanticElements: <explanation>
 			role="status"
 			aria-live="polite"
 		>
@@ -145,7 +144,6 @@ export function TableRowSkeleton({ cols = 4 }: { cols?: number }) {
 			{Array(cols)
 				.fill(0)
 				.map((_, i) => (
-					// biome-ignore lint/suspicious/noArrayIndexKey: <explanation>
 					<td key={i} className="p-4">
 						<div className="h-4 w-full rounded bg-muted" />
 					</td>
