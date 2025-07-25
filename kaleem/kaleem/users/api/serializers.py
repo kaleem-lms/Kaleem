@@ -1,6 +1,7 @@
 from django.contrib.auth.password_validation import validate_password as vp
 from rest_framework import serializers
 
+from kaleem.timetables.choices import SessionStatus
 from kaleem.users.models import Parent
 from kaleem.users.models import Student
 from kaleem.users.models import Teacher
@@ -123,6 +124,7 @@ class StudentSerializer(serializers.ModelSerializer):
     user = UserSerializer(source="*")
     assigned_parent = ParentSerializer()
     assigned_teacher = TeacherSerializer()
+    completed_sessions_count = serializers.SerializerMethodField()
 
     class Meta:
         model = Student
@@ -131,8 +133,13 @@ class StudentSerializer(serializers.ModelSerializer):
             "age",
             "assigned_parent",
             "assigned_teacher",
+            "enrolled_at",
             "user",
+            "completed_sessions_count",
         )
+
+    def get_completed_sessions_count(self, student):
+        return student.session_slots.filter(status=SessionStatus.COMPLETED).count()
 
 
 class StudentRegisterSerializer(serializers.ModelSerializer):
