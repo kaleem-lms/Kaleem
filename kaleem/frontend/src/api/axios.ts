@@ -4,6 +4,7 @@ import type {
 	LoginData,
 	LoginResponse,
 	ParentRegisterData,
+	Resource,
 	ResourceAssign,
 	Session,
 	Student,
@@ -88,6 +89,11 @@ export async function createCheckoutSession(planId: number | string): Promise<Ch
 
 export async function getTeacherDashboard(): Promise<TeacherDashboardData> {
 	const { data } = await api.get('/teacher-dashboard/');
+	return data;
+}
+
+export async function getTeacherResources(): Promise<Resource[]> {
+	const { data } = await api.get('/resources/');
 	return data;
 }
 
