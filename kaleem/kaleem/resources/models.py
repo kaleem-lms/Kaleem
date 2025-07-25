@@ -64,5 +64,8 @@ class AssignedResource(models.Model):
     )
     assigned_at = models.DateTimeField(auto_now_add=True)
 
+    class Meta:
+        unique_together = ("teacher", "student", "resource")
+
     def __str__(self):
-        return f"{self.resource.title} assigned by {self.teacher.username} to {self.student.username}"  # noqa: E501
+        return f"{self.resource.title} assigned by {self.teacher.name} to {self.student.name}"  # noqa: E501

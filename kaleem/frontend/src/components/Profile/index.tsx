@@ -1,40 +1,40 @@
-import { Bell, Calendar, User, Video } from 'lucide-react';
-import { useState } from 'react';
+import { Calendar, User } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Separator } from '@/components/ui/separator';
-import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useToast } from '@/hooks/use-toast';
 import TeacherTimeSelection from '../Auth/Register/TeacherTimeSelection';
-
-export const profileData = {
-	profile: {
-		name: 'John Doe',
-		email: 'teacher@example.com',
-		zoom_email: 'teacher.zoom@example.com',
-		notifications: { email: true, sms: false },
-	},
-};
+import { toast } from '@/hooks/use-toast';
+import { getProfile, updateUser } from '@/api/axios';
+import type { Profile } from '@/types';
 
 export default function ProfilePage() {
-	const [profile, setProfile] = useState(profileData.profile);
-	const { toast } = useToast();
+	const [profile, setProfile] = useState<Profile>();
 
-	const handleSaveProfile = () => {
-		toast({
-			title: 'Profile updated',
-			description: 'Your profile information has been updated successfully.',
+	useEffect(() => {
+		getProfile().then((data) => {
+			setProfile(data);
 		});
-	};
+	}, []);
 
-	const handleSaveNotifications = () => {
-		toast({
-			title: 'Notification preferences updated',
-			description: 'Your notification preferences have been updated successfully.',
-		});
+	const handleSaveProfile = async () => {
+		try {
+			await updateUser(profile);
+
+			toast({
+				title: 'Profile updated',
+				description: 'Your profile information has been updated successfully.',
+			});
+		} catch (error) {
+			console.error('Failed to update profile:', error);
+			toast({
+				title: 'Update failed',
+				description: 'There was an error updating your profile. Please try again.',
+				variant: 'destructive',
+			});
+		}
 	};
 
 	const handleSaveZoom = () => {
@@ -57,18 +57,12 @@ export default function ProfilePage() {
 							<User className="mr-2 h-4 w-4" />
 							Profile
 						</TabsTrigger>
-						<TabsTrigger value="notifications">
-							<Bell className="mr-2 h-4 w-4" />
-							Notifications
-						</TabsTrigger>
-						<TabsTrigger value="zoom">
-							<Video className="mr-2 h-4 w-4" />
-							Zoom Settings
-						</TabsTrigger>
-						<TabsTrigger value="timetable">
-							<Calendar className="mr-2 h-4 w-4" />
-							Timetable
-						</TabsTrigger>
+						{profile?.role === 'T' && (
+							<TabsTrigger value="timetable">
+								<Calendar className="mr-2 h-4 w-4" />
+								Timetable
+							</TabsTrigger>
+						)}
 					</TabsList>
 
 					<TabsContent value="profile" className="space-y-4">
@@ -80,21 +74,50 @@ export default function ProfilePage() {
 							<CardContent className="space-y-4">
 								<div className="space-y-2">
 									<Label htmlFor="name">Full Name</Label>
-									<Input id="name" value={profile.name} onChange={(e) => setProfile({ ...profile, name: e.target.value })} />
+									<Input
+										id="name"
+										value={profile?.name}
+										onChange={(e) => setProfile((prev) => (prev ? { ...prev, name: e.target.value } : prev))}
+									/>
 								</div>
 								<div className="space-y-2">
 									<Label htmlFor="email">Email</Label>
 									<Input
 										id="email"
 										type="email"
-										value={profile.email}
-										onChange={(e) => setProfile({ ...profile, email: e.target.value })}
+										value={profile?.email}
+										onChange={(e) => setProfile((prev) => (prev ? { ...prev, email: e.target.value } : prev))}
 									/>
 								</div>
+								{profile?.role === 'T' && (
+									<div className="space-y-2">
+										<Label htmlFor="zoom-email">Zoom Email</Label>
+										<Input
+											id="zoom-email"
+											type="email"
+											value={profile?.zoom_email ?? ''}
+											onChange={(e) => setProfile((prev) => (prev ? { ...prev, zoom_email: e.target.value } : prev))}
+										/>
+									</div>
+								)}
 								<div className="space-y-2">
 									<Label htmlFor="bio">Bio</Label>
 									<textarea
 										id="bio"
+										value={profile?.profile.bio || ''}
+										onChange={(e) =>
+											setProfile((prev) =>
+												prev
+													? {
+															...prev,
+															profile: {
+																...prev.profile,
+																bio: e.target.value,
+															},
+														}
+													: prev,
+											)
+										}
 										className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
 										placeholder="Tell your students about yourself"
 									/>
@@ -105,7 +128,7 @@ export default function ProfilePage() {
 							</CardFooter>
 						</Card>
 
-						<Card>
+						{/* <Card>
 							<CardHeader>
 								<CardTitle>Password</CardTitle>
 								<CardDescription>Update your password</CardDescription>
@@ -127,119 +150,7 @@ export default function ProfilePage() {
 							<CardFooter>
 								<Button>Change Password</Button>
 							</CardFooter>
-						</Card>
-					</TabsContent>
-
-					<TabsContent value="notifications" className="space-y-4">
-						<Card>
-							<CardHeader>
-								<CardTitle>Notification Preferences</CardTitle>
-								<CardDescription>Manage how you receive notifications</CardDescription>
-							</CardHeader>
-							<CardContent className="space-y-4">
-								<div className="flex items-center justify-between space-x-2">
-									<Label htmlFor="email-notifications" className="flex flex-col space-y-1">
-										<span>Email Notifications</span>
-										<span className="font-normal text-muted-foreground text-sm">Receive notifications via email</span>
-									</Label>
-									<Switch
-										id="email-notifications"
-										checked={profile.notifications.email}
-										onCheckedChange={(checked) =>
-											setProfile({
-												...profile,
-												notifications: {
-													...profile.notifications,
-													email: checked,
-												},
-											})
-										}
-									/>
-								</div>
-								<Separator />
-								<div className="flex items-center justify-between space-x-2">
-									<Label htmlFor="session-reminders" className="flex flex-col space-y-1">
-										<span>Session Reminders</span>
-										<span className="font-normal text-muted-foreground text-sm">Receive reminders before scheduled sessions</span>
-									</Label>
-									<Switch id="session-reminders" defaultChecked />
-								</div>
-								<Separator />
-								<div className="flex items-center justify-between space-x-2">
-									<Label htmlFor="marketing-emails" className="flex flex-col space-y-1">
-										<span>Marketing Emails</span>
-										<span className="font-normal text-muted-foreground text-sm">Receive marketing and promotional emails</span>
-									</Label>
-									<Switch id="marketing-emails" />
-								</div>
-							</CardContent>
-							<CardFooter>
-								<Button onClick={handleSaveNotifications}>Save Preferences</Button>
-							</CardFooter>
-						</Card>
-					</TabsContent>
-
-					<TabsContent value="zoom" className="space-y-4">
-						<Card>
-							<CardHeader>
-								<CardTitle>Zoom Integration</CardTitle>
-								<CardDescription>Configure your Zoom integration settings</CardDescription>
-							</CardHeader>
-							<CardContent className="space-y-4">
-								<div className="space-y-2">
-									<Label htmlFor="zoom-email">Zoom Email</Label>
-									<Input
-										id="zoom-email"
-										type="email"
-										value={profile.zoom_email}
-										onChange={(e) => setProfile({ ...profile, zoom_email: e.target.value })}
-									/>
-								</div>
-							</CardContent>
-							<CardFooter>
-								<Button onClick={handleSaveZoom}>Save Zoom Settings</Button>
-							</CardFooter>
-						</Card>
-
-						{/* <Card>
-              <CardHeader>
-                <CardTitle>Meeting Defaults</CardTitle>
-                <CardDescription>
-                  Configure default settings for your Zoom meetings
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center space-x-2">
-                  <Switch id="waiting-room" defaultChecked />
-                  <Label htmlFor="waiting-room">Enable waiting room</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Switch id="host-video" defaultChecked />
-                  <Label htmlFor="host-video">Start with host video on</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Switch id="participant-video" />
-                  <Label htmlFor="participant-video">
-                    Start with participant video on
-                  </Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Switch id="mute-participants" defaultChecked />
-                  <Label htmlFor="mute-participants">
-                    Mute participants upon entry
-                  </Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Switch id="recording" />
-                  <Label htmlFor="recording">
-                    Automatically record meetings
-                  </Label>
-                </div>
-              </CardContent>
-              <CardFooter>
-                <Button>Save Meeting Defaults</Button>
-              </CardFooter>
-            </Card> */}
+						</Card> */}
 					</TabsContent>
 
 					<TabsContent value="timetable" className="space-y-4">

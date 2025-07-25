@@ -15,10 +15,10 @@ const router = createRouter({ routeTree });
 // biome-ignore lint/style/noNonNullAssertion: <explanation>
 const App = (
 	<I18nextProvider i18n={i18n}>
+		<Toaster />
 		<ThemeProvider defaultTheme="system" storageKey="vite-ui-theme">
 			<RouterProvider router={router}>
 				<AuthProvider>
-					<Toaster />
 					<Outlet />
 				</AuthProvider>
 			</RouterProvider>

@@ -47,6 +47,7 @@ export interface User {
 	role: string;
 	url: string;
 	profile: UserProfile;
+	zoom_email: string | null;
 }
 
 export interface UserProfile {
@@ -142,3 +143,47 @@ export type Student = {
 	completed_sessions_count: number;
 	user: User;
 };
+
+type ResourceType = 'document' | 'video' | 'file';
+
+type ResourceStudent = {
+	id: number;
+	name: string;
+	email: string;
+	enrolled_at: string;
+};
+
+export type Resource = {
+	id: number;
+	file: string;
+	category: string;
+	title: string;
+	description: string;
+	resource_type: ResourceType;
+	students_assigned: ResourceStudent[];
+	video_url: string;
+	created_at: string;
+};
+
+export type ResourceAssign = {
+	resource_id: number;
+	student_ids: number[];
+};
+
+export interface StudentProfile extends User {
+	role: 'S';
+	age: number;
+	enrolled_at: string;
+	assigned_parent: number | null;
+	assigned_teacher: number | null;
+}
+
+export interface TeacherProfile extends User {
+	role: 'T';
+	phone_number: string;
+	hire_date: string | null;
+	zoom_email: string;
+	years_of_experience: number;
+}
+
+export type Profile = StudentProfile | TeacherProfile;

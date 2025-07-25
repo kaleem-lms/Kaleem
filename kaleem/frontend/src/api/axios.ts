@@ -4,6 +4,9 @@ import type {
 	LoginData,
 	LoginResponse,
 	ParentRegisterData,
+	Profile,
+	Resource,
+	ResourceAssign,
 	Session,
 	Student,
 	StudentRegisterData,
@@ -29,6 +32,16 @@ export async function getCurrentUser(): Promise<User | null> {
 	} catch {
 		return null;
 	}
+}
+
+export async function updateUser(userData: User): Promise<User> {
+	const { data } = await api.put<User>('/users/edit/', userData);
+	return data;
+}
+
+export async function getProfile(): Promise<Profile> {
+	const { data } = await api.get<Profile>('/users/profile/');
+	return data;
 }
 
 export async function registerTeacher(registerData: TeacherRegisterData): Promise<LoginResponse> {
@@ -60,6 +73,10 @@ export function timeslotsBulkCreate(slots: TeacherTimeslot[]) {
 	return api.post('/time-slots/bulk_create/', slots);
 }
 
+export function assignResource(resourceAssign: ResourceAssign) {
+	return api.post('/resources/assign-resource/', resourceAssign);
+}
+
 export async function getTimeSlots(teacherId: number): Promise<TeacherTimeslot[]> {
 	const { data } = await api.get(`/time-slots/${teacherId}/teacher_slots/`);
 	return data;
@@ -83,6 +100,11 @@ export async function createCheckoutSession(planId: number | string): Promise<Ch
 
 export async function getTeacherDashboard(): Promise<TeacherDashboardData> {
 	const { data } = await api.get('/teacher-dashboard/');
+	return data;
+}
+
+export async function getTeacherResources(): Promise<Resource[]> {
+	const { data } = await api.get('/resources/');
 	return data;
 }
 

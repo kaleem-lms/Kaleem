@@ -1,24 +1,78 @@
-from django.contrib.auth.models import User
+from django.contrib.auth import get_user_model
+from drf_spectacular.utils import OpenApiExample
+from drf_spectacular.utils import OpenApiResponse
+from drf_spectacular.utils import extend_schema
 from rest_framework import permissions
-from rest_framework import viewsets
+from rest_framework import serializers
 from rest_framework import status
+from rest_framework import viewsets
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from kaleem.resources.api.serializers import AssignedResourceSerializer
+from kaleem.resources.api.serializers import AssignResourceInputSerializer
 from kaleem.resources.api.serializers import ResourceCategorySerializer
 from kaleem.resources.api.serializers import ResourceSerializer
 from kaleem.resources.models import AssignedResource
 from kaleem.resources.models import Resource
 from kaleem.users.permissions import IsTeacher
 
+User = get_user_model()
 
+
+@extend_schema(
+    request=AssignResourceInputSerializer,
+    responses={
+        201: OpenApiResponse(
+            response=serializers.DictField(),  # or create a BulkAssignedResourceSerializer if needed
+            description="Resources assigned successfully.",
+        ),
+        404: OpenApiResponse(
+            response=serializers.DictField(child=serializers.CharField()),
+            description="Resource or some students not found.",
+        ),
+    },
+    examples=[
+        OpenApiExample(
+            name="Bulk Assign Resource",
+            value={"resource_id": 1, "student_ids": [5, 6, 7]},
+            request_only=True,
+        ),
+        OpenApiExample(
+            name="Success Response",
+            value={
+                "message": "Resources assigned successfully.",
+                "assignments": [
+                    {
+                        "id": 12,
+                        "teacher": 1,
+                        "student": 5,
+                        "resource": 1,
+                        "assigned_at": "2025-07-25T10:11:12.345Z",
+                    },
+                    {
+                        "id": 13,
+                        "teacher": 1,
+                        "student": 6,
+                        "resource": 1,
+                        "assigned_at": "2025-07-25T10:11:12.678Z",
+                    },
+                ],
+            },
+            response_only=True,
+        ),
+    ],
+    description="Bulk assign a resource to multiple students by an authenticated teacher.",
+)
 class AssignResourceAPIView(APIView):
     permission_classes = [permissions.IsAuthenticated, IsTeacher]
 
+
     def post(self, request):
-        resource_id = request.data.get("resource_id")
-        student_id = request.data.get("student_id")
+        serializer = AssignResourceInputSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        resource_id = serializer.validated_data["resource_id"]
+        student_ids = serializer.validated_data["student_ids"]
 
         try:
             resource = Resource.objects.get(id=resource_id)
@@ -28,25 +82,38 @@ class AssignResourceAPIView(APIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        try:
-            student = User.objects.get(id=student_id)
-        except User.DoesNotExist:
+        students = User.objects.filter(id__in=student_ids)
+        found_ids = set(students.values_list("id", flat=True))
+        missing_ids = list(set(student_ids) - found_ids)
+
+        if missing_ids:
             return Response(
-                {"error": "Student not found."},
+                {"error": f"Student(s) not found: {missing_ids}"},
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        # Create an assignment record.
-        assigned = AssignedResource.objects.create(
-            teacher=request.user,
-            student=student,
-            resource=resource,
-        )
-        serializer = AssignedResourceSerializer(assigned)
+        assignments = []
+        for student in students:
+            # Avoid duplicates
+            already_exists = AssignedResource.objects.filter(
+                teacher=request.user,
+                student=student,
+                resource=resource,
+            ).exists()
+            if not already_exists:
+                assigned = AssignedResource.objects.create(
+                    teacher=request.user,
+                    student=student,
+                    resource=resource,
+                )
+                assignments.append(assigned)
+
+        output_serializer = AssignedResourceSerializer(assignments, many=True)
+
         return Response(
             {
-                "message": "Resource assigned successfully.",
-                "assignment": serializer.data,
+                "message": "Resources assigned successfully.",
+                "assignments": output_serializer.data,
             },
             status=status.HTTP_201_CREATED,
         )
@@ -91,4 +158,4 @@ class ResourceViewSet(viewsets.ReadOnlyModelViewSet):
 
     queryset = Resource.objects.all()
     serializer_class = ResourceSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, IsTeacher]
