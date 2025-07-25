@@ -1,4 +1,4 @@
-import { CalendarDays, Search, User } from 'lucide-react';
+import { CalendarDays, Clock, Search, User } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -137,29 +137,29 @@ export default function StudentsPage() {
 																	)}
 
 																	<div className="grid grid-cols-2 gap-4">
-																		{student.enrollment_date && (
+																		{student.enrolled_at && (
 																			<Card>
 																				<CardContent className="p-3 text-center">
 																					<div className="flex items-center justify-center mb-1">
 																						<CalendarDays className="h-4 w-4 text-muted-foreground" />
 																					</div>
 																					<div className="text-xs text-muted-foreground">Enrolled</div>
-																					<div className="text-sm font-medium">{student.enrollment_date.toLocaleDateString()}</div>
+																					<div className="text-sm font-medium">{student.enrolled_at ? new Date(student.enrolled_at).toLocaleDateString() : 'Unknown'}</div>
 																				</CardContent>
 																			</Card>
 																		)}
 
-																		{/* {student.sessionsCompleted !== undefined && (
+																		{student.completed_sessions_count !== undefined && (
 																			<Card>
 																				<CardContent className="p-3 text-center">
 																					<div className="flex items-center justify-center mb-1">
 																						<Clock className="h-4 w-4 text-muted-foreground" />
 																					</div>
 																					<div className="text-xs text-muted-foreground">Sessions</div>
-																					<div className="text-sm font-medium">{student.sessionsCompleted}</div>
+																					<div className="text-sm font-medium">{student.completed_sessions_count}</div>
 																				</CardContent>
 																			</Card>
-																		)} */}
+																		)}
 																	</div>
 																</div>
 

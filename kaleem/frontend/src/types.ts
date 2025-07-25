@@ -138,6 +138,7 @@ export type Student = {
 	age: number;
 	assigned_parent: Parent | null;
 	assigned_teacher: Teacher;
-	enrollment_date: Date;
+	enrolled_at: string;
+	completed_sessions_count: number;
 	user: User;
 };
