@@ -10,7 +10,7 @@ import { useAuth } from './AuthContext';
 const commonRoutes = [
 	{
 		name: 'Profile & Settings',
-		path: '/profile',
+		path: '/settings',
 		icon: Settings,
 	},
 	{
