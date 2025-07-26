@@ -48,7 +48,7 @@ const TermsPage: React.FC = () => {
 					<Accordion type="single" collapsible className="mb-12 w-full">
 						<AccordionItem value="payment">
 							<AccordionTrigger className="flex items-center gap-2">
-								<CreditCard className="h-5 w-5" />
+								<CreditCard className="h-5 w-5 !transform-none" />
 								<span>{t('Payment & Subscription Policy')}</span>
 							</AccordionTrigger>
 							<AccordionContent>
@@ -69,7 +69,7 @@ const TermsPage: React.FC = () => {
 
 						<AccordionItem value="refund">
 							<AccordionTrigger className="flex items-center gap-2">
-								<RefreshCw className="h-5 w-5" />
+								<RefreshCw className="h-5 w-5 !transform-none" />
 								<span>{t('Refund Policy')}</span>
 							</AccordionTrigger>
 							<AccordionContent>
@@ -91,7 +91,7 @@ const TermsPage: React.FC = () => {
 
 						<AccordionItem value="makeup">
 							<AccordionTrigger className="flex items-center gap-2">
-								<Calendar className="h-5 w-5" />
+								<Calendar className="h-5 w-5 !transform-none" />
 								<span>{t('Make-up Classes')}</span>
 							</AccordionTrigger>
 							<AccordionContent>
@@ -117,7 +117,7 @@ const TermsPage: React.FC = () => {
 
 						<AccordionItem value="schedule">
 							<AccordionTrigger className="flex items-center gap-2">
-								<Clock className="h-5 w-5" />
+								<Clock className="h-5 w-5 !transform-none" />
 								<span>{t('Monthly Class Schedule')}</span>
 							</AccordionTrigger>
 							<AccordionContent>
@@ -138,7 +138,7 @@ const TermsPage: React.FC = () => {
 
 						<AccordionItem value="holidays">
 							<AccordionTrigger className="flex items-center gap-2">
-								<Calendar className="h-5 w-5" />
+								<Calendar className="h-5 w-5 !transform-none" />
 								<span>{t('Public Holidays')}</span>
 							</AccordionTrigger>
 							<AccordionContent>
@@ -159,7 +159,7 @@ const TermsPage: React.FC = () => {
 
 						<AccordionItem value="progress">
 							<AccordionTrigger className="flex items-center gap-2">
-								<GraduationCap className="h-5 w-5" />
+								<GraduationCap className="h-5 w-5 !transform-none" />
 								<span>{t('Progress Tracking & Reporting')}</span>
 							</AccordionTrigger>
 							<AccordionContent>
@@ -176,7 +176,7 @@ const TermsPage: React.FC = () => {
 
 						<AccordionItem value="policies">
 							<AccordionTrigger className="flex items-center gap-2">
-								<UserCheck className="h-5 w-5" />
+								<UserCheck className="h-5 w-5 !transform-none" />
 								<span>{t('Student & Tutor Policies')}</span>
 							</AccordionTrigger>
 							<AccordionContent>
@@ -198,7 +198,7 @@ const TermsPage: React.FC = () => {
 
 						<AccordionItem value="environment">
 							<AccordionTrigger className="flex items-center gap-2">
-								<BookOpen className="h-5 w-5" />
+								<BookOpen className="h-5 w-5 !transform-none" />
 								<span>{t('Learning Environment & Quality Control')}</span>
 							</AccordionTrigger>
 							<AccordionContent>
@@ -216,7 +216,7 @@ const TermsPage: React.FC = () => {
 
 						<AccordionItem value="punctuality">
 							<AccordionTrigger className="flex items-center gap-2">
-								<Clock className="h-5 w-5" />
+								<Clock className="h-5 w-5 !transform-none" />
 								<span>{t('Teacher Punctuality')}</span>
 							</AccordionTrigger>
 							<AccordionContent>
@@ -236,7 +236,7 @@ const TermsPage: React.FC = () => {
 
 						<AccordionItem value="scholarships">
 							<AccordionTrigger className="flex items-center gap-2">
-								<Crown className="h-5 w-5" />
+								<Crown className="h-5 w-5 !transform-none" />
 								<span>{t('Scholarships & Special Packages')}</span>
 							</AccordionTrigger>
 							<AccordionContent>
@@ -249,7 +249,7 @@ const TermsPage: React.FC = () => {
 
 						<AccordionItem value="gifting">
 							<AccordionTrigger className="flex items-center gap-2">
-								<Gift className="h-5 w-5" />
+								<Gift className="h-5 w-5 !transform-none" />
 								<span>{t('Gifting Courses')}</span>
 							</AccordionTrigger>
 							<AccordionContent>
@@ -263,7 +263,7 @@ const TermsPage: React.FC = () => {
 
 						<AccordionItem value="dress">
 							<AccordionTrigger className="flex items-center gap-2">
-								<Shirt className="h-5 w-5" />
+								<Shirt className="h-5 w-5 !transform-none" />
 								<span>{t('Dress Code')}</span>
 							</AccordionTrigger>
 							<AccordionContent>
@@ -273,7 +273,7 @@ const TermsPage: React.FC = () => {
 
 						<AccordionItem value="leaving">
 							<AccordionTrigger className="flex items-center gap-2">
-								<LogOut className="h-5 w-5" />
+								<LogOut className="h-5 w-5 !transform-none" />
 								<span>{t('Leaving the Institute')}</span>
 							</AccordionTrigger>
 							<AccordionContent>
@@ -286,7 +286,7 @@ const TermsPage: React.FC = () => {
 
 						<AccordionItem value="privacy">
 							<AccordionTrigger className="flex items-center gap-2">
-								<Lock className="h-5 w-5" />
+								<Lock className="h-5 w-5 !transform-none" />
 								<span>{t('Privacy & Confidentiality')}</span>
 							</AccordionTrigger>
 							<AccordionContent>
