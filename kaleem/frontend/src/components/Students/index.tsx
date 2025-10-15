@@ -1,22 +1,15 @@
 import { CalendarDays, Clock, Search, User } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { getTeacherStudents } from '@/api/axios';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-	Dialog,
-	DialogContent,
-	DialogHeader,
-	DialogTitle,
-	DialogTrigger,
-} from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { getTeacherStudents } from '@/api/axios';
+import type { Student } from '@/types';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { Separator } from '../ui/separator';
-import { Student } from '@/types';
-
 
 const getGenderBadge = (gender: string) => {
 	switch (gender.toLowerCase()) {
@@ -144,7 +137,9 @@ export default function StudentsPage() {
 																						<CalendarDays className="h-4 w-4 text-muted-foreground" />
 																					</div>
 																					<div className="text-xs text-muted-foreground">Enrolled</div>
-																					<div className="text-sm font-medium">{student.enrolled_at ? new Date(student.enrolled_at).toLocaleDateString() : 'Unknown'}</div>
+																					<div className="text-sm font-medium">
+																						{student.enrolled_at ? new Date(student.enrolled_at).toLocaleDateString() : 'Unknown'}
+																					</div>
 																				</CardContent>
 																			</Card>
 																		)}

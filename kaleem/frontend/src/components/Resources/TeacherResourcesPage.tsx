@@ -9,6 +9,7 @@ import {
 	Video,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { assignResource, getTeacherResources, getTeacherStudents } from '@/api/axios';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -22,11 +23,10 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import type { Resource, Student } from '@/types';
-import { assignResource, getTeacherResources, getTeacherStudents } from '@/api/axios';
+import { Checkbox } from '../ui/checkbox';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../ui/dialog';
 import { Label } from '../ui/label';
 import { ScrollArea } from '../ui/scroll-area';
-import { Checkbox } from '../ui/checkbox';
 
 const getResourceIcon = (type: string) => {
 	switch (type.toLowerCase()) {
@@ -321,21 +321,23 @@ export default function TeacherResourcesPage() {
 							<Label className="text-sm font-medium">Students</Label>
 							<ScrollArea className="h-64 mt-2 border rounded-md p-4">
 								<div className="space-y-3">
-									{teacherStudents.filter((student) => !selectedStudents.includes(student.id)).map((student) => (
-										<div key={student.id} className="flex items-center space-x-2">
-											<Checkbox
-												id={`student-${student.id}`}
-												checked={selectedStudents.includes(student.id)}
-												onCheckedChange={() => handleStudentToggle(student.id)}
-											/>
-											<Label htmlFor={`student-${student.id}`} className="text-sm font-normal cursor-pointer flex-1">
-												<div>
-													<p className="font-medium">{student.user.name}</p>
-													<p className="text-xs text-muted-foreground">{student.user.email}</p>
-												</div>
-											</Label>
-										</div>
-									))}
+									{teacherStudents
+										.filter((student) => !selectedStudents.includes(student.id))
+										.map((student) => (
+											<div key={student.id} className="flex items-center space-x-2">
+												<Checkbox
+													id={`student-${student.id}`}
+													checked={selectedStudents.includes(student.id)}
+													onCheckedChange={() => handleStudentToggle(student.id)}
+												/>
+												<Label htmlFor={`student-${student.id}`} className="text-sm font-normal cursor-pointer flex-1">
+													<div>
+														<p className="font-medium">{student.user.name}</p>
+														<p className="text-xs text-muted-foreground">{student.user.email}</p>
+													</div>
+												</Label>
+											</div>
+										))}
 								</div>
 							</ScrollArea>
 						</div>

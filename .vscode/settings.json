@@ -1,3 +1,4 @@
 {
-  "biome.configurationPath": "kaleem/frontend/biome.json"
+  "biome.configurationPath": "kaleem/frontend/biome.json",
+  "idf.pythonInstallPath": "/usr/bin/python"
 }

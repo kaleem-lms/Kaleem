@@ -8,6 +8,7 @@ import type {
 	Resource,
 	ResourceAssign,
 	Session,
+	SessionReportData,
 	Student,
 	StudentRegisterData,
 	SubscriptionPlan,
@@ -124,6 +125,11 @@ export async function getTeacherStudents(): Promise<Student[]> {
 
 export async function getStudentReports(studentId: number) {
 	const { data } = await api.get(`/reports/by-student/${studentId}/`);
+	return data;
+}
+
+export async function createSessionReport(sessionData: SessionReportData) {
+	const { data } = await api.post('/reports/', sessionData);
 	return data;
 }
 

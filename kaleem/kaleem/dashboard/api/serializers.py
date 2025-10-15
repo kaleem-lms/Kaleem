@@ -117,7 +117,7 @@ class TeacherDashboardSerializer(serializers.Serializer):
             for student in slot.students.all():
                 # check if report exists
                 exists = StudentSessionReport.objects.filter(
-                    teacher=teacher,
+                    session_slot__teacher=teacher,
                     student=student,
                     session_slot=slot,
                 ).exists()
@@ -126,6 +126,7 @@ class TeacherDashboardSerializer(serializers.Serializer):
                         {
                             "session_id": slot.id,
                             "student": student.name,
+                            "student_id": student.id,
                             "due_date": slot.date,
                         },
                     )

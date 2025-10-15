@@ -11,12 +11,6 @@ class StudentSessionReport(models.Model):
         on_delete=models.CASCADE,
         related_name="student_reports",
     )
-    teacher = models.ForeignKey(
-        "users.Teacher",
-        verbose_name=_("Teacher"),
-        on_delete=models.CASCADE,
-        related_name="teacher_reports",
-    )
     session_slot = models.ForeignKey(
         "timetables.SessionSlot",
         verbose_name=_("Session"),

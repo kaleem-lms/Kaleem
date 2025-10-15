@@ -114,11 +114,7 @@ export type TeacherDashboardData = {
 		count: number;
 		next_session_timestamp: number | null;
 	};
-	pending_reports: Array<{
-		session_id: number;
-		student: string;
-		due_date: string;
-	}>;
+	pending_reports: TeacherDashboardSessionReport[];
 };
 
 export type Teacher = {
@@ -188,3 +184,22 @@ export interface TeacherProfile extends User {
 }
 
 export type Profile = StudentProfile | TeacherProfile;
+
+export type ContentItem = {
+	key: string;
+	value: string;
+};
+
+export type SessionReportData = {
+	content: ContentItem[];
+	rate: number;
+	student: number;
+	session_slot: number;
+};
+
+export type TeacherDashboardSessionReport = {
+	due_date: string;
+	session_id: number;
+	student: string;
+	student_id: number;
+};

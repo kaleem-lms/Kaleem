@@ -1,14 +1,14 @@
-import { useState, useEffect } from 'react';
+import { AlertTriangle, Clock, Loader2, Plus, Save, Trash2 } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { getTimeSlots, timeslotDelete, timeslotsBulkCreate } from '@/api/axios';
+import { useAuth } from '@/components/AuthContext';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
-import { Plus, Trash2, Clock, Save, Loader2, AlertTriangle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { getTimeSlots, timeslotDelete, timeslotsBulkCreate } from '@/api/axios';
-import { useAuth } from '@/components/AuthContext';
-import { TeacherTimeslot } from '@/types';
+import type { TeacherTimeslot } from '@/types';
 
 interface TimeRange {
 	id: string;
@@ -83,7 +83,7 @@ export default function TeacherScheduleSelector() {
 
 	useEffect(() => {
 		loadExistingSchedule();
-	}, []);
+	}, [loadExistingSchedule]);
 
 	const loadExistingSchedule = async () => {
 		setIsLoading(true);
@@ -273,7 +273,7 @@ export default function TeacherScheduleSelector() {
 				// Only include new timeslots (not existing ones)
 				if (!range.isExisting) {
 					timeslots.push({
-						day_of_week: Number.parseInt(dayId),
+						day_of_week: Number.parseInt(dayId, 10),
 						start_time: range.start_time,
 						end_time: range.end_time,
 						is_free: true,

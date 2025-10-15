@@ -59,7 +59,7 @@ interface SessionReport {
 }
 
 // Mock data
-const mockStudents: Student[] = [
+const _mockStudents: Student[] = [
 	{
 		id: 1,
 		name: 'Ahmed Ali',
@@ -180,7 +180,7 @@ export default function StudentManagement() {
 	const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
 	const [searchQuery, setSearchQuery] = useState('');
 	const [students, setStudents] = useState<Student[]>([]);
-	const [resources, setResources] = useState<Resource[]>(initialResources);
+	const [resources, _setResources] = useState<Resource[]>(initialResources);
 	const [studentResources, setStudentResources] = useState<StudentResource[]>(mockStudentResources);
 	const [isAssigningResource, setIsAssigningResource] = useState(false);
 	const [isLoading, setIsLoading] = useState(true);

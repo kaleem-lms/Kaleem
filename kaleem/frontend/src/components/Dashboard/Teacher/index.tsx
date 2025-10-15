@@ -4,7 +4,8 @@ import { getTeacherDashboard } from '@/api/axios';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { formatTimestamp } from '@/lib/utils';
-import type { TeacherDashboardData } from '@/types';
+import type { SessionReportData, TeacherDashboardData, TeacherDashboardSessionReport } from '@/types';
+import { SessionReportModal } from './SessionReportModal';
 
 export default function DashboardPage() {
 	const [dashboardData, setDashboardData] = useState<TeacherDashboardData>({
@@ -15,11 +16,28 @@ export default function DashboardPage() {
 		pending_reports: [],
 	});
 
+	const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+	const [selectedReport, setSelectedReport] = useState<TeacherDashboardSessionReport>({
+		due_date: "",
+		session_id: 0,
+		student: "",
+		student_id: 0,
+	});
+
 	useEffect(() => {
 		getTeacherDashboard().then((data) => {
 			setDashboardData(data);
 		});
 	}, []);
+
+	const handleReportCompleted = (data: SessionReportData) => {
+		console.log(data);
+		setDashboardData({
+			...dashboardData,
+			pending_reports: dashboardData.pending_reports.filter(report => !(report.session_id === data.session_slot && report.student_id === data.student))
+		})
+    // setReports(prev => prev.filter(report => report.id !== id));
+  };
 
 	return (
 		<div className="flex flex-col">
@@ -69,7 +87,15 @@ export default function DashboardPage() {
 										<p className="font-medium text-sm leading-none">{report.student}</p>
 										<p className="text-muted-foreground text-sm">Due: {report.due_date}</p>
 									</div>
-									<Button size="sm">Complete</Button>
+									<Button
+										size="sm"
+										onClick={() => {
+											setSelectedReport(report);
+											setIsReportModalOpen(true);
+										}}
+									>
+										Complete
+									</Button>
 								</div>
 							))}
 							{dashboardData.pending_reports.length === 0 && (
@@ -79,6 +105,7 @@ export default function DashboardPage() {
 					</CardContent>
 				</Card>
 			</div>
+			<SessionReportModal open={isReportModalOpen} onOpenChange={setIsReportModalOpen} data={selectedReport} onCompleted={handleReportCompleted} />
 		</div>
 	);
 }

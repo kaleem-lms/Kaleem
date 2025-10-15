@@ -18,5 +18,9 @@ export function RouteComponent() {
 		}
 	}, [user, navigate]);
 
-	return <AppLayout><Outlet /></AppLayout>;
+	return (
+		<AppLayout>
+			<Outlet />
+		</AppLayout>
+	);
 }
