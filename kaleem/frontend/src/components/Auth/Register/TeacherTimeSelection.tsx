@@ -1,14 +1,21 @@
-import { AlertTriangle, Clock, Loader2, Plus, Save, Trash2 } from 'lucide-react';
-import { useEffect, useState } from 'react';
-import { getTimeSlots, timeslotDelete, timeslotsBulkCreate } from '@/api/axios';
-import { useAuth } from '@/components/AuthContext';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { useToast } from '@/hooks/use-toast';
-import type { TeacherTimeslot } from '@/types';
+import { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import {
+	Plus,
+	Trash2,
+	Clock,
+	Save,
+	Loader2,
+	AlertTriangle,
+} from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { getTimeSlots, timeslotDelete, timeslotsBulkCreate } from "@/api/axios";
+import { useAuth } from "@/components/AuthContext";
+import { TeacherTimeslot } from "@/types";
 
 interface TimeRange {
 	id: string;
@@ -24,13 +31,13 @@ interface WeeklySchedule {
 }
 
 const DAYS_OF_WEEK = [
-	{ id: 0, name: 'Saturday', short: 'Sat' },
-	{ id: 1, name: 'Sunday', short: 'Sun' },
-	{ id: 2, name: 'Monday', short: 'Mon' },
-	{ id: 3, name: 'Tuesday', short: 'Tue' },
-	{ id: 4, name: 'Wednesday', short: 'Wed' },
-	{ id: 5, name: 'Thursday', short: 'Thu' },
-	{ id: 6, name: 'Friday', short: 'Fri' },
+	{ id: 0, name: "Saturday", short: "Sat" },
+	{ id: 1, name: "Sunday", short: "Sun" },
+	{ id: 2, name: "Monday", short: "Mon" },
+	{ id: 3, name: "Tuesday", short: "Tue" },
+	{ id: 4, name: "Wednesday", short: "Wed" },
+	{ id: 5, name: "Thursday", short: "Thu" },
+	{ id: 6, name: "Friday", short: "Fri" },
 ];
 
 // Convert API timeslots to internal schedule format
@@ -59,7 +66,7 @@ const convertApiToSchedule = (timeslots: TeacherTimeslot[]): WeeklySchedule => {
 
 // Helper function to convert time string to minutes for comparison
 const timeToMinutes = (time: string): number => {
-	const [hours, minutes] = time.split(':').map(Number);
+	const [hours, minutes] = time.split(":").map(Number);
 	return hours * 60 + minutes;
 };
 
@@ -83,7 +90,7 @@ export default function TeacherScheduleSelector() {
 
 	useEffect(() => {
 		loadExistingSchedule();
-	}, [loadExistingSchedule]);
+	}, []);
 
 	const loadExistingSchedule = async () => {
 		setIsLoading(true);
@@ -93,15 +100,16 @@ export default function TeacherScheduleSelector() {
 			setSchedule(convertedSchedule);
 
 			toast({
-				title: 'Schedule Loaded',
+				title: "Schedule Loaded",
 				description: `Loaded ${existingTimeslots.length} existing time slots.`,
 			});
 		} catch (error) {
-			console.error('Failed to load schedule:', error);
+			console.error("Failed to load schedule:", error);
 			toast({
-				title: 'Load Error',
-				description: 'Failed to load existing schedule. Please refresh the page.',
-				variant: 'destructive',
+				title: "Load Error",
+				description:
+					"Failed to load existing schedule. Please refresh the page.",
+				variant: "destructive",
 			});
 		} finally {
 			setIsLoading(false);
@@ -109,9 +117,15 @@ export default function TeacherScheduleSelector() {
 	};
 
 	// Check if a new time range overlaps with existing ones for a day
-	const checkForOverlaps = (dayId: number, newRange: TimeRange, excludeId?: string): boolean => {
+	const checkForOverlaps = (
+		dayId: number,
+		newRange: TimeRange,
+		excludeId?: string,
+	): boolean => {
 		const dayRanges = schedule[dayId] || [];
-		return dayRanges.some((range) => range.id !== excludeId && hasOverlap(range, newRange));
+		return dayRanges.some(
+			(range) => range.id !== excludeId && hasOverlap(range, newRange),
+		);
 	};
 
 	// Add a new time range to a specific day
@@ -134,14 +148,23 @@ export default function TeacherScheduleSelector() {
 		let availableStart = DAY_START;
 
 		for (let i = 0; i <= sortedRanges.length; i++) {
-			const nextRangeStart = i < sortedRanges.length ? sortedRanges[i].startMin : DAY_END;
+			const nextRangeStart =
+				i < sortedRanges.length ? sortedRanges[i].startMin : DAY_END;
 
 			if (nextRangeStart - availableStart >= SLOT_LENGTH) {
 				// Found a free slot
-				const startHour = String(Math.floor(availableStart / 60)).padStart(2, '0');
-				const startMin = String(availableStart % 60).padStart(2, '0');
-				const endHour = String(Math.floor((availableStart + SLOT_LENGTH) / 60)).padStart(2, '0');
-				const endMin = String((availableStart + SLOT_LENGTH) % 60).padStart(2, '0');
+				const startHour = String(Math.floor(availableStart / 60)).padStart(
+					2,
+					"0",
+				);
+				const startMin = String(availableStart % 60).padStart(2, "0");
+				const endHour = String(
+					Math.floor((availableStart + SLOT_LENGTH) / 60),
+				).padStart(2, "0");
+				const endMin = String((availableStart + SLOT_LENGTH) % 60).padStart(
+					2,
+					"0",
+				);
 
 				const newRange: TimeRange = {
 					id: `new-${dayId}-${Date.now()}`,
@@ -165,14 +188,19 @@ export default function TeacherScheduleSelector() {
 		}
 
 		toast({
-			title: 'No Free Slot Available',
-			description: 'All available time ranges are full for this day.',
-			variant: 'destructive',
+			title: "No Free Slot Available",
+			description: "All available time ranges are full for this day.",
+			variant: "destructive",
 		});
 	};
 
 	// Update a time range
-	const updateTimeRange = (dayId: number, rangeId: string, field: 'start_time' | 'end_time', value: string) => {
+	const updateTimeRange = (
+		dayId: number,
+		rangeId: string,
+		field: "start_time" | "end_time",
+		value: string,
+	) => {
 		setSchedule((prev) => {
 			const dayRanges = prev[dayId] || [];
 			const updatedRanges = dayRanges.map((range) => {
@@ -180,11 +208,14 @@ export default function TeacherScheduleSelector() {
 					const updatedRange = { ...range, [field]: value };
 
 					// Validate the time range
-					if (timeToMinutes(updatedRange.start_time) >= timeToMinutes(updatedRange.end_time)) {
+					if (
+						timeToMinutes(updatedRange.start_time) >=
+						timeToMinutes(updatedRange.end_time)
+					) {
 						toast({
-							title: 'Invalid Time Range',
-							description: 'Start time must be before end time.',
-							variant: 'destructive',
+							title: "Invalid Time Range",
+							description: "Start time must be before end time.",
+							variant: "destructive",
 						});
 						return range; // Return original range if invalid
 					}
@@ -192,9 +223,9 @@ export default function TeacherScheduleSelector() {
 					// Check for overlaps
 					if (checkForOverlaps(dayId, updatedRange, rangeId)) {
 						toast({
-							title: 'Time Overlap',
-							description: 'This time range overlaps with an existing one.',
-							variant: 'destructive',
+							title: "Time Overlap",
+							description: "This time range overlaps with an existing one.",
+							variant: "destructive",
 						});
 						return range; // Return original range if overlap
 					}
@@ -217,9 +248,10 @@ export default function TeacherScheduleSelector() {
 		// Check if timeslot has a student assigned
 		if (range.hasStudent) {
 			toast({
-				title: 'Cannot Delete',
-				description: 'This time slot has a student assigned and cannot be deleted.',
-				variant: 'destructive',
+				title: "Cannot Delete",
+				description:
+					"This time slot has a student assigned and cannot be deleted.",
+				variant: "destructive",
 			});
 			return;
 		}
@@ -232,15 +264,15 @@ export default function TeacherScheduleSelector() {
 				await timeslotDelete(range.apiId);
 
 				toast({
-					title: 'Time Slot Deleted',
-					description: 'The time slot has been successfully deleted.',
+					title: "Time Slot Deleted",
+					description: "The time slot has been successfully deleted.",
 				});
 			} catch (error) {
-				console.error('Failed to delete timeslot:', error);
+				console.error("Failed to delete timeslot:", error);
 				toast({
-					title: 'Delete Error',
-					description: 'Failed to delete the time slot. Please try again.',
-					variant: 'destructive',
+					title: "Delete Error",
+					description: "Failed to delete the time slot. Please try again.",
+					variant: "destructive",
 				});
 				setDeletingIds((prev) => {
 					const newSet = new Set(prev);
@@ -273,7 +305,7 @@ export default function TeacherScheduleSelector() {
 				// Only include new timeslots (not existing ones)
 				if (!range.isExisting) {
 					timeslots.push({
-						day_of_week: Number.parseInt(dayId, 10),
+						day_of_week: Number.parseInt(dayId),
 						start_time: range.start_time,
 						end_time: range.end_time,
 						is_free: true,
@@ -292,9 +324,9 @@ export default function TeacherScheduleSelector() {
 
 		if (newTimeslots.length === 0) {
 			toast({
-				title: 'No New Time Slots',
-				description: 'No new time slots to save. Add some time ranges first.',
-				variant: 'destructive',
+				title: "No New Time Slots",
+				description: "No new time slots to save. Add some time ranges first.",
+				variant: "destructive",
 			});
 			return;
 		}
@@ -302,12 +334,15 @@ export default function TeacherScheduleSelector() {
 		setIsSubmitting(true);
 
 		try {
-			console.log('Submitting new timeslots:', JSON.stringify(newTimeslots, null, 2));
+			console.log(
+				"Submitting new timeslots:",
+				JSON.stringify(newTimeslots, null, 2),
+			);
 
 			await timeslotsBulkCreate(newTimeslots);
 
 			toast({
-				title: 'Schedule Saved',
+				title: "Schedule Saved",
 				description: `Successfully created ${newTimeslots.length} new time slots.`,
 			});
 
@@ -316,9 +351,9 @@ export default function TeacherScheduleSelector() {
 		} catch (error) {
 			console.error(error);
 			toast({
-				title: 'Error',
-				description: 'Failed to save schedule. Please try again.',
-				variant: 'destructive',
+				title: "Error",
+				description: "Failed to save schedule. Please try again.",
+				variant: "destructive",
 			});
 		} finally {
 			setIsSubmitting(false);
@@ -365,7 +400,9 @@ export default function TeacherScheduleSelector() {
 			<div className="flex items-center justify-between">
 				<div>
 					<h1 className="text-3xl font-bold">Weekly Schedule</h1>
-					<p className="text-muted-foreground">Manage your available time ranges for each day of the week</p>
+					<p className="text-muted-foreground">
+						Manage your available time ranges for each day of the week
+					</p>
 				</div>
 				<div className="flex items-center gap-4">
 					<div className="flex gap-2">
@@ -390,7 +427,11 @@ export default function TeacherScheduleSelector() {
 							</Badge>
 						)}
 					</div>
-					<Button onClick={handleSubmit} disabled={isSubmitting || slotCounts.newSlots === 0} className="min-w-[120px]">
+					<Button
+						onClick={handleSubmit}
+						disabled={isSubmitting || slotCounts.newSlots === 0}
+						className="min-w-[120px]"
+					>
 						{isSubmitting ? (
 							<>
 								<Loader2 className="w-4 h-4 animate-spin mr-2" />
@@ -412,31 +453,43 @@ export default function TeacherScheduleSelector() {
 						<CardHeader className="pb-3">
 							<CardTitle className="text-lg flex items-center justify-between">
 								{day.name}
-								<Button variant="outline" size="sm" onClick={() => addTimeRange(day.id)} className="h-8 w-8 p-0">
+								<Button
+									variant="outline"
+									size="sm"
+									onClick={() => addTimeRange(day.id)}
+									className="h-8 w-8 p-0"
+								>
 									<Plus className="w-4 h-4" />
 								</Button>
 							</CardTitle>
 						</CardHeader>
 						<CardContent className="space-y-3">
 							{schedule[day.id]?.length === 0 || !schedule[day.id] ? (
-								<p className="text-sm text-muted-foreground text-center py-4">No time ranges set</p>
+								<p className="text-sm text-muted-foreground text-center py-4">
+									No time ranges set
+								</p>
 							) : (
 								schedule[day.id]?.map((range) => (
 									<div
 										key={range.id}
-										className={`space-y-2 p-3 border rounded-lg ${
+										className={`space-y-2 p-3 border rounded-lg transition-colors ${
 											range.hasStudent
-												? 'bg-red-50 border-red-200'
+												? "bg-destructive/10 border-destructive/30"
 												: range.isExisting
-													? 'bg-blue-50 border-blue-200'
-													: 'bg-green-50 border-green-200'
+													? "bg-primary/10 border-primary/30"
+													: "bg-muted border-muted-foreground/20"
 										}`}
 									>
 										<div className="flex items-center justify-between mb-2">
 											<div className="flex gap-1">
 												{range.isExisting && (
-													<Badge variant="outline" className="text-xs">
-														{range.hasStudent ? 'Booked' : 'Existing'}
+													<Badge
+														variant={
+															range.hasStudent ? "destructive" : "outline"
+														}
+														className="text-xs"
+													>
+														{range.hasStudent ? "Booked" : "Existing"}
 													</Badge>
 												)}
 												{!range.isExisting && (
@@ -445,27 +498,47 @@ export default function TeacherScheduleSelector() {
 													</Badge>
 												)}
 											</div>
+
 											<Button
 												variant="ghost"
 												size="sm"
 												onClick={() => deleteTimeRange(day.id, range.id)}
 												disabled={deletingIds.has(range.id) || range.hasStudent}
 												className="h-6 w-6 p-0 text-destructive hover:text-destructive"
-												title={range.hasStudent ? 'Cannot delete - student assigned' : 'Delete time slot'}
+												title={
+													range.hasStudent
+														? "Cannot delete - student assigned"
+														: "Delete time slot"
+												}
 											>
-												{deletingIds.has(range.id) ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
+												{deletingIds.has(range.id) ? (
+													<Loader2 className="w-3 h-3 animate-spin" />
+												) : (
+													<Trash2 className="w-3 h-3" />
+												)}
 											</Button>
 										</div>
+
 										<div className="grid grid-cols-2 gap-2">
 											<div>
-												<Label htmlFor={`start-${range.id}`} className="text-xs">
+												<Label
+													htmlFor={`start-${range.id}`}
+													className="text-xs"
+												>
 													Start
 												</Label>
 												<Input
 													id={`start-${range.id}`}
 													type="time"
 													value={range.start_time}
-													onChange={(e) => updateTimeRange(day.id, range.id, 'start_time', e.target.value)}
+													onChange={(e) =>
+														updateTimeRange(
+															day.id,
+															range.id,
+															"start_time",
+															e.target.value,
+														)
+													}
 													className="h-8"
 													disabled={range.isExisting}
 												/>
@@ -478,17 +551,29 @@ export default function TeacherScheduleSelector() {
 													id={`end-${range.id}`}
 													type="time"
 													value={range.end_time}
-													onChange={(e) => updateTimeRange(day.id, range.id, 'end_time', e.target.value)}
+													onChange={(e) =>
+														updateTimeRange(
+															day.id,
+															range.id,
+															"end_time",
+															e.target.value,
+														)
+													}
 													className="h-8"
 													disabled={range.isExisting}
 												/>
 											</div>
 										</div>
+
 										<div className="flex items-center justify-between">
 											<span className="text-xs text-muted-foreground">
 												{range.start_time} - {range.end_time}
 											</span>
-											{range.hasStudent && <span className="text-xs text-red-600 font-medium">Student assigned</span>}
+											{range.hasStudent && (
+												<span className="text-xs text-destructive font-medium">
+													Student assigned
+												</span>
+											)}
 										</div>
 									</div>
 								))
@@ -516,11 +601,17 @@ export default function TeacherScheduleSelector() {
 											{dayRanges.map((range) => (
 												<Badge
 													key={range.id}
-													variant={range.hasStudent ? 'destructive' : range.isExisting ? 'outline' : 'default'}
+													variant={
+														range.hasStudent
+															? "destructive"
+															: range.isExisting
+																? "outline"
+																: "default"
+													}
 													className="text-xs"
 												>
 													{range.start_time} - {range.end_time}
-													{range.hasStudent && ' (Booked)'}
+													{range.hasStudent && " (Booked)"}
 												</Badge>
 											))}
 										</div>
