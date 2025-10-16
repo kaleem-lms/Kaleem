@@ -1,9 +1,13 @@
-name: Deploy to Amazon Lightsail
+name: Build and Deploy to Lightsail
 
 on:
   push:
     branches:
       - master
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}  # e.g. username/repo
 
 jobs:
   deploy:
@@ -13,6 +17,15 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
+    - name: Log in to GitHub Container Registry
+      run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+    - name: Build Docker image
+      run: docker build -t $REGISTRY/$IMAGE_NAME:latest .
+
+    - name: Push Docker image
+      run: docker push $REGISTRY/$IMAGE_NAME:latest
+
     - name: SSH into Lightsail and Deploy
       uses: appleboy/ssh-action@v1.2.2
       with:
@@ -21,5 +34,6 @@ jobs:
         key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
         script: |
           cd /home/admin/Kaleem/kaleem
-          sudo git pull origin master
-          sudo docker compose -f ./docker-compose.production.yml up --build -d 
+          echo "${{ secrets.GITHUB_TOKEN }}" | sudo docker login ghcr.io -u ${{ github.actor }} --password-stdin
+          sudo docker compose -f ./docker-compose.production.yml pull
+          sudo docker compose -f ./docker-compose.production.yml up -d
