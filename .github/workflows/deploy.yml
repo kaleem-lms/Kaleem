@@ -7,7 +7,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}  # e.g. username/repo
+  IMAGE_NAME: ${{ github.repository }}
 
 jobs:
   deploy:
@@ -17,14 +17,17 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Log in to GitHub Container Registry
-      run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+    - name: Normalize image name (lowercase)
+      run: echo "IMAGE_NAME_LC=$(echo $IMAGE_NAME | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+
+    - name: Log in to GHCR
+      run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login $REGISTRY -u ${{ github.actor }} --password-stdin
 
     - name: Build Docker image
-      run: docker build -t $REGISTRY/$IMAGE_NAME:latest .
+      run: docker build -t $REGISTRY/$IMAGE_NAME_LC:latest .
 
     - name: Push Docker image
-      run: docker push $REGISTRY/$IMAGE_NAME:latest
+      run: docker push $REGISTRY/$IMAGE_NAME_LC:latest
 
     - name: SSH into Lightsail and Deploy
       uses: appleboy/ssh-action@v1.2.2
