@@ -10,20 +10,21 @@ from kaleem.users.models import UserProfile
 
 
 class UserProfileSerializer(serializers.ModelSerializer[UserProfile]):
-    picture = serializers.SerializerMethodField()
+    # picture = serializers.SerializerMethodField()
 
     class Meta:
         model = UserProfile
         fields = (
             "bio",
-            "picture",
+            "profile_image",
         )
 
-    def get_picture(self, obj: UserProfile) -> str:
-        request = self.context.get("request")
-        if obj.profile_image and request:
-            return request.build_absolute_uri(obj.profile_image.url)
-        return ""
+    # def get_picture(self, obj: UserProfile) -> str:
+    #     request = self.context.get("request")
+    #     print(repr(obj))
+    #     if obj.profile_image and request:
+    #         return request.build_absolute_uri(obj.profile_image.url)
+    #     return ""
 
 
 class UserSerializer(serializers.ModelSerializer[User]):
@@ -266,6 +267,7 @@ class EditProfileSerializer(serializers.ModelSerializer):
     def update(self, instance, validated_data):
         profile_data = validated_data.pop("profile", {})
         zoom_email = validated_data.pop("zoom_email", None)
+        print(profile_data)
 
         # Update User fields
         for attr, value in validated_data.items():

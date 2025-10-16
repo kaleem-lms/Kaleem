@@ -39,6 +39,12 @@ export async function updateUser(userData: User): Promise<User> {
 	const { data } = await api.put<User>('/users/edit/', userData);
 	return data;
 }
+export async function updateProfileImage(profileImage: File): Promise<User> {
+	const formData = new FormData();
+	formData.append("profile.profile_image", profileImage)
+	const { data } = await api.put<User>('/users/edit/', formData);
+	return data;
+}
 
 export async function getProfile(): Promise<Profile> {
 	const { data } = await api.get<Profile>('/users/profile/');

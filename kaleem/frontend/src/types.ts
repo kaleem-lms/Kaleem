@@ -52,7 +52,7 @@ export interface User {
 
 export interface UserProfile {
 	bio: string;
-	picture: string;
+	picture: string | File;
 }
 
 export type TeacherTimeslot = {
