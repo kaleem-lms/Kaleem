@@ -7,7 +7,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
+  OWNER: ${{ github.repository_owner }}
 
 jobs:
   deploy:
@@ -17,17 +17,24 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Normalize image name (lowercase)
-      run: echo "IMAGE_NAME_LC=$(echo $IMAGE_NAME | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
-
     - name: Log in to GHCR
-      run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login $REGISTRY -u ${{ github.actor }} --password-stdin
+      run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
-    - name: Build Docker image
-      run: docker build -t $REGISTRY/$IMAGE_NAME_LC:latest .
+    - name: Convert repo owner to lowercase
+      run: echo "OWNER_LC=$(echo $OWNER | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
 
-    - name: Push Docker image
-      run: docker push $REGISTRY/$IMAGE_NAME_LC:latest
+    - name: Build and push all images with docker-compose
+      run: |
+        docker compose -f ./kaleem/docker-compose.production.yml build \
+          --build-arg REGISTRY=$REGISTRY \
+          --build-arg OWNER=$OWNER_LC
+
+        # Tag and push each built image
+        for img in $(docker compose -f ./kaleem/docker-compose.production.yml config | grep 'image:' | awk '{print $2}'); do
+          lowercase_img=$(echo $img | tr '[:upper:]' '[:lower:]')
+          docker tag $img $REGISTRY/$OWNER_LC/${lowercase_img##*/}:latest
+          docker push $REGISTRY/$OWNER_LC/${lowercase_img##*/}:latest
+        done
 
     - name: SSH into Lightsail and Deploy
       uses: appleboy/ssh-action@v1.2.2
@@ -38,5 +45,5 @@ jobs:
         script: |
           cd /home/admin/Kaleem/kaleem
           echo "${{ secrets.GITHUB_TOKEN }}" | sudo docker login ghcr.io -u ${{ github.actor }} --password-stdin
-          sudo docker compose -f ./docker-compose.production.yml pull
-          sudo docker compose -f ./docker-compose.production.yml up -d
+          sudo docker compose -f docker-compose.production.yml pull
+          sudo docker compose -f docker-compose.production.yml up -d

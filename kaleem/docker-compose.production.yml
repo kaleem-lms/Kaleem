@@ -12,7 +12,7 @@ services:
       context: .
       dockerfile: ./compose/production/django/Dockerfile
 
-    image: ghcr.io/Abdulkhalek-1/kaleem_production_django:latest
+    image: ghcr.io/abdulkhalek-1/kaleem_production_django:latest
     depends_on:
       postgres:
         condition: service_healthy
@@ -32,7 +32,7 @@ services:
     build:
       context: .
       dockerfile: ./compose/production/postgres/Dockerfile
-    image: ghcr.io/Abdulkhalek-1/kaleem_production_postgres:latest
+    image: ghcr.io/abdulkhalek-1/kaleem_production_postgres:latest
     volumes:
       - production_postgres_data:/var/lib/postgresql/data
       - production_postgres_data_backups:/backups
@@ -50,7 +50,7 @@ services:
     build:
       context: .
       dockerfile: ./compose/production/traefik/Dockerfile
-    image: ghcr.io/Abdulkhalek-1/kaleem_production_traefik:latest
+    image: ghcr.io/abdulkhalek-1/kaleem_production_traefik:latest
     depends_on:
       - django
     volumes:
@@ -64,7 +64,7 @@ services:
     build:
       context: ./frontend
       dockerfile: ../compose/production/frontend/Dockerfile
-    image: ghcr.io/Abdulkhalek-1/kaleem_production_frontend:latest
+    image: ghcr.io/abdulkhalek-1/kaleem_production_frontend:latest
     container_name: kaleem_production_frontend
     volumes:
       - frontend_data:/app
@@ -85,17 +85,17 @@ services:
 
   celeryworker:
     <<: *django
-    image: ghcr.io/Abdulkhalek-1/kaleem_production_celeryworker:latest
+    image: ghcr.io/abdulkhalek-1/kaleem_production_celeryworker:latest
     command: /start-celeryworker
 
   celerybeat:
     <<: *django
-    image: ghcr.io/Abdulkhalek-1/kaleem_production_celerybeat:latest
+    image: ghcr.io/abdulkhalek-1/kaleem_production_celerybeat:latest
     command: /start-celerybeat
 
   flower:
     <<: *django
-    image: ghcr.io/Abdulkhalek-1/kaleem_production_flower:latest
+    image: ghcr.io/abdulkhalek-1/kaleem_production_flower:latest
     command: /start-flower
 
   awscli:
