@@ -3,6 +3,8 @@ from typing import TYPE_CHECKING
 from django.contrib.auth.hashers import make_password
 from django.contrib.auth.models import UserManager as DjangoUserManager
 
+from kaleem.users.choices import Role
+
 if TYPE_CHECKING:
     from .models import User  # noqa: F401
 
@@ -31,6 +33,7 @@ class UserManager(DjangoUserManager["User"]):
     def create_superuser(self, email: str, password: str | None = None, **extra_fields):  # type: ignore[override]
         extra_fields.setdefault("is_staff", True)
         extra_fields.setdefault("is_superuser", True)
+        extra_fields.setdefault("role", Role.Admin)
 
         if extra_fields.get("is_staff") is not True:
             msg = "Superuser must have is_staff=True."

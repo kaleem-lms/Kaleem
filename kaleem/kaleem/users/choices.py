@@ -8,6 +8,7 @@ class Gender(models.TextChoices):
 
 class Role(models.TextChoices):
     Unknown = "U"
+    Admin = "A"
     Student = "S"
     Teacher = "T"
     Parent = "P"
