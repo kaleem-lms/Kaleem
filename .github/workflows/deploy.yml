@@ -23,6 +23,13 @@ jobs:
     - name: Convert repo owner to lowercase
       run: echo "OWNER_LC=$(echo $OWNER | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
 
+    - name: Create temporary env files
+      run: |
+        mkdir -p kaleem/.envs/.production
+        touch kaleem/.envs/.production/.django
+        touch kaleem/.envs/.production/.postgres
+        touch kaleem/.envs/.production/.frontend
+
     - name: Build and push all images with docker-compose
       run: |
         docker compose -f ./kaleem/docker-compose.production.yml build \
