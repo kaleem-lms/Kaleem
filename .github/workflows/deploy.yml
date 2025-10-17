@@ -36,18 +36,8 @@ jobs:
           --build-arg REGISTRY=$REGISTRY \
           --build-arg OWNER=$OWNER_LC
 
-        # Tag and push each built image
-        services=$(docker compose -f ./kaleem/docker-compose.production.yml config --services)
-        for svc in $services; do
-          image=$(docker compose -f ./kaleem/docker-compose.production.yml config | grep -A1 "$svc:" | grep "image:" | awk '{print $2}')
-          # Strip any ":tag" if it exists
-          image_no_tag="${image%%:*}"
-          target_image="$REGISTRY/$OWNER_LC/${image_no_tag##*/}:latest"
-          
-          echo "Pushing $target_image ..."
-          docker tag "$image" "$target_image"
-          docker push "$target_image"
-        done
+        # push all images
+        docker compose -f ./kaleem/docker-compose.production.yml build
 
     - name: SSH into Lightsail and Deploy
       uses: appleboy/ssh-action@v1.2.2
