@@ -7,7 +7,7 @@ import { formatTimestamp } from '@/lib/utils';
 import type { SessionReportData, TeacherDashboardData, TeacherDashboardSessionReport } from '@/types';
 import { SessionReportModal } from './SessionReportModal';
 
-export default function DashboardPage() {
+export default function TeacherDashboardPage() {
 	const [dashboardData, setDashboardData] = useState<TeacherDashboardData>({
 		upcoming_sessions: {
 			count: 0,

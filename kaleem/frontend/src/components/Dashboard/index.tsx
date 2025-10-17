@@ -1,14 +1,18 @@
 import { useAuth } from '../AuthContext';
-import DashboardPage from './Teacher';
+import AdminDashboardPage from './Admin';
+import ParentDashboardPage from './Parent';
+import StudentDashboardPage from './Student';
+import TeacherDashboardPage from './Teacher';
 
 export default function Dashboard() {
 	const { user } = useAuth();
 
 	return (
 		<>
-			{user?.role === 'T' && <DashboardPage />}
-			{user?.role === 'S' && <p>You are a student.</p>}
-			{user?.role === 'P' && <p>You are a parent.</p>}
+			{user?.role === 'T' && <TeacherDashboardPage />}
+			{user?.role === 'A' && <AdminDashboardPage />}
+			{user?.role === 'S' && <StudentDashboardPage />}
+			{user?.role === 'P' && <ParentDashboardPage />}
 		</>
 	);
 }
