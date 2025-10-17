@@ -246,6 +246,13 @@ class ParentProfileSerializer(serializers.ModelSerializer):
         model = Parent
         exclude = ("password",)
 
+class AdminProfileSerializer(serializers.ModelSerializer):
+    profile = UserProfileSerializer()
+
+    class Meta:
+        model = User
+        exclude = ("password",)
+
 
 class EditProfileSerializer(serializers.ModelSerializer):
     profile = UserProfileSerializer(required=False)

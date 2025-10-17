@@ -17,7 +17,7 @@ from kaleem.users.models import Teacher
 from kaleem.users.models import User
 from kaleem.users.services import AuthenticationService
 
-from .serializers import EditProfileSerializer
+from .serializers import AdminProfileSerializer, EditProfileSerializer, UserProfileSerializer
 from .serializers import LoginSerializer
 from .serializers import ParentProfileSerializer
 from .serializers import ParentRegisterSerializer
@@ -108,6 +108,9 @@ class UserViewSet(viewsets.ViewSet):
         elif role == Role.Parent:
             parent = Parent.objects.get(id=user.id)
             serializer = ParentProfileSerializer(parent, context={"request": request})
+        elif role == Role.Admin:
+            admin = User.objects.get(id=user.id)
+            serializer = AdminProfileSerializer(admin, context={"request": request})
         else:
             return Response(
                 {"detail": "Unknown user role."},
