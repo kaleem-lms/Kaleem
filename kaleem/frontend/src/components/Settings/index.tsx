@@ -71,8 +71,9 @@ export default function SettingsPage() {
 
 	const handleSaveProfile = async () => {
 		try {
-			delete profile?.profile.profile_image;
-			await updateUser(profile);
+			const newProfile = profile
+			delete newProfile?.profile.profile_image;
+			await updateUser(newProfile);
 
 			toast({
 				title: 'Profile updated',
