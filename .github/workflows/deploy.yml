@@ -30,13 +30,14 @@ jobs:
         touch kaleem/.envs/.production/.postgres
         touch kaleem/.envs/.production/.frontend
 
-    - name: Build and push all images with docker-compose
+    - name: Build all images with docker-compose
       run: |
         docker compose -f ./kaleem/docker-compose.production.yml build \
           --build-arg REGISTRY=$REGISTRY \
           --build-arg OWNER=$OWNER_LC
 
-        # push all images
+    - name: Push all images with docker-compose
+      run: |
         docker compose -f ./kaleem/docker-compose.production.yml build
 
     - name: SSH into Lightsail and Deploy
