@@ -38,7 +38,7 @@ jobs:
 
     - name: Push all images with docker-compose
       run: |
-        docker compose -f ./kaleem/docker-compose.production.yml build
+        docker compose -f ./kaleem/docker-compose.production.yml push
 
     - name: SSH into Lightsail and Deploy
       uses: appleboy/ssh-action@v1.2.2
