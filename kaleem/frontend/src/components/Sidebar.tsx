@@ -112,7 +112,7 @@ export function Sidebar() {
 			<div className="mt-auto p-4">
 				<div className="flex items-center gap-2 rounded-lg border p-4">
 					<Avatar>
-						<AvatarImage src={user?.profile?.profile_image || '/placeholder.jpg'} className="object-cover" alt="profile image" />
+						<AvatarImage src={user?.profile?.profile_image} className="object-cover" alt="profile image" />
 						<AvatarFallback>{user?.name.slice(0, 2).toUpperCase()}</AvatarFallback>
 					</Avatar>
 					<div className="flex flex-col min-w-0">
