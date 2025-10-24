@@ -1,7 +1,9 @@
 from rest_framework import serializers
 
+from kaleem.users.api.serializers import TeacherSerializer
 from kaleem.reports.models import StudentSessionReport
 
+1
 
 # class StudentSessionReportSerializer(serializers.ModelSerializer):
 #     class Meta:
@@ -10,10 +12,13 @@ from kaleem.reports.models import StudentSessionReport
 
 
 class StudentSessionReportSerializer(serializers.ModelSerializer):
+    teacher = TeacherSerializer(read_only=True, source="session_slot.teacher")
+
     class Meta:
         model = StudentSessionReport
         fields = [
             "id",
+            "teacher",
             "student",
             "session_slot",
             "created_at",
