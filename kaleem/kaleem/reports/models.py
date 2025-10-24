@@ -30,5 +30,5 @@ class StudentSessionReport(models.Model):
 
     def __str__(self):
         return (
-            f"{self.student} - {self.teacher} - {self.session_slot} - {self.created_at}"
+            f"{self.student} - {self.session_slot.teacher} - {self.session_slot} - {self.created_at}"
         )
