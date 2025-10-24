@@ -1,6 +1,7 @@
 from django.contrib.auth.password_validation import validate_password as vp
 from rest_framework import serializers
 
+from kaleem.timetables.api.serializers import TimeSlotSerializer
 from kaleem.timetables.choices import SessionStatus
 from kaleem.users.models import Parent
 from kaleem.users.models import Student
@@ -115,6 +116,23 @@ class TeacherSerializer(serializers.ModelSerializer):
         fields = (
             "id",
             "phone_number",
+            "hire_date",
+            "years_of_experience",
+            "user",
+        )
+
+
+class TeacherAdminSerializer(serializers.ModelSerializer):
+    user = UserSerializer(source="*")
+    time_slots = TimeSlotSerializer(many=True, read_only=True)
+    hire_date = serializers.DateTimeField(read_only=True)
+
+    class Meta:
+        model = Teacher
+        fields = (
+            "id",
+            "phone_number",
+            "time_slots",
             "hire_date",
             "years_of_experience",
             "user",
@@ -245,6 +263,7 @@ class ParentProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = Parent
         exclude = ("password",)
+
 
 class AdminProfileSerializer(serializers.ModelSerializer):
     profile = UserProfileSerializer()

@@ -10,7 +10,7 @@ from kaleem.reports.api.views import StudentSessionReportViewSet
 from kaleem.resources.api.views import ResourceViewSet
 from kaleem.subscriptions.api.views import CheckoutSessionViewSet
 from kaleem.timetables.api.views import TimeSlotViewSet
-from kaleem.users.api.views import AuthenticationViewSet
+from kaleem.users.api.views import AdminViewSet, AuthenticationViewSet
 from kaleem.users.api.views import TeachersViewSet
 from kaleem.users.api.views import UserViewSet
 
@@ -62,6 +62,11 @@ router.register(
 router.register(
     "reports",
     StudentSessionReportViewSet,
+)
+router.register(
+    "admin",
+    AdminViewSet,
+    basename="admin",
 )
 
 

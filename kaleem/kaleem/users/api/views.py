@@ -8,6 +8,7 @@ from rest_framework import status
 from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny
+from rest_framework.permissions import IsAdminUser
 from rest_framework.response import Response
 
 from kaleem.users.choices import Role
@@ -17,7 +18,8 @@ from kaleem.users.models import Teacher
 from kaleem.users.models import User
 from kaleem.users.services import AuthenticationService
 
-from .serializers import AdminProfileSerializer, EditProfileSerializer, UserProfileSerializer
+from .serializers import AdminProfileSerializer, TeacherAdminSerializer
+from .serializers import EditProfileSerializer
 from .serializers import LoginSerializer
 from .serializers import ParentProfileSerializer
 from .serializers import ParentRegisterSerializer
@@ -26,6 +28,7 @@ from .serializers import StudentRegisterSerializer
 from .serializers import StudentSerializer
 from .serializers import TeacherProfileSerializer
 from .serializers import TeacherRegisterSerializer
+from .serializers import TeacherSerializer
 from .serializers import UserSerializer
 
 
@@ -243,4 +246,34 @@ class TeachersViewSet(viewsets.ViewSet):
             context={"request": request},
         )
 
+        return Response(serializer.data)
+
+
+class AdminViewSet(viewsets.ViewSet):
+    """
+    ViewSet for admin related actions
+    """
+
+    permission_classes = [IsAdminUser]
+
+    @action(detail=False, methods=["get"])
+    def teachers(self, request):
+        """Return teachers with their free time slots"""
+        teachers = Teacher.objects.all()
+        serializer = TeacherAdminSerializer(
+            teachers,
+            many=True,
+            context={"request": request},
+        )
+        return Response(serializer.data)
+
+    @action(detail=False, methods=["get"])
+    def students(self, request):
+        """Return students"""
+        students = Student.objects.all()
+        serializer = StudentSerializer(
+            students,
+            many=True,
+            context={"request": request},
+        )
         return Response(serializer.data)
