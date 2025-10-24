@@ -2,7 +2,7 @@ from django.conf import settings
 from rest_framework.routers import DefaultRouter
 from rest_framework.routers import SimpleRouter
 
-from kaleem.dashboard.api.views import TeacherDashboardViewSet
+from kaleem.dashboard.api.views import StudentDashboardViewSet, TeacherDashboardViewSet
 from kaleem.messaging.api.views import ChatGroupViewSet
 from kaleem.messaging.api.views import ChatMessageMediaViewSet
 from kaleem.messaging.api.views import ChatMessageViewSet
@@ -49,6 +49,11 @@ router.register(
     "teacher-dashboard",
     TeacherDashboardViewSet,
     basename="teacher_dashboard",
+)
+router.register(
+    "student-dashboard",
+    StudentDashboardViewSet,
+    basename="student_dashboard",
 )
 router.register(
     "resources",
