@@ -1,11 +1,25 @@
 import { Link } from '@tanstack/react-router';
-import { Book, BookOpenText, BrainCircuit, Crown, Earth, GraduationCap, ScanEye, ThumbsUp } from 'lucide-react';
-import type React from 'react';
-import { useEffect, useState } from 'react';
+import {
+	Book,
+	BookOpenText,
+	BrainCircuit,
+	Crown,
+	Earth,
+	GraduationCap,
+	ScanEye,
+	ThumbsUp,
+} from 'lucide-react';
+import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
+import {
+	Carousel,
+	CarouselContent,
+	CarouselItem,
+	CarouselNext,
+	CarouselPrevious,
+} from '@/components/ui/carousel';
 import i18n from '@/i18n';
 import Footer from './Footer';
 import Header from './Header';
@@ -14,20 +28,14 @@ const LandingPage: React.FC = () => {
 	const { t } = useTranslation();
 	const [dir, setDir] = useState(i18n.dir());
 
-	// React.useEffect(() => {
-	//   if (auth.user) {
-	//     navigate({ to: '/dashboard' })
-	//   }
-	// }, [auth.user, navigate])
-
 	useEffect(() => {
 		const newDir = i18n.dir();
-		document.documentElement.dir = newDir; // Set the HTML attribute
-		setDir(newDir); // Update the context value
+		document.documentElement.dir = newDir;
+		setDir(newDir);
 	}, []);
 
 	return (
-		<div className="min-h-screen bg-background text-foreground">
+		<div className="min-h-screen bg-background text-foreground transition-colors">
 			<Header />
 
 			{/* Hero Section */}
@@ -45,7 +53,7 @@ const LandingPage: React.FC = () => {
 								id: 1,
 								title: t('Welcome to Kaleem Institute'),
 								description: t(
-									'Kaleem Institute is an online educational platform dedicated to teaching Arabic, the Quran, Islamic sciences, and the Egyptian accent to French-speaking learners worldwide. Our goal is to make Arabic and Islamic knowledge accessible, engaging, and immersive, enabling students to connect with the language and their faith in a meaningful way.',
+									'Kaleem Institute is an online educational platform dedicated to teaching Arabic, the Quran, Islamic sciences, and the Egyptian accent to French-speaking learners worldwide.',
 								),
 								image: '/kaleem.jpg',
 							},
@@ -53,7 +61,7 @@ const LandingPage: React.FC = () => {
 								id: 2,
 								title: t('Learn, Understand, and Connect'),
 								description: t(
-									'Whether you are a complete beginner or an advanced learner, our structured courses provide step-by-step guidance to help you achieve fluency in Arabic, master Quranic recitation with Tajweed, and deepen your understanding of Islamic sciences.',
+									'Whether you are a complete beginner or an advanced learner, our structured courses provide step-by-step guidance.',
 								),
 								image: '/2.jpg',
 							},
@@ -61,7 +69,7 @@ const LandingPage: React.FC = () => {
 								id: 3,
 								title: t('Unlock the Beauty of Arabic'),
 								description: t(
-									"Immerse yourself in the richness of the Arabic language with engaging lessons, expert instructors, and practical exercises. Whether you're a beginner or looking to refine your skills, our structured approach ensures a smooth and enjoyable learning journey. Start speaking Arabic with confidence today!",
+									"Immerse yourself in the richness of the Arabic language with engaging lessons, expert instructors, and practical exercises.",
 								),
 								image: '/3.jpg',
 							},
@@ -69,23 +77,26 @@ const LandingPage: React.FC = () => {
 								id: 4,
 								title: t('Enlightening Hearts, Empowering Minds'),
 								description: t(
-									'At Kaleem Institute, we are dedicated to preserving the beauty of Quranic recitation through Tajweed, fostering fluency in Arabic and strengthening Islamic knowledge. Our mission is to equip students with the tools to deepen their faith, connect with the Quran, and confidently engage with the Arabic language in their daily lives.',
+									'At Kaleem Institute, we are dedicated to preserving the beauty of Quranic recitation and fostering fluency in Arabic.',
 								),
 								image: '/goals.jpg',
 							},
 						].map((obj) => (
 							<CarouselItem key={obj.id}>
-								<div className="flex h-[60vh] select-none flex-col bg-gray-100 md:flex-row">
+								<div className="flex h-[60vh] select-none flex-col bg-card md:flex-row">
 									<div className="flex flex-1 flex-col justify-center p-8 md:p-16">
 										<h1 className="mb-4 font-bold text-4xl md:text-4xl">{obj.title}</h1>
-										<p className="mb-6 text-lg md:text-md">{obj.description}</p>
+										<p className="mb-6 text-lg md:text-md text-muted-foreground">{obj.description}</p>
 										<Link to="/register" className="self-start">
 											<Button className="w-fit px-6 py-3 text-lg">{t('Get Started')}</Button>
 										</Link>
 									</div>
-									<div className="hidden flex-2 bg-slate-300 md:block">
-										{/* Add an image here */}
-										<img src={obj.image} alt={t('Quran learning')} className="h-full w-full object-contain" />
+									<div className="hidden flex-2 bg-muted md:block">
+										<img
+											src={obj.image}
+											alt={t('Quran learning')}
+											className="h-full w-full object-contain rounded-lg"
+										/>
 									</div>
 								</div>
 							</CarouselItem>
@@ -97,13 +108,14 @@ const LandingPage: React.FC = () => {
 			</section>
 
 			{/* Why Us Section */}
-			<section className="bg-white px-4 py-16 sm:px-6 lg:px-8">
+			<section className="bg-card px-4 py-16 sm:px-6 lg:px-8">
 				<div className="mx-auto max-w-7xl">
 					<div className="mb-12 text-center">
 						<h2 className="mb-4 font-bold text-3xl leading-tight">{t('Why choose Kaleem?')}</h2>
-						<p className="mx-auto max-w-2xl text-gray-600 text-lg">
-							{t(`Kaleem is designed to be the best platform for learning and teaching Quran. We are committed to providing
-              a world-class experience for all of our users.`)}
+						<p className="mx-auto max-w-2xl text-muted-foreground text-lg">
+							{t(
+								`Kaleem is designed to be the best platform for learning and teaching Quran. We are committed to providing a world-class experience for all of our users.`,
+							)}
 						</p>
 					</div>
 
@@ -148,13 +160,16 @@ const LandingPage: React.FC = () => {
 								),
 							},
 						].map((feature) => (
-							<Card key={feature.id} className="transition-all duration-300 hover:shadow-lg">
+							<Card
+								key={feature.id}
+								className="transition-all duration-300 hover:shadow-lg bg-card text-card-foreground"
+							>
 								<CardHeader>
 									<feature.icon className="mb-4 h-12 w-12 text-primary" />
 									<CardTitle>{feature.title}</CardTitle>
 								</CardHeader>
 								<CardContent>
-									<p className="text-gray-600">{feature.description}</p>
+									<p className="text-muted-foreground">{feature.description}</p>
 								</CardContent>
 							</Card>
 						))}
@@ -162,8 +177,8 @@ const LandingPage: React.FC = () => {
 				</div>
 			</section>
 
-			{/* Features Section */}
-			<section className="bg-gray-50 px-4 py-16 sm:px-6 lg:px-8">
+			{/* Programs Section */}
+			<section className="bg-muted px-4 py-16 sm:px-6 lg:px-8">
 				<div className="mx-auto max-w-7xl">
 					<h2 className="mb-12 text-center font-bold text-3xl">{t('Our Programs')}</h2>
 					<div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
@@ -173,7 +188,7 @@ const LandingPage: React.FC = () => {
 								icon: Crown,
 								title: t('Standard Arabic'),
 								description: t(
-									'Develop a strong foundation in Arabic grammar, vocabulary, and communication skills, progressing from beginner to advanced levels.',
+									'Develop a strong foundation in Arabic grammar, vocabulary, and communication skills.',
 								),
 							},
 							{
@@ -181,7 +196,7 @@ const LandingPage: React.FC = () => {
 								icon: Book,
 								title: t('Quran and Tajweed'),
 								description: t(
-									'Learn the correct pronunciation and articulation of Quranic Arabic, apply Tajweed rules, and work towards Ijazah (certification in Quranic recitation).',
+									'Learn the correct pronunciation and articulation of Quranic Arabic, apply Tajweed rules, and work towards Ijazah.',
 								),
 							},
 							{
@@ -189,17 +204,20 @@ const LandingPage: React.FC = () => {
 								icon: BrainCircuit,
 								title: t('Islamic Sciences'),
 								description: t(
-									'Gain deep knowledge of Fiqh (Islamic jurisprudence), Tafsir (Quranic exegesis), Hadith studies, and Aqeedah (Islamic creed) to strengthen your understanding of Islam.',
+									'Gain deep knowledge of Fiqh, Tafsir, Hadith, and Aqeedah to strengthen your understanding of Islam.',
 								),
 							},
 						].map((feature) => (
-							<Card key={feature.id} className="transition-all duration-300 hover:shadow-lg">
+							<Card
+								key={feature.id}
+								className="transition-all duration-300 hover:shadow-lg bg-card text-card-foreground"
+							>
 								<CardHeader>
 									<feature.icon className="mb-2 h-8 w-8 text-primary" />
 									<CardTitle>{feature.title}</CardTitle>
 								</CardHeader>
 								<CardContent>
-									<p className="text-gray-600">{feature.description}</p>
+									<p className="text-muted-foreground">{feature.description}</p>
 								</CardContent>
 							</Card>
 						))}
