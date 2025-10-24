@@ -15,3 +15,41 @@ export function formatTimestamp(timestamp: number, options?: Intl.DateTimeFormat
 		...options,
 	});
 }
+export function getDayName(dayOfWeek: number): string {
+  const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
+  return days[dayOfWeek] || "Unknown"
+}
+
+export function formatTime(timeString: string): string {
+  try {
+    const [hours, minutes] = timeString.split(":")
+    const hour = Number.parseInt(hours, 10)
+    const minute = Number.parseInt(minutes, 10)
+    const ampm = hour >= 12 ? "PM" : "AM"
+    const displayHour = hour % 12 || 12
+    return `${displayHour}:${minute.toString().padStart(2, "0")} ${ampm}`
+  } catch {
+    return timeString
+  }
+}
+
+export function getDayOfWeekNumber(date: Date): number {
+  return date.getDay()
+}
+
+export function timeStringToMinutes(timeString: string): number {
+  try {
+    const [hours, minutes] = timeString.split(":")
+    const hour = Number.parseInt(hours, 10)
+    const minute = Number.parseInt(minutes, 10)
+    return hour * 60 + minute
+  } catch {
+    return 0
+  }
+}
+
+export function minutesToTimeString(minutes: number): string {
+  const hours = Math.floor(minutes / 60)
+  const mins = minutes % 60
+  return `${hours.toString().padStart(2, "0")}:${mins.toString().padStart(2, "0")}:00`
+}

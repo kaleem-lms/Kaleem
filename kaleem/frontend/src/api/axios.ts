@@ -3,6 +3,7 @@ import type {
 	CheckoutResponse,
 	LoginData,
 	LoginResponse,
+	OccupyTimeslotData,
 	ParentRegisterData,
 	Profile,
 	Resource,
@@ -41,7 +42,7 @@ export async function updateUser(userData: User): Promise<User> {
 }
 export async function updateProfileImage(profileImage: File): Promise<User> {
 	const formData = new FormData();
-	formData.append("profile.profile_image", profileImage)
+	formData.append('profile.profile_image', profileImage);
 	const { data } = await api.put<User>('/users/edit/', formData);
 	return data;
 }
@@ -136,6 +137,21 @@ export async function getStudentReports(studentId: number) {
 
 export async function createSessionReport(sessionData: SessionReportData) {
 	const { data } = await api.post('/reports/', sessionData);
+	return data;
+}
+
+export async function getAdminTeacher() {
+	const { data } = await api.get('/admin/teachers/');
+	return data;
+}
+
+export async function getAdminStudents() {
+	const { data } = await api.get('/admin/students/');
+	return data;
+}
+
+export async function occupyTeacherTime(occupyData: OccupyTimeslotData) {
+	const { data } = await api.post('/time-slots/occupy_time/', occupyData);
 	return data;
 }
 

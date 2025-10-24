@@ -1,5 +1,5 @@
 import { Link, useLocation } from '@tanstack/react-router';
-import { BookOpen, Calendar, CreditCard, Home, LogOut, Menu, Settings, Users } from 'lucide-react';
+import { BookOpen, Calendar, CreditCard, GraduationCap, Home, LogOut, Menu, Settings, Users } from 'lucide-react';
 import { useState } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -66,9 +66,30 @@ const roleBasedRoutes: Record<string, typeof commonRoutes> = {
 		},
 	],
 	P: [],
+	A: [
+		{
+			name: 'Dashboard',
+			path: '/',
+			icon: Home,
+		},
+		{
+			name: 'Teachers',
+			path: '/teachers',
+			icon: GraduationCap,
+		},
+	],
 };
 
-const routeOrder = ['Dashboard', 'Students', 'Sessions', 'Resources', 'Subscription', 'Profile & Settings', 'Logout'];
+const routeOrder = [
+	'Dashboard',
+	'Students',
+	'Teachers',
+	'Sessions',
+	'Resources',
+	'Subscription',
+	'Profile & Settings',
+	'Logout',
+];
 
 function getRoutesByRole(role?: string) {
 	const allRoutes = [...(roleBasedRoutes[role ?? ''] || []), ...commonRoutes];

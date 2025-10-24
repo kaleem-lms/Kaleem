@@ -204,3 +204,20 @@ export type TeacherDashboardSessionReport = {
 	student: string;
 	student_id: number;
 };
+
+export type TimeSlot = {
+	id: number;
+	day_of_week: number;
+	start_time: string;
+	end_time: string;
+	is_free: boolean;
+	student: number | null;
+};
+
+export type OccupyTimeslotData = {
+	teacher_id: number;
+	student_id: number;
+	day_of_week: number;
+	start_time: string;
+	end_time: string;
+};
