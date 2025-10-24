@@ -115,6 +115,11 @@ export async function getTeacherDashboard(): Promise<TeacherDashboardData> {
 	return data;
 }
 
+export async function getStudentDashboard() {
+	const { data } = await api.get('/student-dashboard/');
+	return data;
+}
+
 export async function getTeacherResources(): Promise<Resource[]> {
 	const { data } = await api.get('/resources/');
 	return data;
