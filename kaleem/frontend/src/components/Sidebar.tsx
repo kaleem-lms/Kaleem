@@ -1,5 +1,16 @@
 import { Link, useLocation } from '@tanstack/react-router';
-import { BookOpen, Calendar, CreditCard, GraduationCap, Home, LogOut, Menu, Settings, Users } from 'lucide-react';
+import {
+	BookOpen,
+	Calendar,
+	CreditCard,
+	GraduationCap,
+	Home,
+	LogOut,
+	Menu,
+	Settings,
+	Users,
+	Clipboard,
+} from 'lucide-react';
 import { useState } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -55,6 +66,11 @@ const roleBasedRoutes: Record<string, typeof commonRoutes> = {
 			icon: Calendar,
 		},
 		{
+			name: 'Reports',
+			path: '/reports',
+			icon: Clipboard,
+		},
+		{
 			name: 'Resources',
 			path: '/resources',
 			icon: BookOpen,
@@ -85,6 +101,7 @@ const routeOrder = [
 	'Students',
 	'Teachers',
 	'Sessions',
+	'Reports',
 	'Resources',
 	'Subscription',
 	'Profile & Settings',
