@@ -41,7 +41,7 @@ jobs:
         docker compose -f ./kaleem/docker-compose.production.yml push
 
     - name: SSH into Lightsail and Deploy
-      uses: appleboy/ssh-action@v1.2.2
+      uses: appleboy/ssh-action@v1.2.5
       with:
         host: ${{ secrets.LIGHTSAIL_HOST }}
         username: ${{ secrets.LIGHTSAIL_USERNAME }}
