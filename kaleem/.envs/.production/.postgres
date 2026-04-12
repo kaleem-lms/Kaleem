@@ -1,0 +1,7 @@
+# PostgreSQL
+# ------------------------------------------------------------------------------
+POSTGRES_HOST=postgres
+POSTGRES_PORT=5432
+POSTGRES_DB=kaleem
+POSTGRES_USER=XOigJAucHlMtqPNJBiNvwnHjRAuxIKKB
+POSTGRES_PASSWORD=czaCD1oaWYpFhReTrXDlf7Xff0Okgk7cLFIyR26XVAQxeTC3Yzk1UINM3Jl6PihN
