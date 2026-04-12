@@ -147,6 +147,7 @@ jobs:
         run: |
           docker build \
             -f backend/Dockerfile \
+            --target production \
             -t ghcr.io/kaleem-lms/backend:${{ env.SHORT_SHA }} \
             -t ghcr.io/kaleem-lms/backend:latest \
             backend/
