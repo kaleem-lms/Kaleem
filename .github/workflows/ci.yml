@@ -167,4 +167,4 @@ jobs:
             echo "${{ secrets.GHCR_PAT }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
             cd /opt/kaleem
             export DEPLOY_SHA=$SHORT_SHA
-            bash scripts/deploy.sh $SHORT_SHA
+            bash scripts/bg-deploy.sh $SHORT_SHA
