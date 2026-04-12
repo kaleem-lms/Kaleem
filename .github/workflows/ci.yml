@@ -126,3 +126,45 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Build
         run: pnpm build
+
+  deploy-staging:
+    needs: [backend-lint, backend-test, dashboard-lint, dashboard-build]
+    if: github.ref == 'refs/heads/master' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          token: ${{ secrets.SUBMODULE_TOKEN }}
+
+      - name: Set short SHA
+        run: echo "SHORT_SHA=${GITHUB_SHA::7}" >> $GITHUB_ENV
+
+      - name: Log in to GHCR
+        run: echo "${{ secrets.GHCR_PAT }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Build backend image
+        run: |
+          docker build \
+            -f backend/Dockerfile \
+            -t ghcr.io/kaleem-lms/backend:${{ env.SHORT_SHA }} \
+            -t ghcr.io/kaleem-lms/backend:latest \
+            backend/
+
+      - name: Push backend image
+        run: |
+          docker push ghcr.io/kaleem-lms/backend:${{ env.SHORT_SHA }}
+          docker push ghcr.io/kaleem-lms/backend:latest
+
+      - name: Deploy to staging via SSH
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ secrets.STAGING_HOST }}
+          username: ${{ secrets.STAGING_USER }}
+          key: ${{ secrets.STAGING_SSH_KEY }}
+          envs: SHORT_SHA
+          script: |
+            echo "${{ secrets.GHCR_PAT }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            cd /opt/kaleem
+            export DEPLOY_SHA=$SHORT_SHA
+            bash scripts/deploy.sh $SHORT_SHA
