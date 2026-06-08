@@ -53,10 +53,10 @@ It does not contain data models or API shapes — those live in each module's sp
 ## Subscription & Billing
 
 ### Plans
-- **Individual** — one student, X sessions per month, fixed monthly price.
-- **Family** — one parent, unlimited children, Y sessions per month in a shared pool,
+- **Individual** — one student, **4 sessions per month**, price configurable by admin.
+- **Family** — one parent, unlimited children, **4 sessions per child per month** in a shared pool,
   parent allocates sessions across children.
-- Price is set by kaleem, not by teachers.
+- Price is set by kaleem via admin config, not by teachers. Not hardcoded — stored in DB.
 - Billing is monthly, auto-renewing.
 
 ### Session allocation (Family plan)
@@ -226,10 +226,10 @@ Dependencies:
 
 | # | Question | Owner | Status |
 |---|---|---|---|
-| OQ-01 | Exact session counts and prices per plan (Individual and Family) | Business | Open |
+| OQ-01 | Exact session counts and prices per plan (Individual and Family) | Business | **Resolved**: Individual = 4/month. Family = 4 per child/month. Price stored in DB, admin-configurable. |
 | OQ-02 | Teacher pay rate per session (internal rate vs plan price) | Business | Open |
 | OQ-03 | LiveKit: self-host on existing VPS or dedicated server? | Tech | Open |
 | OQ-04 | Session recording: store or discard? | Business/Legal | Open |
 | OQ-05 | What additional fields does the teacher application form need? | Business | Open |
-| OQ-06 | Stripe or alternative payment processor? | Business | Open |
+| OQ-06 | Stripe or alternative payment processor? | Business | **Resolved**: Stripe as primary. Payment layer must be abstracted behind a provider interface to support local payment methods later. |
 | OQ-07 | What does "family plan" cost relative to individual × N? | Business | Open |
