@@ -224,6 +224,30 @@ Parent sets or resets a child's login password.
 { "password": "..." }
 ```
 
+### `POST /api/identity/invites/`
+Parent generates a one-time invite code to link an existing student account.
+```json
+// Response 201
+{ "code": "abc123", "expires_at": "2026-06-09T12:00:00Z" }
+```
+Code expires after 24h. One active invite per parent at a time.
+
+### `POST /api/identity/invites/accept/`
+Logged-in student accepts a parent invite.
+```json
+// Request
+{ "code": "abc123" }
+
+// Response 200
+{ "parent_name": "Fatima Hassan", "linked": true }
+
+// Error 400 — expired or invalid code
+{ "code": ["Invalid or expired invite code."] }
+
+// Error 400 — student already has a parent
+{ "code": ["You are already linked to a parent account."] }
+```
+
 ---
 
 ## Module boundaries
@@ -279,5 +303,5 @@ Parent sets or resets a child's login password.
 
 | # | Question | Status |
 |---|---|---|
-| IQ-01 | Should a student be allowed to link themselves to a parent after registration (parent sends invite)? | Open |
-| IQ-02 | Max number of children per parent enforced at DB level or application level only? | Open — default: application level, no hard cap |
+| IQ-01 | Should a student be allowed to link themselves to a parent after registration (parent sends invite)? | **Resolved: Yes.** Parent generates an invite link/code. Student accepts → ParentStudent link created. |
+| IQ-02 | Max number of children per parent enforced at DB level or application level only? | **Resolved: No limit.** Application level only, no hard cap. |
