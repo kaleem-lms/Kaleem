@@ -29,3 +29,6 @@ staticfiles/
 
 # Claude
 .claude/memory/
+
+# CodeGraph (local code knowledge graph index)
+.codegraph/

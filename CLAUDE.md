@@ -68,13 +68,39 @@ These are the specific patterns that produced the current messy MVP. Do not repe
 | Spotted-a-problem backlog | `ISSUES.md` |
 | Active specs | `docs/superpowers/specs/` |
 | Active plans | `docs/superpowers/plans/` |
-| ADRs | `docs/adr/` |
+| ADRs (architecture decisions) | `docs/adr/` |
+| Product/business decisions | `docs/decisions/` |
 | Weekly journal | `docs/superpowers/journal/` |
 | Per-module architecture docs | `docs/architecture/<module>.md` |
 | Runbooks | `docs/runbook/` |
 | Developer onboarding | `docs/developer-guide/` |
 | Templates | `docs/templates/` |
 | Old code (read-only reference) | `kaleem/` |
+
+## Code intelligence: use CodeGraph before grepping
+
+A local [CodeGraph](https://github.com/colbymchenry/codegraph) index of the whole tree
+(backend + dashboard + marketing) is wired in as an MCP server via `.mcp.json`. It stays
+current automatically (file-watch). **Prefer it over grep/read when exploring code** — it
+costs far fewer tokens. Tools:
+
+- `codegraph_explore` — survey an area / answer "how does X work" (start here)
+- `codegraph_search` — find a symbol by name
+- `codegraph_callers` / `codegraph_callees` — trace a function's call relationships
+- `codegraph_impact` — blast radius of changing a symbol (use before refactors)
+- `codegraph_node` — one symbol's details + full source
+- `codegraph_files` / `codegraph_status` — file structure / index health
+
+Setup on a new machine: install the CLI (`curl -fsSL https://raw.githubusercontent.com/colbymchenry/codegraph/main/install.sh | sh`), then `codegraph init` at the repo root. The `.codegraph/` index is gitignored. See ADR-0012.
+
+## Agent commands (slash commands)
+
+- `/new-feature <name>` — start a feature spec (D1).
+- `/new-adr` — record an architecture/technical decision (D8).
+- `/new-decision <slug>` — record a **product/business** decision (pricing, scope, policy). Not auto-committed.
+- `/handoff` — session-end ritual: update `STATE.md`, write a memory, append to the journal. Run before ending a working session.
+- `/journal` — open this week's journal (D7 Friday review).
+- `/ship` — walk the Definition of Done (D9).
 
 ## Standard commands (via justfile, once Phase 0 ships)
 
@@ -96,6 +122,10 @@ just new-module X   # scaffold a new backend module
 2. Read the top of `ISSUES.md` to see what is watching.
 3. If there is an active spec, read it. That is your next task.
 4. If there is no active spec, ask the user what to work on — do not pick something yourself.
+
+## What to do at session end
+
+Run `/handoff`: update `STATE.md`, capture any non-obvious in-flight context as a memory, and append a line to the week's journal. This is what lets the next session resume without re-deriving where things stand.
 
 ## What to do when asked to add a feature
 
