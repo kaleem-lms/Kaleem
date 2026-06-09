@@ -1,0 +1,12 @@
+[submodule "backend"]
+	path = backend
+	url = https://github.com/kaleem-lms/backend.git
+[submodule "dashboard"]
+	path = dashboard
+	url = https://github.com/kaleem-lms/dashboard.git
+[submodule "marketing"]
+	path = marketing
+	url = https://github.com/kaleem-lms/marketing.git
+[submodule "infra"]
+	path = infra
+	url = https://github.com/kaleem-lms/infra.git
