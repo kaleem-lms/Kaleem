@@ -23,7 +23,9 @@ Remaining Definition-of-Done items before closing Phase A:
 
 - Manual smoke test in browser (register → verify email → login → GET /me/;
   parent → add child → invite → accept).
-- Django admin walkthrough (create teacher → password-set email).
+- Admin actions in the dashboard (create teacher → password-set email).
+  Admin UX lives in the custom React dashboard, not Django admin — see
+  docs/adr/0013-custom-admin-dashboard.md. Django admin is internal-only.
 - Staging deploy.
 - Architecture doc `docs/architecture/identity.md`.
 - Weekly journal entry.
