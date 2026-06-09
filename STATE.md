@@ -13,11 +13,20 @@ last_green_ci: null
 
 docs/superpowers/specs/2026-06-08-identity-module.md
 
-## Phase A identity — DONE ✅ (DoD fully closed 2026-06-10)
+## Phase A identity — DoD all green except live staging email (in progress)
 
 All 8 plan steps implemented with TDD (78 tests; models.py 93% / services.py 96%
 coverage; ruff + mypy + import-linter green, re-verified 2026-06-09). Spec + plan
-marked shipped/done. Staging deploy is live and green.
+marked shipped/done. Staging deploys green; backend, profiles, and the full flow are
+verified locally and the backend is live on staging.
+
+**Open:** a live smoke test against staging surfaced `POST /api/identity/register/`
+→ **500** because production had no working email config (SMTP defaulted to
+localhost:25, no host read from env). Fixed in code — env-driven SMTP settings +
+AWS SES (ADR-0016, backend@a564623, infra@c0db26d, on `develop`). Remaining to close:
+(1) ops sets up AWS SES (verify `kaleem.academy` domain, leave the sandbox, create SMTP
+creds) and adds `DJANGO_EMAIL_*` to the VPS `.env.production`; (2) deploy `develop →
+master`; (3) re-run the live staging smoke test (register → verify → login).
 
 Definition-of-Done:
 
