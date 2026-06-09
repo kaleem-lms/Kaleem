@@ -4,7 +4,15 @@ Spotted-a-problem backlog. Write it here in 15 seconds, keep going (D10).
 
 ## Now (next 1-2 weeks)
 
-(empty)
+- Frontend deploy gap: the pipeline is backend-only. `deploy-staging` builds/ships only
+  the backend image; `infra/docker-compose.production.yml` has no service for the React
+  dashboard SPA or the Astro marketing site; neither has a Dockerfile, and `marketing`
+  has no CI job. dashboard CI only lints + builds (never deploys). Needs a short spec/ADR
+  before Phase B ships UI: how to build + serve the SPA and marketing site behind Traefik
+  (static build → object storage/CDN or an nginx container), with host routes + env
+  injection. (No identity UI exists yet, so nothing is missing in production today.)
+- Two throwaway smoke-test users linger in the staging DB (`stg.smoke@example.com`,
+  `ses.smoke@example.com`). Clear via Django admin or on the next staging DB reset.
 
 ## Soon (next month or two)
 
