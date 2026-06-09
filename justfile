@@ -13,7 +13,7 @@ setup:
     @echo "Waiting for Postgres..."
     sleep 3
     cd backend && pip install -r requirements/local.txt
-    cd backend && python manage.py migrate
+    cd backend && DJANGO_SETTINGS_MODULE=config.settings.local python manage.py migrate
     cd dashboard && pnpm install
     cd marketing && pnpm install
     @echo "Setup complete. Run 'just dev' to start."
@@ -63,15 +63,15 @@ check-boundaries:
 
 # Run Django migrations
 migrate:
-    cd backend && python manage.py migrate
+    cd backend && DJANGO_SETTINGS_MODULE=config.settings.local python manage.py migrate
 
 # Open Django shell
 shell:
-    cd backend && python manage.py shell_plus 2>/dev/null || cd backend && python manage.py shell
+    cd backend && DJANGO_SETTINGS_MODULE=config.settings.local python manage.py shell_plus 2>/dev/null || cd backend && DJANGO_SETTINGS_MODULE=config.settings.local python manage.py shell
 
 # Reset DB and load seed data
 seed:
-    cd backend && python manage.py seed basic
+    cd backend && DJANGO_SETTINGS_MODULE=config.settings.local python manage.py seed basic
 
 # ─── Infrastructure ───────────────────────────────────────────
 

@@ -53,7 +53,7 @@ docker compose -f docker-compose.production.yml up -d traefik postgres redis
 ssh deploy@<staging-ip>
 cat /opt/kaleem/.active-color
 docker ps --format 'table {{.Names}}\t{{.Status}}'
-curl http://localhost:8000/health/ready
+curl http://localhost:8000/health/ready/
 ```
 
 ## Secrets (stored in GitHub repo settings)

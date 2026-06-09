@@ -26,7 +26,7 @@
    ```
 
 4. Verify:
-   - Backend API: http://localhost:8000/health/live
+   - Backend API: http://localhost:8000/health/live/
    - Django admin: http://localhost:8000/admin/
    - Dashboard: http://localhost:5173
    - Marketing: http://localhost:4321
