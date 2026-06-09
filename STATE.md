@@ -13,20 +13,24 @@ last_green_ci: null
 
 docs/superpowers/specs/2026-06-08-identity-module.md
 
-## Phase A identity — DoD all green except live staging email (in progress)
+## Phase A identity — DONE ✅ (DoD fully closed 2026-06-10)
 
 All 8 plan steps implemented with TDD (78 tests; models.py 93% / services.py 96%
-coverage; ruff + mypy + import-linter green, re-verified 2026-06-09). Spec + plan
-marked shipped/done. Staging deploys green; backend, profiles, and the full flow are
-verified locally and the backend is live on staging.
+coverage; ruff + mypy + import-linter green). Spec + plan shipped/done. Backend is
+live on staging and the previously-broken register flow now works.
 
-**Open:** a live smoke test against staging surfaced `POST /api/identity/register/`
-→ **500** because production had no working email config (SMTP defaulted to
-localhost:25, no host read from env). Fixed in code — env-driven SMTP settings +
-AWS SES (ADR-0016, backend@a564623, infra@c0db26d, on `develop`). Remaining to close:
-(1) ops sets up AWS SES (verify `kaleem.academy` domain, leave the sandbox, create SMTP
-creds) and adds `DJANGO_EMAIL_*` to the VPS `.env.production`; (2) deploy `develop →
-master`; (3) re-run the live staging smoke test (register → verify → login).
+**Staging is green and functional.** A live smoke test first found
+`POST /api/identity/register/` → 500 (production had no email config: SMTP defaulted
+to localhost:25). Fixed with env-driven SMTP + AWS SES (ADR-0016); deployed via #39.
+Live re-test on `staging.kaleem.academy`: register → **201** (SES sends, out of
+sandbox), login-before-verify → **400 not verified**, unauth mutation → **403**. The
+full verified flow (verify→login→/me→child→invite→accept) is proven locally on the
+identical code; on staging the verification link now lands in a real inbox via SES, so
+the final click-through is a human check (register with a real address).
+
+Note: two throwaway test users exist in the staging DB (`stg.smoke@example.com`,
+`ses.smoke@example.com`) from smoke testing — clear them via admin or on the next DB
+reset.
 
 Definition-of-Done:
 
@@ -54,6 +58,8 @@ Definition-of-Done:
   Getting here also required pushing previously-local-only backend/infra submodule
   commits to their remotes and fixing a ruff pre-commit/CI version skew — see git
   history (backend #1/#2, infra #1, meta #32–#35).
+- ✅ Live staging smoke test (register 201 / login-before-verify 400 / unauth 403) after
+  wiring production email (AWS SES SMTP, ADR-0016; backend #3, infra #2, meta #37/#39).
 
 ## Next
 
