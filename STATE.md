@@ -13,14 +13,13 @@ last_green_ci: null
 
 docs/superpowers/specs/2026-06-08-identity-module.md
 
-## In progress
+## Phase A identity — DONE ✅ (DoD fully closed 2026-06-10)
 
-Phase A identity module — code complete and Definition-of-Done nearly closed. All 8
-plan steps implemented with TDD (78 tests; models.py 93% / services.py 96% coverage;
-ruff + mypy + import-linter green, re-verified 2026-06-09). Spec + plan marked
-shipped/done.
+All 8 plan steps implemented with TDD (78 tests; models.py 93% / services.py 96%
+coverage; ruff + mypy + import-linter green, re-verified 2026-06-09). Spec + plan
+marked shipped/done. Staging deploy is live and green.
 
-Definition-of-Done — closed 2026-06-09:
+Definition-of-Done:
 
 - ✅ Golden-path smoke test over real HTTP against the live dev stack (real CSRF,
   sessions, and allauth verification via the console email backend): register parent →
@@ -36,22 +35,18 @@ Definition-of-Done — closed 2026-06-09:
 - ✅ Architecture doc `docs/architecture/identity.md`.
 - ✅ Weekly journal entry `docs/superpowers/journal/2026-W24.md`.
 
-Remaining — the only open DoD item:
-
-- ⏳ **Staging deploy.** The pipeline now works end-to-end: `develop → master` (#33)
-  merged green, the `deploy-staging` job built + pushed the backend image to GHCR,
-  SSH'd to the VPS, and started the container. It fails only at `migrate`:
-  `InconsistentMigrationHistory: account.0001_initial is applied before its
-  dependency identity.0001_initial`. The staging Postgres carries stale migration
-  history from an earlier schema (a fresh DB orders identity → account correctly, as
-  proven locally). **Fix (owner: user):** on the VPS, drop + recreate the `kaleem`
-  database, then re-run `bash scripts/ship.sh <sha>` (or re-run the GH Actions deploy
-  job). Once staging is green, Phase A DoD is fully closed.
+- ✅ Staging deploy. `develop → master` (#33) deployed green via the `deploy-staging`
+  job: backend image built + pushed to GHCR, SSH to VPS, blue-green via
+  `infra/scripts/ship.sh`. First attempt failed at `migrate` on stale staging-DB
+  migration history (`account.0001` before `identity.0001`); resolved by recreating the
+  staging `kaleem` database (pre-launch, no data) and re-running the deploy on
+  2026-06-10. VPS-internal readiness check passed; `Deploy complete: blue → green`.
 
   Getting here also required pushing previously-local-only backend/infra submodule
-  commits to their remotes and fixing a ruff pre-commit/CI version skew — see ISSUES
-  and the git history.
+  commits to their remotes and fixing a ruff pre-commit/CI version skew — see git
+  history (backend #1/#2, infra #1, meta #32–#35).
 
 ## Next
 
-Finish the staging deploy, then begin Phase B (per roadmap).
+Phase B (per roadmap). Re-read the roadmap spec to confirm the next module before
+starting; write its spec (D1) before any code.
