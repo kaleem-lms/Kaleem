@@ -4,7 +4,12 @@ Spotted-a-problem backlog. Write it here in 15 seconds, keep going (D10).
 
 ## Now (next 1-2 weeks)
 
-(empty)
+- Staging DB has inconsistent migration history (`account.0001` applied before its
+  dependency `identity.0001`), which blocks the `migrate` step of every deploy. Reset
+  the staging `kaleem` database (pre-launch, no real data) and re-deploy. Long-term:
+  the production/staging deploy assumes a fresh DB orders `identity` (the custom
+  `AUTH_USER_MODEL`) before `account` (allauth) — any environment seeded before
+  identity existed will hit this.
 
 ## Soon (next month or two)
 
