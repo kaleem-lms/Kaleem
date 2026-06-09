@@ -13,18 +13,39 @@ setup:
     @echo "Waiting for Postgres..."
     sleep 3
     cd backend && pip install -r requirements/local.txt
-    cd backend && python manage.py migrate
+    cd backend && DJANGO_SETTINGS_MODULE=config.settings.local DJANGO_READ_DOT_ENV_FILE=True python manage.py migrate
     cd dashboard && pnpm install
     cd marketing && pnpm install
     @echo "Setup complete. Run 'just dev' to start."
 
 # ─── Development ──────────────────────────────────────────────
 
-# Bring up everything locally
+# Bring up everything locally (backend in Docker + dashboard & marketing)
 dev:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    # Backend runs detached; frontends run in the foreground. Ctrl-C stops the
+    # frontends — the backend stack keeps running (use `just stop` to halt it).
+    docker compose -f docker-compose.local.yml up -d
+    echo "Backend up: Django :8000 · Mailpit :8025. Starting frontends (Ctrl-C to stop)…"
+    trap 'kill 0' EXIT
+    (cd dashboard && pnpm dev) &
+    (cd marketing && pnpm dev) &
+    wait
+
+# Bring up only the backend stack (Docker), detached
+dev-backend:
     docker compose -f docker-compose.local.yml up -d
 
-# Stop all local services
+# Run only the dashboard dev server (Vite → http://localhost:5173)
+dashboard:
+    cd dashboard && pnpm dev
+
+# Run only the marketing dev server (Astro → http://localhost:4321)
+marketing:
+    cd marketing && pnpm dev
+
+# Stop the backend stack
 stop:
     docker compose -f docker-compose.local.yml down
 
@@ -63,15 +84,15 @@ check-boundaries:
 
 # Run Django migrations
 migrate:
-    cd backend && python manage.py migrate
+    cd backend && DJANGO_SETTINGS_MODULE=config.settings.local DJANGO_READ_DOT_ENV_FILE=True python manage.py migrate
 
 # Open Django shell
 shell:
-    cd backend && python manage.py shell_plus 2>/dev/null || cd backend && python manage.py shell
+    cd backend && DJANGO_SETTINGS_MODULE=config.settings.local DJANGO_READ_DOT_ENV_FILE=True python manage.py shell_plus 2>/dev/null || cd backend && DJANGO_SETTINGS_MODULE=config.settings.local DJANGO_READ_DOT_ENV_FILE=True python manage.py shell
 
 # Reset DB and load seed data
 seed:
-    cd backend && python manage.py seed basic
+    cd backend && DJANGO_SETTINGS_MODULE=config.settings.local DJANGO_READ_DOT_ENV_FILE=True python manage.py seed basic
 
 # ─── Infrastructure ───────────────────────────────────────────
 

@@ -40,6 +40,20 @@ See `STATE.md` for the current phase and active spec. At the time of this file's
 10. **D10 No refactoring sprees.** Spotted a problem while working on something else? Add it to `ISSUES.md` in 15 seconds and keep going. Do not "clean up while you're here".
 11. **D11 No heroes.** Sustainable pace. No 3-day marathons. Energy check in the weekly journal; if ≤ 2/5 for two weeks, stop and re-plan.
 
+## Git workflow (git-flow) — non-negotiable
+
+**Every repo uses `feat/<name>` → `dev` → PR → `master`.** See ADR-0014.
+
+- Branch `feat/<name>` (or `fix/…`) off `dev`, work there, open a PR into `dev`.
+  After review + green CI, `dev` reaches the trunk via its own PR.
+- **Never commit directly to `dev` or the trunk.** Everything lands through a PR.
+  No direct pushes. No `--no-verify` (D5).
+- **The meta repo is not a working repo.** Do not do feature/code work there. The
+  only things that belong in the meta repo are (1) docs — `docs/**`, ADRs, specs,
+  `STATE.md`, `ISSUES.md`, `CLAUDE.md` — and (2) submodule pointer bumps. Both still
+  go through the `feat → dev → PR → master` flow; no direct commits to the meta trunk.
+- All real feature code lives in the submodules, each with its own git-flow.
+
 ## The "don't do this" list
 
 These are the specific patterns that produced the current messy MVP. Do not repeat any of them in the rebuild.
@@ -58,6 +72,7 @@ These are the specific patterns that produced the current messy MVP. Do not repe
 12. **Don't add a feature without a spec.** D1. Always.
 13. **Don't refactor while implementing another feature.** D10. `ISSUES.md` and keep going.
 14. **Don't code past bedtime.** D11. Sleep fixes more bugs than caffeine.
+15. **Don't commit directly to `dev` or the trunk, and don't do feature work in the meta repo.** Git-flow `feat → dev → PR → master` in every repo; meta is docs + pointer bumps only. See ADR-0014.
 
 ## Where things live
 

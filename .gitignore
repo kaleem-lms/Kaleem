@@ -32,3 +32,5 @@ staticfiles/
 
 # CodeGraph (local code knowledge graph index)
 .codegraph/
+# Playwright MCP scratch output
+.playwright-mcp/

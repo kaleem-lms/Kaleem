@@ -23,7 +23,7 @@ jobs:
           token: ${{ secrets.SUBMODULE_TOKEN }}
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: "3.13"
       - name: Install dependencies
         run: pip install -r requirements/local.txt
       - name: Ruff check
@@ -37,7 +37,7 @@ jobs:
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: postgres:16-alpine
+        image: postgres:18-alpine
         env:
           POSTGRES_DB: kaleem_test
           POSTGRES_USER: kaleem
@@ -50,7 +50,7 @@ jobs:
           --health-timeout 5s
           --health-retries 5
       redis:
-        image: redis:7-alpine
+        image: redis:8-alpine
         ports:
           - 6379:6379
         options: >-
@@ -72,7 +72,7 @@ jobs:
           token: ${{ secrets.SUBMODULE_TOKEN }}
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: "3.13"
       - name: Install dependencies
         run: pip install -r requirements/local.txt
       - name: Run migrations
