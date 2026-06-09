@@ -2,9 +2,9 @@
 name: identity-module
 phase: A
 modules: [identity]
-status: approved
+status: shipped
 created: 2026-06-08
-closed: null
+closed: 2026-06-09
 ---
 
 ## Goal
