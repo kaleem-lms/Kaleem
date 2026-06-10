@@ -171,6 +171,10 @@ jobs:
           source: "infra/docker-compose.production.yml,infra/scripts/ship.sh,infra/traefik/traefik.yml"
           target: /opt/kaleem
           strip_components: 1
+          # /opt/kaleem already holds hand-provisioned copies; replace them with
+          # the repo version (default is false, which makes tar refuse to extract
+          # over existing files: "Cannot open: File exists").
+          overwrite: true
 
       - name: Deploy to staging via SSH
         uses: appleboy/ssh-action@v1.2.2
