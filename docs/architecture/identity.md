@@ -50,13 +50,18 @@ Errors are typed (`platform.exceptions.ValidationError` / `NotFoundError`) — n
 
 - Session cookies + real CSRF, same-origin. No JWT. allauth handles email verification
   (mandatory) and password reset; landing pages live under `/accounts/`.
-- Endpoints under `/api/identity/`: `register/`, `login/`, `logout/`, `me/` (GET+PATCH),
-  `me/student-profile/`, `children/`, `children/<id>/set-password/`, `invites/`,
-  `invites/accept/`.
+- URL-path versioned under `/api/v1/` (ADR-0017). Endpoints: `register/`,
+  `resend-verification/`, `login/`, `logout/`, `me/` (GET+PATCH), `me/student-profile/`,
+  `children/`, `children/<id>/set-password/`, `invites/`, `invites/accept/`. Browsable
+  docs at `/api/v1/docs/` (staff-only off local dev).
 - Login is refused (400) until the email is verified. Authenticated mutations require a
   CSRF token (403 without). Anonymous `register`/`login` are not CSRF-checked — standard
   DRF `SessionAuthentication` behaviour (CSRF is enforced only on session-authenticated
   requests).
+- **Resend verification** (`POST resend-verification/`, `{email}`): re-sends the
+  confirmation link if an unverified account exists. Always returns 200 (never reveals
+  whether an email is registered) and is throttled per-email (`EmailScopedThrottle`,
+  5/hour) so it can't be used to email-bomb a recipient.
 
 ## v1 decisions worth knowing
 
