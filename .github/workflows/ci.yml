@@ -157,6 +157,21 @@ jobs:
           docker push ghcr.io/kaleem-lms/backend:${{ env.SHORT_SHA }}
           docker push ghcr.io/kaleem-lms/backend:latest
 
+      # Push the current infra config to the VPS BEFORE running ship.sh.
+      # Without this, compose-topology / ship.sh changes (e.g. new services)
+      # never reach /opt/kaleem — only the rebuilt image is delivered.
+      # .env.production is intentionally NOT synced: it holds secrets and is
+      # managed on the VPS.
+      - name: Sync infra config to staging
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.STAGING_HOST }}
+          username: ${{ secrets.STAGING_USER }}
+          key: ${{ secrets.STAGING_SSH_KEY }}
+          source: "infra/docker-compose.production.yml,infra/scripts/ship.sh,infra/traefik/traefik.yml"
+          target: /opt/kaleem
+          strip_components: 1
+
       - name: Deploy to staging via SSH
         uses: appleboy/ssh-action@v1.2.2
         with:
