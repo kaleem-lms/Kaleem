@@ -91,6 +91,25 @@ services:
       redis:
         condition: service_healthy
 
+  flower:
+    build:
+      context: ./backend
+      target: dev
+    command: celery -A config.celery_app flower --port=5555
+    volumes:
+      - ./backend:/app
+    ports:
+      - "5555:5555"
+    env_file:
+      - ./backend/.env
+    environment:
+      - DJANGO_SETTINGS_MODULE=config.settings.local
+      - DJANGO_READ_DOT_ENV_FILE=True
+      - CELERY_BROKER_URL=redis://redis:6379/0
+    depends_on:
+      redis:
+        condition: service_healthy
+
   mailpit:
     image: axllent/mailpit:latest
     ports:
