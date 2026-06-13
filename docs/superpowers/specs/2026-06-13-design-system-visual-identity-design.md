@@ -40,9 +40,8 @@ the dashboard, marketing, and all future submodules. Concretely:
 - **localization** — locale drives both language **and** text direction. Full RTL UI
   mirroring is supported from day one (see §4). Dates/numbers localize per locale.
 
-This standard is broad enough that it should be ratified as its own ADR so it is binding
-across the project, not just this spec. (Follow-up: `docs/adr/` entry — "a11y + i18n +
-localization are a project-wide baseline.")
+This standard is ratified project-wide in **ADR-0020** (a11y + i18n + localization are a
+repo-wide baseline), so it binds every repo and submodule, not just this spec.
 
 ## User flow
 
