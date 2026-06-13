@@ -34,3 +34,6 @@ staticfiles/
 .codegraph/
 # Playwright MCP scratch output
 .playwright-mcp/
+
+# Brainstorming visual-companion scratch output
+.superpowers/

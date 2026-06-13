@@ -1,8 +1,8 @@
 ---
 current_phase: "A"
-active_spec: "2026-06-08-identity-module"
-active_branch: "main"
-last_green_ci: null
+active_spec: "2026-06-13-design-system-visual-identity"
+active_branch: "feat/design-system-integration"
+last_green_ci: "frontend-delivery-pipeline deploy-staging green 2026-06-13 (design-system promotion to master pending TOKENS_REPO_TOKEN on meta repo)"
 ---
 
 # kaleem Project State
@@ -61,7 +61,67 @@ Definition-of-Done:
 - ✅ Live staging smoke test (register 201 / login-before-verify 400 / unauth 403) after
   wiring production email (AWS SES SMTP, ADR-0016; backend #3, infra #2, meta #37/#39).
 
-## Next
+## Frontend delivery pipeline — SHIPPED to staging ✅ (2026-06-13)
 
-Phase B (per roadmap). Re-read the roadmap spec to confirm the next module before
-starting; write its spec (D1) before any code.
+The dashboard and marketing site now deploy end-to-end (ADR-0019). Both are nginx
+images built + pushed to GHCR by CI and served as Compose singletons behind Traefik:
+
+- Dashboard (the app): `app-staging.kaleem.academy`
+- API (Django): `api-staging.kaleem.academy` (moved off `staging.`)
+- Marketing: `staging.kaleem.academy`
+
+Same-site session auth across `app-`/`api-` via `Domain=.kaleem.academy; SameSite=Lax`
+cookies + CORS allow-list. Deploy verified green: all routes 200 over HTTPS (certs
+issued), DB-backed `/health/ready/` ok, immutable asset caching, CORS preflight echoes
+the dashboard origin with credentials and rejects others.
+
+Process change: every feature now ships its frontend slice (spec template has a required
+`## Frontend` section; D9 DoD includes browser-verified frontend).
+
+**Cross-subdomain cookie gate is BLOCKED on the identity UI not existing yet.** The
+dashboard is still the Phase-0 scaffold — only route is `/` (a placeholder); there is no
+login/register/`/me` UI (`features/identity/` is an empty stub). So `/me` just hits the
+SPA fallback and renders the placeholder. The Phase A identity *backend* shipped without
+any frontend (it predates the every-feature-ships-its-frontend rule). The register→login
+click-through can't happen until the identity frontend slice is built.
+
+Gotchas hit + fixed: the blue-green readiness probe curls `/health/ready/` on localhost,
+so `ALLOWED_HOSTS` must include localhost — now hardcoded in `production.py` so it can't
+break on operator env. The VPS `.env.production` needed `APP_DOMAIN` renamed to
+`API_DOMAIN` (not synced by CI — managed on the box).
+
+## Design system + visual identity — SHIPPED (code), promotion pending (2026-06-13)
+
+Brainstormed, specced (`docs/superpowers/specs/2026-06-13-design-system-visual-identity-design.md`),
+planned, and built via subagent-driven execution. **Serene Scholar** brand (emerald + gold
+on cream), Fraunces + Inter + IBM Plex Sans Arabic, light+dark, full RTL. See
+`docs/architecture/design-system.md` and ADR-0020 (a11y/i18n/l10n baseline).
+
+- **`@kaleem/tokens`** repo published, tagged **v0.1.1** (added here as the 5th submodule
+  `tokens/`). CSS vars on shadcn's contract + Tailwind v4 `@theme` preset.
+- **Dashboard** (merged to `main` @ `afce34d`): consumes tokens; `src/ui/` shadcn primitives
+  (Button, Input, Label, Field/FormError, Card, Alert, Spinner) + theme/locale toggles +
+  auth shell; ThemeProvider (light/dark, no-flash); i18n + DirectionProvider (full RTL);
+  lucide icons; `/design-preview` route; a11y + AA-contrast (both themes) + RTL gate;
+  **23 tests green**. Browser-verified light/dark/RTL.
+- **Marketing** (merged to `main` @ `481fe91`): consumes the same tokens (cross-build-system
+  proven). Branded hero only.
+- **Fixed a latent bug:** `index.html` pointed at the dead vanilla `main.ts` (the React app
+  was never built/deployed — staging was serving the Vite counter demo). Now `main.tsx`.
+- **Animations** were considered and **dropped** (user decision) — keeps the calm brand.
+
+**Blocked on one user action:** the meta-repo CI builds the dashboard/marketing images and
+must install the private `@kaleem/tokens`. Add secret **`TOKENS_REPO_TOKEN`** (read access to
+`kaleem-lms/tokens`) to the **meta repo `kaleem-lms/Kaleem`** (or org-level). `ci.yml` +
+Dockerfiles are already wired for it (git insteadOf on runners; BuildKit secret in image
+builds). Once set, promote `develop → master` to build/push images and deploy to staging.
+
+## Next (immediate)
+
+1. Add `TOKENS_REPO_TOKEN` to the meta repo, then promote `develop → master` (deploys the
+   design system to staging; verify `app-staging.kaleem.academy` serves the real React app).
+2. **Build the identity frontend slice** (login, register, verify-pending, `/me` + logout)
+   on this design system, against the Phase A API (`/api/v1/identity/{register,login,logout,
+   me,resend-verification}/`). Proves the cross-subdomain session cookie end-to-end and
+   properly closes Phase A.
+3. Then Phase B (per roadmap) — features include their frontend slice by default.

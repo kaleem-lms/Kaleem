@@ -10,3 +10,6 @@
 [submodule "infra"]
 	path = infra
 	url = https://github.com/kaleem-lms/infra.git
+[submodule "tokens"]
+	path = tokens
+	url = https://github.com/kaleem-lms/tokens.git
