@@ -2,9 +2,9 @@
 name: design-system-visual-identity
 phase: A
 modules: [platform]
-status: draft
+status: shipped
 created: 2026-06-13
-closed: null
+closed: 2026-06-13
 ---
 
 ## Goal
