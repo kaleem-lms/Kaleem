@@ -124,10 +124,16 @@ git-dep node_modules path); `GHCR_PAT` needs `write:packages`.
 
 ## Next (immediate)
 
-1. Add `TOKENS_REPO_TOKEN` to the meta repo, then promote `develop → master` (deploys the
-   design system to staging; verify `app-staging.kaleem.academy` serves the real React app).
-2. **Build the identity frontend slice** (login, register, verify-pending, `/me` + logout)
-   on this design system, against the Phase A API (`/api/v1/identity/{register,login,logout,
-   me,resend-verification}/`). Proves the cross-subdomain session cookie end-to-end and
-   properly closes Phase A.
-3. Then Phase B (per roadmap) — features include their frontend slice by default.
+1. **Build the identity frontend slice** (login, register, verify-pending, `/me` + logout) —
+   the immediate next task. Build it on the now-live design system (`@/ui` primitives +
+   `AuthLayout`; the `/design-preview` route is the throwaway template to replace), against
+   the Phase A API (`/api/v1/identity/{register,login,logout,me,resend-verification}/`, via
+   `src/lib/api.ts` which is already CSRF/credentials-wired). This is the spec/D1 step that
+   was about to start when the session handed off — needs its own spec before code.
+   **Done = the register→verify→login→/me click-through works on `app-staging` against
+   `api-staging`, proving the cross-subdomain session cookie end-to-end and closing Phase A.**
+2. Then Phase B (per roadmap) — features include their frontend slice by default.
+
+Note: design system is shipped and live on staging (see section above); the dashboard now
+serves the real React app. `features/identity/` is still an empty stub. Start the identity
+frontend slice with a spec (D1).
