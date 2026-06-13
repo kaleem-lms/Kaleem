@@ -1,8 +1,8 @@
 ---
 current_phase: "A"
-active_spec: "2026-06-08-identity-module"
-active_branch: "main"
-last_green_ci: null
+active_spec: "2026-06-13-frontend-delivery-pipeline"
+active_branch: "develop"
+last_green_ci: "frontend-delivery-pipeline deploy-staging green 2026-06-13"
 ---
 
 # kaleem Project State
@@ -61,7 +61,34 @@ Definition-of-Done:
 - ✅ Live staging smoke test (register 201 / login-before-verify 400 / unauth 403) after
   wiring production email (AWS SES SMTP, ADR-0016; backend #3, infra #2, meta #37/#39).
 
+## Frontend delivery pipeline — SHIPPED to staging ✅ (2026-06-13)
+
+The dashboard and marketing site now deploy end-to-end (ADR-0019). Both are nginx
+images built + pushed to GHCR by CI and served as Compose singletons behind Traefik:
+
+- Dashboard (the app): `app-staging.kaleem.academy`
+- API (Django): `api-staging.kaleem.academy` (moved off `staging.`)
+- Marketing: `staging.kaleem.academy`
+
+Same-site session auth across `app-`/`api-` via `Domain=.kaleem.academy; SameSite=Lax`
+cookies + CORS allow-list. Deploy verified green: all routes 200 over HTTPS (certs
+issued), DB-backed `/health/ready/` ok, immutable asset caching, CORS preflight echoes
+the dashboard origin with credentials and rejects others.
+
+Process change: every feature now ships its frontend slice (spec template has a required
+`## Frontend` section; D9 DoD includes browser-verified frontend).
+
+**Remaining human gate:** the in-browser register→verify→login→`/me` click-through
+(SES email to a real inbox) to confirm the session/CSRF cookies carry
+`Domain=.kaleem.academy` cross-subdomain. Config is correct; this is the final proof.
+
+Gotchas hit + fixed: the blue-green readiness probe curls `/health/ready/` on localhost,
+so `ALLOWED_HOSTS` must include localhost — now hardcoded in `production.py` so it can't
+break on operator env. The VPS `.env.production` needed `APP_DOMAIN` renamed to
+`API_DOMAIN` (not synced by CI — managed on the box).
+
 ## Next
 
 Phase B (per roadmap). Re-read the roadmap spec to confirm the next module before
-starting; write its spec (D1) before any code.
+starting; write its spec (D1) before any code. Phase B features now include their
+frontend slice by default.
