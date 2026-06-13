@@ -1,8 +1,8 @@
 ---
 current_phase: "A"
-active_spec: "2026-06-13-frontend-delivery-pipeline"
-active_branch: "develop"
-last_green_ci: "frontend-delivery-pipeline deploy-staging green 2026-06-13"
+active_spec: "2026-06-13-design-system-visual-identity"
+active_branch: "feat/design-system-integration"
+last_green_ci: "frontend-delivery-pipeline deploy-staging green 2026-06-13 (design-system promotion to master pending TOKENS_REPO_TOKEN on meta repo)"
 ---
 
 # kaleem Project State
@@ -90,18 +90,38 @@ so `ALLOWED_HOSTS` must include localhost — now hardcoded in `production.py` s
 break on operator env. The VPS `.env.production` needed `APP_DOMAIN` renamed to
 `API_DOMAIN` (not synced by CI — managed on the box).
 
+## Design system + visual identity — SHIPPED (code), promotion pending (2026-06-13)
+
+Brainstormed, specced (`docs/superpowers/specs/2026-06-13-design-system-visual-identity-design.md`),
+planned, and built via subagent-driven execution. **Serene Scholar** brand (emerald + gold
+on cream), Fraunces + Inter + IBM Plex Sans Arabic, light+dark, full RTL. See
+`docs/architecture/design-system.md` and ADR-0020 (a11y/i18n/l10n baseline).
+
+- **`@kaleem/tokens`** repo published, tagged **v0.1.1** (added here as the 5th submodule
+  `tokens/`). CSS vars on shadcn's contract + Tailwind v4 `@theme` preset.
+- **Dashboard** (merged to `main` @ `afce34d`): consumes tokens; `src/ui/` shadcn primitives
+  (Button, Input, Label, Field/FormError, Card, Alert, Spinner) + theme/locale toggles +
+  auth shell; ThemeProvider (light/dark, no-flash); i18n + DirectionProvider (full RTL);
+  lucide icons; `/design-preview` route; a11y + AA-contrast (both themes) + RTL gate;
+  **23 tests green**. Browser-verified light/dark/RTL.
+- **Marketing** (merged to `main` @ `481fe91`): consumes the same tokens (cross-build-system
+  proven). Branded hero only.
+- **Fixed a latent bug:** `index.html` pointed at the dead vanilla `main.ts` (the React app
+  was never built/deployed — staging was serving the Vite counter demo). Now `main.tsx`.
+- **Animations** were considered and **dropped** (user decision) — keeps the calm brand.
+
+**Blocked on one user action:** the meta-repo CI builds the dashboard/marketing images and
+must install the private `@kaleem/tokens`. Add secret **`TOKENS_REPO_TOKEN`** (read access to
+`kaleem-lms/tokens`) to the **meta repo `kaleem-lms/Kaleem`** (or org-level). `ci.yml` +
+Dockerfiles are already wired for it (git insteadOf on runners; BuildKit secret in image
+builds). Once set, promote `develop → master` to build/push images and deploy to staging.
+
 ## Next (immediate)
 
-1. **Brainstorm the design system + themes + frontend/marketing visual identity FIRST**
-   (user's explicit ask). This is the foundation before any dashboard UI: tokens
-   (color/type/spacing), theming (light/dark, RTL — Arabic content), shadcn setup, shared
-   `src/ui/` primitives, and how the dashboard and the Astro marketing site share a visual
-   language. Produce a spec (D1).
-2. **Then build the identity frontend slice** (login, register, verify-pending, `/me` +
-   logout) against the existing Phase A API (`/api/v1/identity/{register,login,logout,me,
-   resend-verification}/`). This proves the cross-subdomain session cookie end-to-end and
-   properly closes Phase A under the new rule.
-3. Then Phase B (per roadmap) — features now include their frontend slice by default.
-
-Note: a fresh session was requested here to shed context; start by reading this file,
-then run the design-system brainstorm.
+1. Add `TOKENS_REPO_TOKEN` to the meta repo, then promote `develop → master` (deploys the
+   design system to staging; verify `app-staging.kaleem.academy` serves the real React app).
+2. **Build the identity frontend slice** (login, register, verify-pending, `/me` + logout)
+   on this design system, against the Phase A API (`/api/v1/identity/{register,login,logout,
+   me,resend-verification}/`). Proves the cross-subdomain session cookie end-to-end and
+   properly closes Phase A.
+3. Then Phase B (per roadmap) — features include their frontend slice by default.
