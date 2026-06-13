@@ -23,6 +23,14 @@ New tables, new fields, new relationships. Include a mini ERD.
 
 New endpoints, changed endpoints, removed endpoints. Request/response shape.
 
+## Frontend
+
+Required for every feature. The dashboard slice that exposes this:
+- Routes (TanStack Router paths) and which role(s) see them.
+- Components / states (loading, empty, error, success).
+- API calls (which endpoints, via `src/lib/api.ts`).
+- "Done" = built, deployed to staging, and verified in the browser end-to-end.
+
 ## Module boundaries
 
 Which module owns this? What other modules does it call? Any new events?
