@@ -15,6 +15,8 @@
 
 ## Conventions for the whole plan
 
+- **Package manager: `pnpm`** (the dashboard & marketing repos use pnpm — `pnpm-lock.yaml`, and the Dockerfiles use pnpm; plain `npm install` crashes against the pnpm `node_modules` layout). Throughout this plan substitute: `pnpm add` for `npm i`, `pnpm add -D` for `npm i -D`, and `pnpm test` / `pnpm run build` / `pnpm dev` for the `npm` equivalents. `npx shadcn@latest …` still works (or `pnpm dlx shadcn@latest …`). Commit `pnpm-lock.yaml`, not `package-lock.json`.
+
 - **Git-flow:** the tokens, dashboard, and marketing repos are submodules → branch `feat/<name>` off `main`, PR into `main`. The meta repo → `docs/<name>` (or `feat/<name>`) off `develop`, PR into `develop`. Never commit to a trunk directly. No `--no-verify`.
 - **Token git URL** used by consumers: `git+ssh://git@github.com/kaleem-lms/tokens.git#<tag>`. Bump the tag when tokens change and re-`npm install`.
 - **Color values below are the starting direction.** Task D3 (contrast harness) is the gate — if any pairing fails AA in either theme, nudge the value and re-run. Do not ship a failing pairing.
@@ -111,7 +113,7 @@ Consumed by the dashboard (React) and marketing (Astro) via git URL.
 
 ## Consume
 
-    npm i "@kaleem/tokens@git+ssh://git@github.com/kaleem-lms/tokens.git#v0.1.0"
+    npm i "@kaleem/tokens@git+ssh://git@github.com/kaleem-lms/tokens.git#v0.1.1"
 
 In your Tailwind v4 entry CSS:
 
@@ -154,7 +156,7 @@ git add -A && git commit -m "chore: bootstrap @kaleem/tokens package"
   --secondary: #EFE9DB;
   --secondary-foreground: #16211D;
   --muted: #EFE9DB;
-  --muted-foreground: #6B7A74;
+  --muted-foreground: #62736C; /* AA 4.69:1 on #FAF7F0 (v0.1.1; was #6B7A74 ≈ 4.21:1, failed) */
   --accent: #C9A227;
   --accent-foreground: #3A2F00;
   --destructive: #C0432E;
@@ -369,7 +371,7 @@ git tag v0.1.0 && git push origin v0.1.0
 
 ```bash
 cd dashboard && git checkout main && git pull && git checkout -b feat/design-system
-npm i "@kaleem/tokens@git+ssh://git@github.com/kaleem-lms/tokens.git#v0.1.0"
+npm i "@kaleem/tokens@git+ssh://git@github.com/kaleem-lms/tokens.git#v0.1.1"
 npm i @fontsource-variable/fraunces @fontsource/inter @fontsource/ibm-plex-sans-arabic
 ```
 
@@ -790,7 +792,7 @@ shadcn writes to `@/ui` (per components.json alias) → `src/ui/button.tsx`.
 - [ ] **Step 2: Replace the variant block in `src/ui/button.tsx` with kaleem variants**
 
 ```tsx
-import { Slot } from "@radix-ui/react-slot";
+import { Slot } from "radix-ui"; // unified radix-ui v1 package; use Slot.Root
 import { type VariantProps, cva } from "class-variance-authority";
 import * as React from "react";
 import { cn } from "@/lib/cn";
@@ -1340,7 +1342,7 @@ describe("design-system a11y gate", () => {
     const pairs: Array<[string, string, string]> = [
       ["light primary btn", "#0E5C4F", "#FFFFFF"],
       ["light body text", "#16211D", "#FAF7F0"],
-      ["light muted text", "#6B7A74", "#FAF7F0"],
+      ["light muted text", "#62736C", "#FAF7F0"],
       ["light destructive", "#C0432E", "#FFFFFF"],
       ["dark body text", "#ECEFEC", "#0E1715"],
       ["dark primary btn", "#07302A", "#4FB89F"],
@@ -1404,7 +1406,7 @@ gh pr merge --merge --delete-branch
 
 ```bash
 cd marketing && git checkout main && git pull && git checkout -b feat/consume-tokens
-npm i "@kaleem/tokens@git+ssh://git@github.com/kaleem-lms/tokens.git#v0.1.0"
+npm i "@kaleem/tokens@git+ssh://git@github.com/kaleem-lms/tokens.git#v0.1.1"
 npm i @fontsource-variable/fraunces @fontsource/inter
 npm i -D @tailwindcss/vite tailwindcss
 ```
