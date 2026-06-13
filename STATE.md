@@ -1,8 +1,8 @@
 ---
 current_phase: "A"
 active_spec: "2026-06-13-design-system-visual-identity"
-active_branch: "feat/design-system-integration"
-last_green_ci: "frontend-delivery-pipeline deploy-staging green 2026-06-13 (design-system promotion to master pending TOKENS_REPO_TOKEN on meta repo)"
+active_branch: "develop"
+last_green_ci: "design-system deploy-staging green 2026-06-13 (run 27461511438; images built + pushed + VPS deploy)"
 ---
 
 # kaleem Project State
@@ -110,11 +110,17 @@ on cream), Fraunces + Inter + IBM Plex Sans Arabic, light+dark, full RTL. See
   was never built/deployed — staging was serving the Vite counter demo). Now `main.tsx`.
 - **Animations** were considered and **dropped** (user decision) — keeps the calm brand.
 
-**Blocked on one user action:** the meta-repo CI builds the dashboard/marketing images and
-must install the private `@kaleem/tokens`. Add secret **`TOKENS_REPO_TOKEN`** (read access to
-`kaleem-lms/tokens`) to the **meta repo `kaleem-lms/Kaleem`** (or org-level). `ci.yml` +
-Dockerfiles are already wired for it (git insteadOf on runners; BuildKit secret in image
-builds). Once set, promote `develop → master` to build/push images and deploy to staging.
+**DEPLOYED to staging ✅ (2026-06-13).** Promoted `develop → master` (PR #69); `deploy-staging`
+green (run 27461511438) — dashboard + marketing images built (BuildKit token secret + pnpm 10)
++ pushed to GHCR + deployed to the VPS. Verified live: `app-staging.kaleem.academy` now serves
+the **real React app** (`<div id="root">` + React bundle, not the old vanilla scaffold);
+`/design-preview` renders the Serene Scholar design system (light/dark/RTL); marketing brand
+applied; API health 200.
+
+CI plumbing that got us here (all merged): `TOKENS_REPO_TOKEN` (read `kaleem-lms/tokens`) on the
+meta repo for runner `git insteadOf` + Docker BuildKit secret; tokens submodule uses an https URL
+(SSH broke `actions/checkout`); **pnpm bumped 9 → 10** (pnpm 9 + Vite 8/rolldown choked on the
+git-dep node_modules path); `GHCR_PAT` needs `write:packages`.
 
 ## Next (immediate)
 
