@@ -65,7 +65,7 @@ In `config/settings/production.py`, after the existing `CSRF_TRUSTED_ORIGINS` li
 
 ```python
 # Cross-subdomain session: scope cookies to the parent domain so the dashboard
-# (app-…) and API (api-…) share them same-site. See ADR-00XX (frontend delivery).
+# (app-…) and API (api-…) share them same-site. See ADR-0019 (frontend delivery).
 SESSION_COOKIE_DOMAIN = env("DJANGO_COOKIE_DOMAIN", default=None)
 CSRF_COOKIE_DOMAIN = env("DJANGO_COOKIE_DOMAIN", default=None)
 SESSION_COOKIE_SAMESITE = "Lax"
@@ -536,7 +536,8 @@ git commit -m "ci: build + push dashboard and marketing images on deploy"
 ## Task 7: ADR + process changes (repo: meta, same branch)
 
 **Files:**
-- Create: `docs/adr/00XX-frontend-delivery-and-same-site-auth.md` (use `/new-adr`; renumber the ADR references in Task 1 and the spec to the real number)
+
+- Create: `docs/adr/0019-frontend-delivery-and-same-site-auth.md` (already created; ADR-0019)
 - Modify: `CLAUDE.md` (auth line)
 - Modify: `docs/templates/spec.md` (add Frontend section)
 
@@ -558,7 +559,7 @@ In `CLAUDE.md`, change the Auth line under "The architecture in 30 seconds" from
 to:
 
 ```
-- **Auth:** session cookies + real CSRF. Frontend (`app-`) and API (`api-`) are same-site subdomains sharing cookies via `Domain=.kaleem.academy; SameSite=Lax` (see ADR-00XX). No JWT, no CSRF-exempt hacks.
+- **Auth:** session cookies + real CSRF. Frontend (`app-`) and API (`api-`) are same-site subdomains sharing cookies via `Domain=.kaleem.academy; SameSite=Lax` (see ADR-0019). No JWT, no CSRF-exempt hacks.
 ```
 
 - [ ] **Step 3: Add a required Frontend section to the spec template**
@@ -663,4 +664,4 @@ Update `STATE.md` (note the pipeline shipped, staging frontends live) and remove
 - **Spec coverage:** domains (Tasks 4, 8) · same-site auth (Task 1 + ADR Task 7) · nginx-image serving (Tasks 2, 3) · compose/Traefik (Task 4) · ship.sh recreate (Task 5) · CI three images (Task 6) · DoD + template + ADR process change (Task 7) · end-to-end gate (Task 9). All spec sections map to a task.
 - **Out-of-scope honored:** no production wiring (staging only), no CDN/option-B, mailpit excluded (separate).
 - **Type/name consistency:** `VITE_API_URL` ends in `/api/v1/` everywhere (matches `src/lib/api.ts`); `DEPLOY_SHA` tag shared by all three images; env names `API_DOMAIN`/`DASHBOARD_DOMAIN`/`MARKETING_DOMAIN`/`DJANGO_COOKIE_DOMAIN` identical across infra, ci, and VPS steps.
-- **ADR number:** placeholder `00XX` — replace with the real number from `/new-adr` in Task 1's comment, the spec, and Task 7.
+- **ADR number:** ADR-0019 (`docs/adr/0019-frontend-delivery-and-same-site-auth.md`).

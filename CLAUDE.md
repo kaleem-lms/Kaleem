@@ -21,7 +21,7 @@ See `STATE.md` for the current phase and active spec. At the time of this file's
 - **Modular monolith** — Django project split into business modules (`identity`, `billing`, `scheduling`, `assessment`, `curriculum`, `content`, `messaging`, `notifications`, `engagement`, `analytics`) plus a cross-cutting `platform` module.
 - **Module boundaries are enforced** by `import-linter`. No module may import another module's models. All inter-module calls go through `<module>/services.py`. Breaking this fails CI.
 - **Identity:** single `User` from django-allauth, plus optional `StudentProfile` / `TeacherProfile` / `ParentProfile` tables as `OneToOne`. A person may have multiple profiles. `Admin` is `User.is_staff=True`.
-- **Auth:** session cookies + real CSRF, same-origin frontend/backend. No JWT, no CSRF-exempt hacks.
+- **Auth:** session cookies + real CSRF. Frontend (`app-`) and API (`api-`) are same-site subdomains sharing cookies via `Domain=.kaleem.academy; SameSite=Lax` (see ADR-0019). No JWT, no CSRF-exempt hacks.
 - **Frontend:** React 19 + TanStack Router + TanStack Query + Tailwind + shadcn (authenticated dashboard). Astro for the marketing site (separate submodule).
 - **Infra:** self-hosted VPSes, Docker Compose.
 - **Repo:** meta repo with git submodules (`backend`, `dashboard`, `marketing`, `infra`). `docs/` lives in the meta repo.
