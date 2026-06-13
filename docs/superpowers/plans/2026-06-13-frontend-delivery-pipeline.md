@@ -91,6 +91,54 @@ git commit -m "feat(settings): env-driven cookie domain + SameSite for cross-sub
 
 ---
 
+## Task 1b: Mailpit local email backend (repo: `backend`, same branch as Task 1)
+
+Dev verification emails currently print to the django container's stdout (console
+backend) while the `mailpit` service in `docker-compose.local.yml` (SMTP `:1025`,
+web UI `:8025`) sits idle. Point local email at mailpit so links are inspectable.
+
+**Files:**
+- Modify: `config/settings/local.py`
+
+- [ ] **Step 1: Replace the console backend with mailpit SMTP**
+
+In `config/settings/local.py`, replace:
+
+```python
+EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+```
+with:
+
+```python
+# Local email → the mailpit container (web UI at http://localhost:8025), so
+# allauth verification links are inspectable instead of buried in stdout.
+EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+EMAIL_HOST = env("DJANGO_EMAIL_HOST", default="mailpit")
+EMAIL_PORT = env.int("DJANGO_EMAIL_PORT", default=1025)
+EMAIL_USE_TLS = False
+```
+
+(`env` is already imported in `local.py` via `from .base import *`.)
+
+- [ ] **Step 2: Verify end-to-end against mailpit (verification)**
+
+Run (from repo root, with the local stack up):
+```bash
+docker compose -f docker-compose.local.yml up -d mailpit django
+docker compose -f docker-compose.local.yml exec django python -c "from django.core.mail import send_mail; send_mail('ping','body','noreply@kaleem.academy',['dev@example.com'])"
+curl -s http://localhost:8025/api/v1/messages | grep -o '"total":[0-9]*'
+```
+Expected: `"total":1` (or higher) — the message landed in mailpit, not stdout.
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add config/settings/local.py
+git commit -m "feat(dev): send local email to mailpit instead of console"
+```
+
+---
+
 ## Task 2: Dashboard — Dockerfile + nginx (repo: `dashboard`)
 
 **Files:**
