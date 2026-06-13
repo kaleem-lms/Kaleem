@@ -4,15 +4,16 @@ Spotted-a-problem backlog. Write it here in 15 seconds, keep going (D10).
 
 ## Now (next 1-2 weeks)
 
-- Frontend deploy gap: the pipeline is backend-only. `deploy-staging` builds/ships only
-  the backend image; `infra/docker-compose.production.yml` has no service for the React
-  dashboard SPA or the Astro marketing site; neither has a Dockerfile, and `marketing`
-  has no CI job. dashboard CI only lints + builds (never deploys). Needs a short spec/ADR
-  before Phase B ships UI: how to build + serve the SPA and marketing site behind Traefik
-  (static build → object storage/CDN or an nginx container), with host routes + env
-  injection. (No identity UI exists yet, so nothing is missing in production today.)
+- ~~Frontend deploy gap~~ — RESOLVED 2026-06-13 (ADR-0019, frontend-delivery-pipeline).
+  Dashboard + marketing now build to GHCR nginx images and deploy behind Traefik on
+  `app-staging`/`staging`; backend moved to `api-staging`. Deployed green to staging.
 - Two throwaway smoke-test users linger in the staging DB (`stg.smoke@example.com`,
   `ses.smoke@example.com`). Clear via Django admin or on the next staging DB reset.
+- Production env not wired yet (staging only). Prod hosts (`app.`/`api.`/apex+`www`),
+  `www` redirect, and a prod VPS are deferred per ADR-0019 — needed before public launch.
+- Submodule git-flow vs ADR-0014: submodules have no `dev` branch (they merge `feat→main`);
+  only meta has `develop`. Either grow a `dev` layer in submodules or amend ADR-0014 to
+  match the two-tier reality. Needs an ADR.
 
 ## Soon (next month or two)
 
@@ -21,11 +22,9 @@ Spotted-a-problem backlog. Write it here in 15 seconds, keep going (D10).
   before `identity` existed hits `InconsistentMigrationHistory` and the deploy aborts.
   Bit us once on staging (2026-06-10, fixed by recreating the DB). Production's first
   deploy must start from an empty DB, or include a documented repair step.
-- Dev email goes nowhere useful: `config.settings.local` uses the console `EmailBackend`,
-  so allauth verification links print to the django container's stdout while the
-  `mailpit` service in `docker-compose.local.yml` sits idle. Either point local
-  `EMAIL_BACKEND` at mailpit's SMTP (`mailpit:1025`) or drop mailpit from the compose
-  file. (Found during the Phase A smoke test — had to scrape links from `docker logs`.)
+- ~~Dev email goes nowhere useful~~ — RESOLVED 2026-06-13. `config.settings.local` now
+  sends to mailpit's SMTP (`mailpit:1025`); verification links are visible at
+  `http://localhost:8025`.
 
 ## Someday / Won't fix
 
