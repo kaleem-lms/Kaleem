@@ -127,8 +127,31 @@ jobs:
       - name: Build
         run: pnpm build
 
+  marketing-build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: marketing
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          token: ${{ secrets.SUBMODULE_TOKEN }}
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "pnpm"
+          cache-dependency-path: marketing/pnpm-lock.yaml
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Build
+        run: pnpm build
+
   deploy-staging:
-    needs: [backend-lint, backend-test, dashboard-lint, dashboard-build]
+    needs: [backend-lint, backend-test, dashboard-lint, dashboard-build, marketing-build]
     if: github.ref == 'refs/heads/master' && github.event_name == 'push'
     runs-on: ubuntu-latest
     steps:
@@ -156,6 +179,35 @@ jobs:
         run: |
           docker push ghcr.io/kaleem-lms/backend:${{ env.SHORT_SHA }}
           docker push ghcr.io/kaleem-lms/backend:latest
+
+      - name: Build dashboard image
+        run: |
+          docker build \
+            -f dashboard/Dockerfile \
+            --target production \
+            --build-arg VITE_API_URL=https://api-staging.kaleem.academy/api/v1/ \
+            -t ghcr.io/kaleem-lms/dashboard:${{ env.SHORT_SHA }} \
+            -t ghcr.io/kaleem-lms/dashboard:latest \
+            dashboard/
+
+      - name: Push dashboard image
+        run: |
+          docker push ghcr.io/kaleem-lms/dashboard:${{ env.SHORT_SHA }}
+          docker push ghcr.io/kaleem-lms/dashboard:latest
+
+      - name: Build marketing image
+        run: |
+          docker build \
+            -f marketing/Dockerfile \
+            --target production \
+            -t ghcr.io/kaleem-lms/marketing:${{ env.SHORT_SHA }} \
+            -t ghcr.io/kaleem-lms/marketing:latest \
+            marketing/
+
+      - name: Push marketing image
+        run: |
+          docker push ghcr.io/kaleem-lms/marketing:${{ env.SHORT_SHA }}
+          docker push ghcr.io/kaleem-lms/marketing:latest
 
       # Push the current infra config to the VPS BEFORE running ship.sh.
       # Without this, compose-topology / ship.sh changes (e.g. new services)
