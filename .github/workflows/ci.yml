@@ -98,6 +98,10 @@ jobs:
           node-version: "22"
           cache: "pnpm"
           cache-dependency-path: dashboard/pnpm-lock.yaml
+      - name: Configure git auth for private @kaleem/tokens
+        run: |
+          git config --global url."https://x-access-token:${{ secrets.TOKENS_REPO_TOKEN }}@github.com/".insteadOf "https://github.com/"
+          git config --global url."https://x-access-token:${{ secrets.TOKENS_REPO_TOKEN }}@github.com/".insteadOf "git@github.com:"
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       - name: TypeScript check
@@ -122,6 +126,10 @@ jobs:
           node-version: "22"
           cache: "pnpm"
           cache-dependency-path: dashboard/pnpm-lock.yaml
+      - name: Configure git auth for private @kaleem/tokens
+        run: |
+          git config --global url."https://x-access-token:${{ secrets.TOKENS_REPO_TOKEN }}@github.com/".insteadOf "https://github.com/"
+          git config --global url."https://x-access-token:${{ secrets.TOKENS_REPO_TOKEN }}@github.com/".insteadOf "git@github.com:"
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       - name: Build
@@ -145,6 +153,10 @@ jobs:
           node-version: "22"
           cache: "pnpm"
           cache-dependency-path: marketing/pnpm-lock.yaml
+      - name: Configure git auth for private @kaleem/tokens
+        run: |
+          git config --global url."https://x-access-token:${{ secrets.TOKENS_REPO_TOKEN }}@github.com/".insteadOf "https://github.com/"
+          git config --global url."https://x-access-token:${{ secrets.TOKENS_REPO_TOKEN }}@github.com/".insteadOf "git@github.com:"
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       - name: Build
@@ -181,10 +193,14 @@ jobs:
           docker push ghcr.io/kaleem-lms/backend:latest
 
       - name: Build dashboard image
+        env:
+          DOCKER_BUILDKIT: "1"
+          TOKENS_REPO_TOKEN: ${{ secrets.TOKENS_REPO_TOKEN }}
         run: |
           docker build \
             -f dashboard/Dockerfile \
             --target production \
+            --secret id=tokens_token,env=TOKENS_REPO_TOKEN \
             --build-arg VITE_API_URL=https://api-staging.kaleem.academy/api/v1/ \
             -t ghcr.io/kaleem-lms/dashboard:${{ env.SHORT_SHA }} \
             -t ghcr.io/kaleem-lms/dashboard:latest \
@@ -196,10 +212,14 @@ jobs:
           docker push ghcr.io/kaleem-lms/dashboard:latest
 
       - name: Build marketing image
+        env:
+          DOCKER_BUILDKIT: "1"
+          TOKENS_REPO_TOKEN: ${{ secrets.TOKENS_REPO_TOKEN }}
         run: |
           docker build \
             -f marketing/Dockerfile \
             --target production \
+            --secret id=tokens_token,env=TOKENS_REPO_TOKEN \
             -t ghcr.io/kaleem-lms/marketing:${{ env.SHORT_SHA }} \
             -t ghcr.io/kaleem-lms/marketing:latest \
             marketing/

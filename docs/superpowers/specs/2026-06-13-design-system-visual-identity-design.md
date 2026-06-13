@@ -93,7 +93,7 @@ refine during implementation, but these are the intended direction:
 | `surface-muted` | `#EFE9DB` | `#1E2B27` | subtle fills |
 | `border` | `#E0D9C8` | `#2A3A34` | dividers, input borders |
 | `fg` | `#16211D` | `#ECEFEC` | primary text |
-| `muted-fg` | `#6B7A74` | `#9DB0A8` | secondary text |
+| `muted-fg` | `#62736C` | `#9DB0A8` | secondary text (light darkened from #6B7A74 for WCAG AA) |
 | `success` | `#127D6B` | `#3AA08C` | positive status |
 | `warning` | `#C98A2B` | `#D9B43C` | caution |
 | `danger` | `#C0432E` | `#E0735B` | errors, destructive |
