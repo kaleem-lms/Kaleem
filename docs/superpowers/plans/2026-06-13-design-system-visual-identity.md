@@ -80,9 +80,13 @@ git checkout -b feat/initial-tokens
 {
   "name": "@kaleem/tokens",
   "version": "0.1.0",
+  "private": true,
   "description": "kaleem LMS shared design tokens: CSS custom properties + Tailwind v4 @theme preset",
   "type": "module",
   "files": ["tokens.css", "theme.css", "index.css"],
+  "scripts": {
+    "test": "node smoke.test.mjs"
+  },
   "exports": {
     ".": "./index.css",
     "./tokens.css": "./tokens.css",
@@ -90,6 +94,8 @@ git checkout -b feat/initial-tokens
   }
 }
 ```
+
+(`"private": true` prevents accidental `npm publish`; it does NOT affect git-URL installation.)
 
 - [ ] **Step 3: Write `.gitignore` and a stub `README.md`**
 
@@ -297,15 +303,26 @@ git add theme.css index.css && git commit -m "feat: Tailwind v4 @theme preset + 
 - [ ] **Step 1: Write a dependency-free resolve check**
 
 ```js
-// smoke.test.mjs — fails (exit 1) if a required token or utility mapping is missing.
+// smoke.test.mjs — fails (exit 1) if a required token or utility mapping is missing,
+// or if any :root color token is absent from the .dark block.
 import { readFileSync } from "node:fs";
 const tokens = readFileSync("tokens.css", "utf8");
 const theme = readFileSync("theme.css", "utf8");
+
 const required = ["--background", "--foreground", "--primary", "--ring", "--destructive",
-  "--success", "--warning", "--info", "--font-display", "--font-arabic"];
+  "--success", "--warning", "--info", "--font-display", "--font-arabic", "--duration-fast"];
 const missingTok = required.filter((t) => !tokens.includes(t + ":"));
-const darkBlock = tokens.split(".dark")[1] ?? "";
-const missingDark = ["--background", "--primary", "--foreground"].filter((t) => !darkBlock.includes(t + ":"));
+
+// Compare color-token coverage between :root and .dark.
+const rootBlock = tokens.slice(tokens.indexOf(":root"), tokens.indexOf(".dark"));
+const darkBlock = tokens.slice(tokens.indexOf(".dark"));
+const colorNames = (block) =>
+  [...block.matchAll(/--([\w-]*(?:background|foreground|primary|secondary|card|popover|muted|accent|destructive|border|input|ring|success|warning|info))\s*:/g)]
+    .map((m) => m[0].trim().replace(/\s*:$/, ""));
+const rootColors = new Set(colorNames(rootBlock));
+const darkColors = new Set(colorNames(darkBlock));
+const missingDark = [...rootColors].filter((c) => !darkColors.has(c));
+
 const missingMap = ["--color-primary", "--color-background", "--font-display"].filter((m) => !theme.includes(m + ":"));
 const problems = [
   ...missingTok.map((t) => `light token missing: ${t}`),
@@ -313,7 +330,7 @@ const problems = [
   ...missingMap.map((m) => `theme mapping missing: ${m}`),
 ];
 if (problems.length) { console.error(problems.join("\n")); process.exit(1); }
-console.log("tokens OK");
+console.log(`tokens OK (${rootColors.size} color tokens, all present in .dark)`);
 ```
 
 - [ ] **Step 2: Run it — expect PASS**
