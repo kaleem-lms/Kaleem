@@ -78,17 +78,30 @@ the dashboard origin with credentials and rejects others.
 Process change: every feature now ships its frontend slice (spec template has a required
 `## Frontend` section; D9 DoD includes browser-verified frontend).
 
-**Remaining human gate:** the in-browser register→verify→login→`/me` click-through
-(SES email to a real inbox) to confirm the session/CSRF cookies carry
-`Domain=.kaleem.academy` cross-subdomain. Config is correct; this is the final proof.
+**Cross-subdomain cookie gate is BLOCKED on the identity UI not existing yet.** The
+dashboard is still the Phase-0 scaffold — only route is `/` (a placeholder); there is no
+login/register/`/me` UI (`features/identity/` is an empty stub). So `/me` just hits the
+SPA fallback and renders the placeholder. The Phase A identity *backend* shipped without
+any frontend (it predates the every-feature-ships-its-frontend rule). The register→login
+click-through can't happen until the identity frontend slice is built.
 
 Gotchas hit + fixed: the blue-green readiness probe curls `/health/ready/` on localhost,
 so `ALLOWED_HOSTS` must include localhost — now hardcoded in `production.py` so it can't
 break on operator env. The VPS `.env.production` needed `APP_DOMAIN` renamed to
 `API_DOMAIN` (not synced by CI — managed on the box).
 
-## Next
+## Next (immediate)
 
-Phase B (per roadmap). Re-read the roadmap spec to confirm the next module before
-starting; write its spec (D1) before any code. Phase B features now include their
-frontend slice by default.
+1. **Brainstorm the design system + themes + frontend/marketing visual identity FIRST**
+   (user's explicit ask). This is the foundation before any dashboard UI: tokens
+   (color/type/spacing), theming (light/dark, RTL — Arabic content), shadcn setup, shared
+   `src/ui/` primitives, and how the dashboard and the Astro marketing site share a visual
+   language. Produce a spec (D1).
+2. **Then build the identity frontend slice** (login, register, verify-pending, `/me` +
+   logout) against the existing Phase A API (`/api/v1/identity/{register,login,logout,me,
+   resend-verification}/`). This proves the cross-subdomain session cookie end-to-end and
+   properly closes Phase A under the new rule.
+3. Then Phase B (per roadmap) — features now include their frontend slice by default.
+
+Note: a fresh session was requested here to shed context; start by reading this file,
+then run the design-system brainstorm.
