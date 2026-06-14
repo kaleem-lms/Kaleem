@@ -122,6 +122,12 @@ meta repo for runner `git insteadOf` + Docker BuildKit secret; tokens submodule 
 (SSH broke `actions/checkout`); **pnpm bumped 9 → 10** (pnpm 9 + Vite 8/rolldown choked on the
 git-dep node_modules path); `GHCR_PAT` needs `write:packages`.
 
+## Dockerized one-command dev environment — SHIPPED ✅ (2026-06-14)
+
+Spec: `docs/superpowers/specs/2026-06-13-docker-dev-environment-design.md` | Plan: `docs/superpowers/plans/2026-06-13-docker-dev-environment.md`
+
+`just dev` brings the full stack behind Traefik subdomains (`*.kaleem.localhost`) mirroring the ADR-0019 staging topology. Containers run as the host UID/GID — no root-owned files. HMR works through the proxy. 104 backend tests pass in-container. Developer guide: `docs/developer-guide/local-dev.md`.
+
 ## Next (immediate)
 
 1. **Build the identity frontend slice** (login, register, verify-pending, `/me` + logout) —
