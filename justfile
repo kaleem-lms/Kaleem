@@ -4,14 +4,37 @@
 default:
     @just --list
 
+# ─── Internal ─────────────────────────────────────────────────
+
+# docker compose with host UID/GID + a resolved GitHub token (for the private
+# @kaleem/tokens build secret). Prefers $GH_TOKEN, else the gh CLI (stripping
+# any empty GH_TOKEN/GITHUB_TOKEN that would otherwise shadow gh's keyring).
+# Fails fast with guidance if neither yields a token. Used by build/up recipes.
+_compose *args:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    token="${GH_TOKEN:-}"
+    if [ -z "$token" ]; then
+      token="$(env -u GH_TOKEN -u GITHUB_TOKEN gh auth token 2>/dev/null || true)"
+    fi
+    if [ -z "$token" ]; then
+      echo "ERROR: no GitHub token for the private @kaleem/tokens package." >&2
+      echo "Provide one (either works):" >&2
+      echo "  • export GH_TOKEN=<PAT with read access to kaleem-lms/tokens>   # most reliable" >&2
+      echo "  • gh auth login                                                # unlocks the gh keyring, then retry" >&2
+      exit 1
+    fi
+    HOST_UID="$(id -u)" HOST_GID="$(id -g)" GH_TOKEN="$token" \
+      docker compose -f docker-compose.local.yml {{args}}
+
 # ─── Setup ────────────────────────────────────────────────────
 
 # Clone submodules, build images, run migrations + seed (all in Docker)
 setup:
     git submodule update --init --recursive
     @echo "Building images…"
-    HOST_UID=$(id -u) HOST_GID=$(id -g) GH_TOKEN="${GH_TOKEN:-$(gh auth token)}" docker compose -f docker-compose.local.yml build
-    HOST_UID=$(id -u) HOST_GID=$(id -g) docker compose -f docker-compose.local.yml up -d postgres redis
+    just _compose build
+    just _compose up -d postgres redis
     @echo "Waiting for Postgres…"
     sleep 3
     just migrate
@@ -22,15 +45,15 @@ setup:
 
 # Bring up the entire stack in Docker, behind Traefik. Ctrl-C stops it.
 dev:
-    HOST_UID=$(id -u) HOST_GID=$(id -g) GH_TOKEN="${GH_TOKEN:-$(gh auth token)}" docker compose -f docker-compose.local.yml up
+    just _compose up
 
 # Bring up the stack detached
 dev-backend:
-    HOST_UID=$(id -u) HOST_GID=$(id -g) GH_TOKEN="${GH_TOKEN:-$(gh auth token)}" docker compose -f docker-compose.local.yml up -d
+    just _compose up -d
 
 # Rebuild images (after dependency or Dockerfile changes)
 rebuild:
-    HOST_UID=$(id -u) HOST_GID=$(id -g) GH_TOKEN="${GH_TOKEN:-$(gh auth token)}" docker compose -f docker-compose.local.yml build
+    just _compose build
 
 # Tail logs for one service, e.g. `just logs dashboard`
 logs service:
