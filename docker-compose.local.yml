@@ -167,7 +167,7 @@ services:
       secrets:
         - tokens_token
     environment:
-      - VITE_API_URL=http://api.kaleem.localhost
+      - VITE_API_URL=http://api.kaleem.localhost/api/v1/
     volumes:
       - ./dashboard:/app
       - dashboard_node_modules:/app/node_modules
