@@ -6,44 +6,35 @@ default:
 
 # ─── Setup ────────────────────────────────────────────────────
 
-# Clone submodules, install deps, create DBs, seed data
+# Clone submodules, build images, run migrations + seed (all in Docker)
 setup:
     git submodule update --init --recursive
-    docker compose -f docker-compose.local.yml up -d postgres redis
-    @echo "Waiting for Postgres..."
+    @echo "Building images…"
+    HOST_UID=$(id -u) HOST_GID=$(id -g) GH_TOKEN="${GH_TOKEN:-$(gh auth token)}" docker compose -f docker-compose.local.yml build
+    HOST_UID=$(id -u) HOST_GID=$(id -g) docker compose -f docker-compose.local.yml up -d postgres redis
+    @echo "Waiting for Postgres…"
     sleep 3
-    cd backend && pip install -r requirements/local.txt
-    cd backend && DJANGO_SETTINGS_MODULE=config.settings.local DJANGO_READ_DOT_ENV_FILE=True python manage.py migrate
-    cd dashboard && pnpm install
-    cd marketing && pnpm install
-    @echo "Setup complete. Run 'just dev' to start."
+    just migrate
+    just seed
+    @echo "Setup complete. Run 'just dev'."
 
 # ─── Development ──────────────────────────────────────────────
 
-# Bring up everything locally (backend in Docker + dashboard & marketing)
+# Bring up the entire stack in Docker, behind Traefik. Ctrl-C stops it.
 dev:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    # Backend runs detached; frontends run in the foreground. Ctrl-C stops the
-    # frontends — the backend stack keeps running (use `just stop` to halt it).
-    docker compose -f docker-compose.local.yml up -d
-    echo "Backend up: Django :8000 · Mailpit :8025. Starting frontends (Ctrl-C to stop)…"
-    trap 'kill 0' EXIT
-    (cd dashboard && pnpm dev) &
-    (cd marketing && pnpm dev) &
-    wait
+    HOST_UID=$(id -u) HOST_GID=$(id -g) GH_TOKEN="${GH_TOKEN:-$(gh auth token)}" docker compose -f docker-compose.local.yml up
 
-# Bring up only the backend stack (Docker), detached
+# Bring up the stack detached
 dev-backend:
-    docker compose -f docker-compose.local.yml up -d
+    HOST_UID=$(id -u) HOST_GID=$(id -g) GH_TOKEN="${GH_TOKEN:-$(gh auth token)}" docker compose -f docker-compose.local.yml up -d
 
-# Run only the dashboard dev server (Vite → http://localhost:5173)
-dashboard:
-    cd dashboard && pnpm dev
+# Rebuild images (after dependency or Dockerfile changes)
+rebuild:
+    HOST_UID=$(id -u) HOST_GID=$(id -g) GH_TOKEN="${GH_TOKEN:-$(gh auth token)}" docker compose -f docker-compose.local.yml build
 
-# Run only the marketing dev server (Astro → http://localhost:4321)
-marketing:
-    cd marketing && pnpm dev
+# Tail logs for one service, e.g. `just logs dashboard`
+logs service:
+    docker compose -f docker-compose.local.yml logs -f {{service}}
 
 # Stop the backend stack
 stop:
@@ -54,45 +45,48 @@ stop:
 # Run all tests (backend + frontend + boundary linter)
 test: test-backend test-frontend check-boundaries
 
-# Run backend tests
+# Backend tests (in container)
 test-backend:
-    cd backend && DATABASE_URL=postgres://kaleem:kaleem@localhost:5432/kaleem pytest -v --cov=kaleem --cov-report=term-missing
+    HOST_UID=$(id -u) HOST_GID=$(id -g) docker compose -f docker-compose.local.yml run --rm \
+      -e DATABASE_URL=postgres://kaleem:kaleem@postgres:5432/kaleem \
+      django pytest -v --cov=kaleem --cov-report=term-missing
 
-# Run frontend type check
+# Frontend type check (in container)
 test-frontend:
-    cd dashboard && pnpm tsc --noEmit
+    HOST_UID=$(id -u) HOST_GID=$(id -g) docker compose -f docker-compose.local.yml run --rm dashboard pnpm tsc --noEmit
+
+# Escape hatch: run backend tests on the host (uses local .venv)
+test-backend-host:
+    cd backend && DATABASE_URL=postgres://kaleem:kaleem@localhost:5432/kaleem pytest -v --cov=kaleem --cov-report=term-missing
 
 # ─── Linting ──────────────────────────────────────────────────
 
 # Run all linters
 lint: lint-backend lint-frontend check-boundaries
 
-# Lint backend (ruff + mypy)
 lint-backend:
-    cd backend && ruff check .
-    cd backend && ruff format --check .
+    HOST_UID=$(id -u) HOST_GID=$(id -g) docker compose -f docker-compose.local.yml run --rm django sh -euc 'ruff check . && ruff format --check .'
 
-# Lint frontend (biome)
 lint-frontend:
-    cd dashboard && pnpm dlx @biomejs/biome check .
+    HOST_UID=$(id -u) HOST_GID=$(id -g) docker compose -f docker-compose.local.yml run --rm dashboard pnpm dlx @biomejs/biome check .
 
-# Check module boundary contracts
 check-boundaries:
-    cd backend && lint-imports
+    HOST_UID=$(id -u) HOST_GID=$(id -g) docker compose -f docker-compose.local.yml run --rm django lint-imports
 
 # ─── Database ─────────────────────────────────────────────────
 
-# Run Django migrations
+# Run Django migrations (inside the django container)
 migrate:
-    cd backend && DJANGO_SETTINGS_MODULE=config.settings.local DJANGO_READ_DOT_ENV_FILE=True python manage.py migrate
+    HOST_UID=$(id -u) HOST_GID=$(id -g) docker compose -f docker-compose.local.yml run --rm django python manage.py migrate
 
-# Open Django shell
+# Open Django shell (inside the django container)
 shell:
-    cd backend && DJANGO_SETTINGS_MODULE=config.settings.local DJANGO_READ_DOT_ENV_FILE=True python manage.py shell_plus 2>/dev/null || cd backend && DJANGO_SETTINGS_MODULE=config.settings.local DJANGO_READ_DOT_ENV_FILE=True python manage.py shell
+    HOST_UID=$(id -u) HOST_GID=$(id -g) docker compose -f docker-compose.local.yml run --rm django python manage.py shell_plus 2>/dev/null \
+      || HOST_UID=$(id -u) HOST_GID=$(id -g) docker compose -f docker-compose.local.yml run --rm django python manage.py shell
 
 # Reset DB and load seed data
 seed:
-    cd backend && DJANGO_SETTINGS_MODULE=config.settings.local DJANGO_READ_DOT_ENV_FILE=True python manage.py seed basic
+    HOST_UID=$(id -u) HOST_GID=$(id -g) docker compose -f docker-compose.local.yml run --rm django python manage.py seed basic
 
 # ─── Infrastructure ───────────────────────────────────────────
 
