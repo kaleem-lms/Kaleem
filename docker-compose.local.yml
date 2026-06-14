@@ -7,7 +7,10 @@ x-uidgid: &uidgid
 
 services:
   traefik:
-    image: traefik:v3.3
+    # v3.3 negotiates Docker API v1.24, which Docker Engine 25+ (daemon min API
+    # 1.40) rejects, so the provider discovers nothing. v3.6 negotiates a
+    # version inside the daemon's supported range.
+    image: traefik:v3.6
     command:
       - --providers.docker=true
       - --providers.docker.exposedbydefault=false
