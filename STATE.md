@@ -1,7 +1,7 @@
 ---
 current_phase: "A"
-active_spec: "2026-06-13-design-system-visual-identity"
-active_branch: "develop"
+active_spec: "2026-06-14-identity-frontend-design"
+active_branch: "feat/identity-frontend-spec (meta docs); feat/verify-email-endpoint (backend); feat/identity-auth-core (dashboard)"
 last_green_ci: "design-system deploy-staging green 2026-06-13 (run 27461511438; images built + pushed + VPS deploy)"
 ---
 
@@ -128,18 +128,52 @@ Spec: `docs/superpowers/specs/2026-06-13-docker-dev-environment-design.md` | Pla
 
 `just dev` brings the full stack behind Traefik subdomains (`*.kaleem.localhost`) mirroring the ADR-0019 staging topology. Containers run as the host UID/GID — no root-owned files. HMR works through the proxy. 104 backend tests pass in-container. Developer guide: `docs/developer-guide/local-dev.md`.
 
-## Next (immediate)
+## Identity frontend slice — spec + plan done; Phase 1 (auth core) BUILT, PRs open (2026-06-14)
 
-1. **Build the identity frontend slice** (login, register, verify-pending, `/me` + logout) —
-   the immediate next task. Build it on the now-live design system (`@/ui` primitives +
-   `AuthLayout`; the `/design-preview` route is the throwaway template to replace), against
-   the Phase A API (`/api/v1/identity/{register,login,logout,me,resend-verification}/`, via
-   `src/lib/api.ts` which is already CSRF/credentials-wired). This is the spec/D1 step that
-   was about to start when the session handed off — needs its own spec before code.
-   **Done = the register→verify→login→/me click-through works on `app-staging` against
-   `api-staging`, proving the cross-subdomain session cookie end-to-end and closing Phase A.**
-2. Then Phase B (per roadmap) — features include their frontend slice by default.
+Spec `docs/superpowers/specs/2026-06-14-identity-frontend-design.md` (D1) and plan
+`docs/superpowers/plans/2026-06-14-identity-frontend-phase1-auth-core.md` (D2) written. Full
+identity surface decided, delivered in 3 phases (auth core → parent → student); auth via
+TanStack Query `useMe` + `_authed` guard; custom `/verify-email` landing; role-aware home;
+weekly availability grid (Phase 3); react-hook-form + module-mocked tests.
 
-Note: design system is shipped and live on staging (see section above); the dashboard now
-serves the real React app. `features/identity/` is still an empty stub. Start the identity
-frontend slice with a spec (D1).
+**Phase 1 (auth core) is fully implemented (TDD, subagent-driven) and open as PRs — not yet merged/deployed:**
+
+- **backend** `feat/verify-email-endpoint` → [PR #15](https://github.com/kaleem-lms/backend/pull/15):
+  `POST /api/v1/identity/verify-email/` (confirm-by-key) + adapter override so verification
+  links point at `{FRONTEND_URL}/verify-email?key=…`. New `FRONTEND_URL` setting. 99 tests,
+  ruff/mypy/import-linter green.
+- **dashboard** `feat/identity-auth-core` → [PR #6](https://github.com/kaleem-lms/dashboard/pull/6):
+  register/login/verify-pending/verify-email/role-aware home/profile, `useMe`+guard, full
+  i18n+RTL+a11y. 47 tests, tsc/biome green. Removed the Phase-0 placeholder `/` and
+  `/design-preview`.
+- **meta docs** `feat/identity-frontend-spec` → [PR #75](https://github.com/kaleem-lms/Kaleem/pull/75): spec + plan.
+
+Verified end-to-end against the **local dockerized stack**: register → mailpit link →
+verify-email → login → `/me` all succeed (proves B1+B2 live).
+
+## Next (immediate) — M1: merge + close Phase A
+
+1. **Merge the two submodule PRs to `main`** once CI is green (backend #15, dashboard #6).
+   CI had not reported when the session handed off — check it first.
+2. **Commit the uncommitted meta working-tree fix** (see in-flight note below) and bump the
+   `backend`/`dashboard` submodule pointers; update this STATE — all via a meta `feat → develop` PR.
+3. **On the VPS:** set `DJANGO_FRONTEND_URL=https://app-staging.kaleem.academy` in
+   `.env.production` (not synced by CI — managed on the box, like `API_DOMAIN`).
+4. **Promote meta `develop → master`** → triggers `deploy-staging`. Then do the **real
+   browser click-through** on `app-staging` (register with a real email → click SES link →
+   verify-email → login → `/me`) — this proves the cross-subdomain session cookie and
+   **closes Phase A.**
+5. Then **Phase 1 wrap** (journal/DoD) and start **Phase 2** (parent flows: children +
+   invites) with its own plan, then **Phase 3** (student: invite-accept + availability grid).
+
+### ⚠ In-flight, UNCOMMITTED (meta working tree) — do not lose
+
+- `docker-compose.local.yml` + `.env.example`: `VITE_API_URL` changed to include the
+  `/api/v1` prefix (`http://api.kaleem.localhost/api/v1`). **This is a needed fix** — without
+  it the browser dashboard calls `api.kaleem.localhost/identity/...` (missing the version
+  prefix) and every API call 404s. The local HTTP smoke missed it because curl used the full
+  path. Commit these (meta feat→develop). After committing, **recreate the dashboard
+  container** so vite picks up the new env: `docker compose -f docker-compose.local.yml up -d
+  --force-recreate dashboard` (with `GH_TOKEN`/`HOST_UID`/`HOST_GID`).
+- Submodule pointers (`backend`, `dashboard`) show modified — that's the Phase-1 work,
+  pending the M1 pointer-bump (step 2 above); only bump after the submodule PRs merge.
