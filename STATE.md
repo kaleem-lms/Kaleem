@@ -1,7 +1,7 @@
 ---
 current_phase: "A"
 active_spec: "2026-06-14-identity-frontend-design"
-active_branch: "feat/identity-frontend-spec (meta docs); feat/verify-email-endpoint (backend); feat/identity-auth-core (dashboard)"
+active_branch: "develop (meta docs — PR #75 merged 2026-06-16); feat/verify-email-endpoint (backend, PR #15 open/green); feat/identity-auth-core (dashboard, PR #6 open/green)"
 last_green_ci: "design-system deploy-staging green 2026-06-13 (run 27461511438; images built + pushed + VPS deploy)"
 ---
 
@@ -153,10 +153,11 @@ verify-email → login → `/me` all succeed (proves B1+B2 live).
 
 ## Next (immediate) — M1: merge + close Phase A
 
-1. **Merge the two submodule PRs to `main`** once CI is green (backend #15, dashboard #6).
-   CI had not reported when the session handed off — check it first.
-2. **Commit the uncommitted meta working-tree fix** (see in-flight note below) and bump the
-   `backend`/`dashboard` submodule pointers; update this STATE — all via a meta `feat → develop` PR.
+1. **Merge the two submodule PRs to `main`** — CI is now green/CLEAN on both (checked
+   2026-06-16): backend #15, dashboard #6. They are mergeable now.
+2. **Bump the `backend`/`dashboard` submodule pointers** in meta once those PRs merge
+   (the dashboard working pointer is already at the unmerged `8f8c61d` — do NOT commit it
+   until #6 merges), then update this STATE — all via a meta `feat → develop` PR.
 3. **On the VPS:** set `DJANGO_FRONTEND_URL=https://app-staging.kaleem.academy` in
    `.env.production` (not synced by CI — managed on the box, like `API_DOMAIN`).
 4. **Promote meta `develop → master`** → triggers `deploy-staging`. Then do the **real
@@ -166,14 +167,16 @@ verify-email → login → `/me` all succeed (proves B1+B2 live).
 5. Then **Phase 1 wrap** (journal/DoD) and start **Phase 2** (parent flows: children +
    invites) with its own plan, then **Phase 3** (student: invite-accept + availability grid).
 
-### ⚠ In-flight, UNCOMMITTED (meta working tree) — do not lose
+### ⚠ In-flight (meta working tree)
 
-- `docker-compose.local.yml` + `.env.example`: `VITE_API_URL` changed to include the
-  `/api/v1` prefix (`http://api.kaleem.localhost/api/v1`). **This is a needed fix** — without
-  it the browser dashboard calls `api.kaleem.localhost/identity/...` (missing the version
-  prefix) and every API call 404s. The local HTTP smoke missed it because curl used the full
-  path. Commit these (meta feat→develop). After committing, **recreate the dashboard
-  container** so vite picks up the new env: `docker compose -f docker-compose.local.yml up -d
-  --force-recreate dashboard` (with `GH_TOKEN`/`HOST_UID`/`HOST_GID`).
-- Submodule pointers (`backend`, `dashboard`) show modified — that's the Phase-1 work,
-  pending the M1 pointer-bump (step 2 above); only bump after the submodule PRs merge.
+- The `VITE_API_URL` `/api/v1`-prefix fix is **already committed** (`51ca644`) — the earlier
+  "uncommitted" note was stale. If you recreate the dashboard container, vite picks up the
+  env: `docker compose -f docker-compose.local.yml up -d --force-recreate dashboard` (with
+  `GH_TOKEN`/`HOST_UID`/`HOST_GID`).
+- The `dashboard` submodule pointer is modified in the working tree (points at the unmerged
+  `8f8c61d` on `feat/identity-auth-core`). Left **uncommitted on purpose** — only bump it
+  after dashboard PR #6 merges to `main` (M1 step 2).
+- A global session hook now runs a security + performance gate on every `/handoff`
+  (`~/.claude/hooks/handoff-security-perf-scan.sh`): OWASP/dep-audit scanners that are
+  installed run automatically, and it injects a web-standards (OWASP Top 10 + Core Web
+  Vitals/WCAG 2.2 AA) checklist. Install `semgrep`/`gitleaks`/`pip-audit`/`lhci` to deepen it.
