@@ -25,6 +25,19 @@ Spotted-a-problem backlog. Write it here in 15 seconds, keep going (D10).
 - ~~Dev email goes nowhere useful~~ — RESOLVED 2026-06-13. `config.settings.local` now
   sends to mailpit's SMTP (`mailpit:1025`); verification links are visible at
   `http://localhost:8025`.
+- Email security alerts dispatch via `send_email_message.delay(...)` *inside*
+  `@transaction.atomic` (`identity.services.add_email_address` / `set_primary_email`). In
+  prod the worker can pick the task up before commit. The clean fix is
+  `transaction.on_commit(...)`, but that breaks pytest-django's non-committing test
+  transactions (the outbox assertions). Decide deliberately (e.g. `on_commit` +
+  `django_capture_on_commit_callbacks` in the tests). Low harm today — the alert only
+  fires after all validation passes.
+- `identity.services._send_email_security_alert` selects the message body with an `else`
+  fallback, so an unknown `action` string silently uses the "primary changed" wording.
+  Only `"added"`/`"set_primary"` are passed today; harden to an explicit `elif` + raise
+  if a third caller appears.
+- New `/me/emails/` endpoints' `@extend_schema` documents success responses only, not the
+  400/404 error shapes. Doc-only; worth a sweep across the identity module's schemas.
 
 ## Someday / Won't fix
 
