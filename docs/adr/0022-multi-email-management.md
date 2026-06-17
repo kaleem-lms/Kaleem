@@ -1,5 +1,5 @@
 ---
-number: 0021
+number: 0022
 title: Multi-email management with a user-chosen primary
 status: accepted
 date: 2026-06-17
