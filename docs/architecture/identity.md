@@ -68,7 +68,7 @@ Errors are typed (`platform.exceptions.ValidationError` / `NotFoundError`) — n
   whether an email is registered) and is throttled per-email (`EmailScopedThrottle`,
   5/hour) so it can't be used to email-bomb a recipient.
 
-## Email addresses (ADR-0021)
+## Email addresses (ADR-0022)
 
 A user may hold multiple `EmailAddress` rows (allauth's table — no new model). `User.email`
 (unique, the `USERNAME_FIELD`) is **derived state**: it always tracks the `primary`
