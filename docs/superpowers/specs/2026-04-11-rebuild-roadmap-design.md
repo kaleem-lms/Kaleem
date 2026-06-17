@@ -485,7 +485,7 @@ Six phases. Each has a **single clear deliverable**, explicit exit criteria, and
 - Timezone test: teacher in Cairo, student in London — session displays correctly to both
 - Architecture docs for `billing`, `scheduling`, `assessment`, `analytics` all written
 - `import-linter` passes
-- All modules ≥ 80% service-layer coverage
+- All modules at 100% coverage (line + branch), e2e green for user-facing flows (ADR-0021)
 - No direct cross-module model imports
 
 **Size:** ~25–35 specs.
@@ -540,7 +540,7 @@ Phase C's spec order is **provisional until preview review is done**. If preview
 - Assigning a lesson notifies the student
 - Session reminder email arrives 24h before a scheduled session (tested in staging with a session 24h15m out)
 - A trial request → approval → trial session → first lesson delivered, without touching prod Stripe
-- All new modules have architecture docs, ≥ 80% coverage, pass import-linter
+- All new modules have architecture docs, 100% coverage (line + branch) + e2e green, pass import-linter (ADR-0021)
 
 **Size:** ~15–20 specs.
 
@@ -653,7 +653,7 @@ Stages 1–2 happen together. Stages 3–4 loop until green. Stage 5 is a checkl
 
 - **D1** Spec-before-code, always
 - **D2** Plan-before-code, for anything > 1 day
-- **D3** TDD on backend (≥ 80% coverage on domain logic)
+- **D3** TDD, every repo, at 100% coverage (line + branch) + e2e for user-facing flows (ADR-0021)
 - **D4** Automated module boundary enforcement via import-linter
 - **D5** CI must be green before merge (no `--no-verify`)
 - **D6** One feature branch at a time
@@ -808,7 +808,7 @@ A feature is only done when:
 2. Plan committed, `status: done`, all steps checked
 3. All tests passing locally and in CI
 4. `import-linter` green
-5. Coverage on new code ≥ 80% on services/models
+5. 100% coverage gate green (line + branch) + e2e green for primary/key-failure paths (ADR-0021)
 6. Self-review checklist walked
 7. Manual golden-path test in a browser
 8. Two edge cases manually tested

@@ -5,7 +5,8 @@ Verify each item:
 - [ ] Plan committed and status=done, all steps checked
 - [ ] All tests passing locally and in CI
 - [ ] import-linter green
-- [ ] Coverage on new code >= 80% on services/models
+- [ ] 100% coverage gate green (line + branch) in CI — exclusions per-line and justified (ADR-0021)
+- [ ] End-to-end tests (Playwright) green for the feature's primary happy path + key failure paths, run against a real built app (ADR-0021)
 - [ ] Self-review checklist walked
 - [ ] Manually tested golden path in browser
 - [ ] 2 edge cases manually tested
