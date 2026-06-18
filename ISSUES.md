@@ -65,6 +65,20 @@ Spotted-a-problem backlog. Write it here in 15 seconds, keep going (D10).
   `.catch` — a clipboard rejection (permissions) would be an unhandled promise rejection.
   Low impact (authenticated same-origin dashboard); add a catch + neutral message when
   convenient. (D10 note from Spec 3.)
+- A parent cannot edit an existing **child's** learning preferences (time slots /
+  teacher gender) — they are only set at child creation (`POST children/`). The
+  student-preferences UI (Spec 4) edits the *caller's own* profile. A parent-edits-child
+  surface needs its own endpoint + UI. (Out-of-scope note from Spec 4.)
+- Dashboard `StudentPreferencesCard` per-row validation message is a sibling
+  `<p role="alert">`, not `aria-describedby`-linked to the offending time input (and the
+  time inputs carry no `aria-invalid`). `role="alert"` announces it on appearance (WCAG-
+  acceptable, jest-axe passes), but a SR user navigating fields later won't hear which
+  input is invalid. Wire `aria-invalid`/`aria-describedby` on the row's `end_time` Input
+  when set. Also: the "required times" message anchors on `end_time` even when
+  `start_time` is the empty one (cosmetic). (D10 notes from Spec 4.)
+- Dashboard `StudentPreferencesCard` hand-rolls a `SELECT_CLASS` string replicating the
+  shadcn `Input` classes (no Select primitive exists in `@/ui`). When a `Select` primitive
+  is added, replace the duplicated class string. (D10 note from Spec 4.)
 
 ## Someday / Won't fix
 
