@@ -1,13 +1,35 @@
 ---
 current_phase: "A"
-active_spec: "2026-06-18-dashboard-student-preferences-ui-design (Spec 4 — final; dashboard-completion roadmap DONE)"
-active_branch: "feat/student-preferences-spec (meta docs+ISSUES+both pointers, PR→develop); backend student-profile-get merged to main (PR #17); dashboard student-preferences-ui merged to main (PR #10). Roadmap: shell #7 / email #8 / children-invites #9 / student-prefs #10 all shipped"
-last_green_ci: "design-system deploy-staging green 2026-06-13 (run 27461511438; images built + pushed + VPS deploy)"
+active_spec: "2026-06-18-email-verification-login-integrity-design (identity hardening #9/#1/#2/#6) — both submodule halves merged to main; meta PR #85 open (→develop) with pointer bumps"
+active_branch: "feat/email-verification-login-integrity-spec (meta: spec+plan+ISSUES+pointer bumps, PR #85→develop). Submodule PRs MERGED to main: backend #18 (merge 11da57e), dashboard #11 (merge e03c2c1). Prior roadmap (shell #7 / email #8 / children-invites #9 / student-prefs #17/#10) all shipped"
+last_green_ci: "design-system deploy-staging green 2026-06-13 (run 27461511438). NOTE: nothing deployed to staging since; several slices merged to main await a develop→master promotion"
 ---
 
 # kaleem Project State
 
 ## Current phase: Phase A — Identity
+
+## Email verification & login integrity — MERGED to submodule mains; staging pending (2026-06-18)
+
+Identity hardening slice (tasks.todo #9/#1/#2/#6). Spec + plan in
+`docs/superpowers/specs|plans/2026-06-18-email-verification-login-integrity*`.
+
+- **#9 (fix):** login gate now checks the *submitted* email's verification, not "any verified
+  email" — an unverified added email can no longer be used to sign in; any *verified* email can.
+- **#1 (locked in):** the add→verify→set-primary flow already kept the old email working until
+  the new one verifies; now covered by tests. No new endpoint (decision).
+- **#2 (confirmed):** allauth adapter already routes links to the frontend `/verify-email`.
+- **#6 (fix):** new `GET identity/csrf/`; the page fetches a CSRF token before confirming,
+  fires the mutation once, and always reaches a terminal success/error state (no more spin).
+
+Built TDD + subagent-driven; both final whole-branch reviews = merge-ready. **backend 138 /
+dashboard 139 tests green locally.** Merged: backend PR #18 (`11da57e`), dashboard PR #11
+(`e03c2c1`). Meta PR #85 (→develop) carries spec/plan/ISSUES + these pointer bumps.
+
+**Pending to close DoD:** promote `develop → master` (staging deploy) + the live browser
+click-through (register → verify link → success → login; add unverified email → login rejected).
+Not yet done — no staging deploy since 2026-06-13. CI gaps + a pre-existing `drf.py:28` mypy nit
+logged to ISSUES.md.
 
 ## Dashboard-completion roadmap (shell → email → children/invites → onboarding)
 
