@@ -1,7 +1,7 @@
 ---
 current_phase: "A"
 active_spec: "2026-06-14-identity-frontend-design"
-active_branch: "feat/email-management-spec (meta docs+pointer, PR open→develop); backend feat/email-management merged to main (PR #16); dashboard feat/identity-auth-core (PR #6 open)"
+active_branch: "feat/app-shell-spec (meta docs+pointer, PR open→develop); dashboard feat/app-shell merged to main (PR #7); backend email-management merged (PR #16)"
 last_green_ci: "design-system deploy-staging green 2026-06-13 (run 27461511438; images built + pushed + VPS deploy)"
 ---
 
