@@ -1,13 +1,35 @@
 ---
 current_phase: "A"
-active_spec: "2026-06-14-identity-frontend-design"
-active_branch: "feat/email-ui-spec (meta docs+pointer, PR open→develop); dashboard email-management-ui merged to main (PR #8); app-shell merged (PR #7)"
+active_spec: "2026-06-18-dashboard-children-invites-ui-design"
+active_branch: "feat/children-invites-spec (meta docs+ISSUES+pointer, PR→develop); dashboard children-invites-ui merged to main (PR #9); email-management-ui merged (PR #8); app-shell merged (PR #7)"
 last_green_ci: "design-system deploy-staging green 2026-06-13 (run 27461511438; images built + pushed + VPS deploy)"
 ---
 
 # kaleem Project State
 
 ## Current phase: Phase A — Identity
+
+## Dashboard-completion roadmap (shell → email → children/invites → onboarding)
+
+Building out the authenticated dashboard identity surface in four specced slices,
+each via brainstorm → spec → plan → subagent-driven build → whole-branch review →
+git-flow merge. All TDD, en/ar + RTL, jest-axe, biome/tsc clean.
+
+- **Spec 1 — app shell** ✅ shipped (dashboard PR #7): sidebar + topbar + mobile drawer,
+  data-driven nav, user menu, sign-out.
+- **Spec 2 — email-management UI** ✅ shipped (dashboard PR #8): `/account` page; list/add/
+  verify/set-primary/remove email addresses.
+- **Spec 3 — children + invites UI** ✅ shipped (dashboard PR #9, merged to `main` @ `7bb4b37`,
+  2026-06-18): role-aware `/family` page. Parent manages children (list, add-by-name,
+  set-password) + generates invite codes (copy + 24h expiry); student accepts a code to link
+  to a parent. Frontend-only (consumes existing `children/`+`invites/` endpoints). 119 dashboard
+  tests green. Meta docs + ISSUES (child-login limitation) + pointer bump on
+  `feat/children-invites-spec` → PR to `develop`.
+- **Spec 4 — student onboarding preferences UI** ⏳ next: time-preferences grid + teacher-gender
+  → `me/student-profile/`.
+
+Not yet deployed to staging — the merged work sits on dashboard `main` + meta `develop`;
+promotion to staging (and the browser click-through) is pending alongside the Phase-A close.
 
 ## Active spec
 
