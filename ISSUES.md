@@ -14,6 +14,18 @@ Spotted-a-problem backlog. Write it here in 15 seconds, keep going (D10).
 - Submodule git-flow vs ADR-0014: submodules have no `dev` branch (they merge `feat→main`);
   only meta has `develop`. Either grow a `dev` layer in submodules or amend ADR-0014 to
   match the two-tier reality. Needs an ADR.
+- **CI does not enforce the D3 test/coverage gate for the dashboard.** `.github/workflows/ci.yml`
+  runs only `tsc --noEmit` + `pnpm build` for the dashboard — it never runs `pnpm test`
+  (vitest) or a coverage check, and biome isn't run either. Backend `pytest --cov` runs but
+  has no `--cov-fail-under`, so 100% line+branch (D3, ADR-0021) is reported, not enforced, in
+  any repo. Wire vitest + a coverage floor into CI so the gate is real. (Surfaced 2026-06-19.)
+- No Playwright e2e harness in the dashboard yet; D3/D9 e2e is currently met by a manual
+  browser click-through. Stand up Playwright as its own slice so flows like verify-email +
+  the login gate run in CI. (Surfaced 2026-06-19.)
+- Pre-existing `mypy` error: `kaleem/platform/drf.py:28` — the conditional
+  `{field: [exc.message]} if field else {"detail": exc.message}` trips `[dict-item]`
+  (`str: str` vs expected `list[str]`). Annotate the result `dict[str, Any]`. Harmless at
+  runtime and NOT in CI (ci.yml runs no mypy), but `mypy kaleem` is red locally. (Surfaced 2026-06-19.)
 
 ## Soon (next month or two)
 
@@ -79,6 +91,13 @@ Spotted-a-problem backlog. Write it here in 15 seconds, keep going (D10).
 - Dashboard `StudentPreferencesCard` hand-rolls a `SELECT_CLASS` string replicating the
   shadcn `Input` classes (no Select primitive exists in `@/ui`). When a `Select` primitive
   is added, replace the duplicated class string. (D10 note from Spec 4.)
+- Dashboard `verify-email.tsx` `started` ref is effectively "confirm once per **mount**",
+  not "once per **key**" as the comment says — it's set true and never reset, so an in-place
+  `verifyKey` change would skip confirming the new key. Latent only (the route remounts
+  rather than re-keys). Tighten the comment or reset on key change. (D10 note, email-verify slice.)
+- Dashboard `verify-email.tsx` route now passes `onVerified={() => {}}` (no-op); the prop is
+  retained for the spec'd component signature but is vestigial in the only production caller.
+  Drop it or wire it when the post-verify UX firms up. (D10 note, email-verify slice.)
 
 ## Someday / Won't fix
 
