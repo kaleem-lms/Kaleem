@@ -50,6 +50,21 @@ Spotted-a-problem backlog. Write it here in 15 seconds, keep going (D10).
 - Dashboard topbar brand wordmark is a plain `<span>`, not a `<Link to="/">` home link
   (matches the auth-layout's current span). A clickable logo is conventional; make both a
   link in one pass when convenient.
+- **Children can't actually log in yet.** `identity.create_child` makes a User with a
+  placeholder email (`child.<uuid>@placeholder.kaleem`) and an unusable password; the
+  parent can set a password (UI shipped in Spec 3, the `/family` page), but the child has
+  no externally known login identity, so the end-to-end child sign-in flow doesn't exist.
+  Needs its own spec (how a child authenticates: real email, parent-managed handle, magic
+  link, etc.). Surfaced by the children+invites UI (2026-06-18).
+- Dashboard `features/identity/schemas.ts` now has two near-identical child shapes:
+  `ChildSummary` (the `/me`-embedded `{id, full_name, student_profile_id}`) and `Child`
+  (the `/children/` list shape, adds `teacher_gender_preference`). Harmless (both are real
+  backend shapes) but a candidate to unify once the child surface settles. (D10 note from
+  Spec 3.)
+- Dashboard `InviteCard` copy button calls `navigator.clipboard.writeText(...)` with no
+  `.catch` — a clipboard rejection (permissions) would be an unhandled promise rejection.
+  Low impact (authenticated same-origin dashboard); add a catch + neutral message when
+  convenient. (D10 note from Spec 3.)
 
 ## Someday / Won't fix
 
