@@ -1,7 +1,7 @@
 ---
 current_phase: "A"
-active_spec: "2026-06-18-dashboard-children-invites-ui-design"
-active_branch: "feat/children-invites-spec (meta docs+ISSUES+pointer, PR→develop); dashboard children-invites-ui merged to main (PR #9); email-management-ui merged (PR #8); app-shell merged (PR #7)"
+active_spec: "2026-06-18-dashboard-student-preferences-ui-design (Spec 4 — final; dashboard-completion roadmap DONE)"
+active_branch: "feat/student-preferences-spec (meta docs+ISSUES+both pointers, PR→develop); backend student-profile-get merged to main (PR #17); dashboard student-preferences-ui merged to main (PR #10). Roadmap: shell #7 / email #8 / children-invites #9 / student-prefs #10 all shipped"
 last_green_ci: "design-system deploy-staging green 2026-06-13 (run 27461511438; images built + pushed + VPS deploy)"
 ---
 
@@ -25,11 +25,19 @@ git-flow merge. All TDD, en/ar + RTL, jest-axe, biome/tsc clean.
   to a parent. Frontend-only (consumes existing `children/`+`invites/` endpoints). 119 dashboard
   tests green. Meta docs + ISSUES (child-login limitation) + pointer bump on
   `feat/children-invites-spec` → PR to `develop`.
-- **Spec 4 — student onboarding preferences UI** ⏳ next: time-preferences grid + teacher-gender
-  → `me/student-profile/`.
+- **Spec 4 — student onboarding preferences UI** ✅ shipped (backend PR #17 → `main` @ `942cfef`;
+  dashboard PR #10 → `main` @ `b30b494`; 2026-06-18): student-only "Learning preferences" card on
+  `/account` (teacher-gender + repeatable time-slot rows). Added a small backend `GET
+  me/student-profile/` so the form pre-fills (was POST-only). 135 dashboard tests green; backend
+  GET tested (ruff/mypy clean). Two-repo feature; meta docs + ISSUES + both pointer bumps on
+  `feat/student-preferences-spec` → PR to `develop`.
 
-Not yet deployed to staging — the merged work sits on dashboard `main` + meta `develop`;
-promotion to staging (and the browser click-through) is pending alongside the Phase-A close.
+**Dashboard-completion roadmap is COMPLETE (all 4 specs shipped).** The authenticated dashboard
+now has the app shell, email management, children/invites, and student preferences.
+
+Not yet deployed to staging — the merged work sits on dashboard `main` (+ backend `main`) + meta
+`develop`; promotion `develop → master` to staging (and the browser click-through) is the next
+step, alongside closing Phase A.
 
 ## Active spec
 
