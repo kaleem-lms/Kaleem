@@ -1,13 +1,33 @@
 ---
 current_phase: "A"
-active_spec: "2026-06-18-dashboard-student-preferences-ui-design (Spec 4 — final; dashboard-completion roadmap DONE)"
-active_branch: "feat/student-preferences-spec (meta docs+ISSUES+both pointers, PR→develop); backend student-profile-get merged to main (PR #17); dashboard student-preferences-ui merged to main (PR #10). Roadmap: shell #7 / email #8 / children-invites #9 / student-prefs #10 all shipped"
-last_green_ci: "design-system deploy-staging green 2026-06-13 (run 27461511438; images built + pushed + VPS deploy)"
+active_spec: "2026-06-18-email-verification-login-integrity-design (identity hardening #9/#1/#2/#6 + fixes) — all code merged to submodule mains; meta #85 (docs) merged to develop; this branch bumps the pointers"
+active_branch: "chore/bump-pointers-email-verify-fixes (meta: bump backend→347c176, dashboard→89c9594 + STATE, PR→develop). Merged to main: backend #18 login-gate + #19 frontend-url; dashboard #11 verify-csrf + #12 strictmode-spin-fix. Meta #85 (spec/plan/ISSUES) merged to develop"
+last_green_ci: "design-system deploy-staging green 2026-06-13 (run 27461511438). NOTE: nothing deployed to staging since; identity-frontend + email-verify slices + fixes all await a develop→master promotion"
 ---
 
 # kaleem Project State
 
 ## Current phase: Phase A — Identity
+
+## Email verification & login integrity (+ fixes) — MERGED to mains; staging pending (2026-06-19)
+
+Identity hardening from `tasks.todo` (#9/#1/#2/#6). Spec/plan:
+`docs/superpowers/specs|plans/2026-06-18-email-verification-login-integrity*`.
+
+- **#9** login gate now checks the *submitted* email's verification, not "any verified email"
+  (backend #18). **#1** old-email-keeps-working invariant locked in with tests.
+- **#2** verification links already route to the frontend `/verify-email`.
+- **#6** "/verify-email spins forever" — first attempt (dashboard #11) still hung in dev. Real cause:
+  the confirm ran as a `useMutation` in `useEffect`, whose result React StrictMode's dev double-mount
+  drops → stuck spinner (worked only in prod builds). FIXED (dashboard #12) by modelling the confirm
+  as a StrictMode-safe **keyed `useQuery`**; missing key now shows an error. Verified live (StrictMode
+  on): register → mailpit link → success; bad/missing key → error.
+- **Verification URL invalid in production:** `FRONTEND_URL` defaulted to `app.kaleem.localhost`.
+  Production now *requires* `DJANGO_FRONTEND_URL` (backend #19, fail-loud) — **must be set on the VPS**.
+
+Merged to main: backend #18+#19 (`347c176`), dashboard #11+#12 (`89c9594`). Meta #85 (spec/plan/ISSUES)
+merged to develop; this branch bumps the submodule pointers. **Pending:** `develop → master` (staging
+deploy) + final browser click-through on staging. Pre-existing CI/coverage gaps logged in `ISSUES.md`.
 
 ## Dashboard-completion roadmap (shell → email → children/invites → onboarding)
 
