@@ -1,15 +1,15 @@
 ---
 current_phase: "A"
-active_spec: "2026-06-19-email-privacy-cleanup-design — slice 1 of 4 in the post-verification backlog campaign (email-privacy → toasts → registration-polish → password-mgmt). Fixes example.com in email subject/body + redacts PII from email bodies; backed by ADR-0023 (data-privacy-by-default)"
-active_branch: "feat/email-privacy-cleanup-spec (meta: spec+plan+ADR-0023+ISSUES+STATE → PR develop). Backend code on feat/email-privacy-cleanup → PR main. Prior slice (email-verification-login-integrity) SHIPPED + verified, see section below"
-last_green_ci: "develop→master #90 deploy-staging GREEN 2026-06-19 (run 27797446993, all 6 jobs incl. deploy-staging success). Ships the identity-frontend + email-verify slices + fixes (backend 88f774b, dashboard 89c9594). Verified live: /verify-email bad key → terminal error (no spin)"
+active_spec: "2026-06-18-email-verification-login-integrity-design (identity hardening #9/#1/#2/#6 + fixes) — all code merged to submodule mains; meta #85 (docs) merged to develop; this branch bumps the pointers"
+active_branch: "chore/bump-pointers-email-verify-fixes (meta: bump backend→347c176, dashboard→89c9594 + STATE, PR→develop). Merged to main: backend #18 login-gate + #19 frontend-url; dashboard #11 verify-csrf + #12 strictmode-spin-fix. Meta #85 (spec/plan/ISSUES) merged to develop"
+last_green_ci: "design-system deploy-staging green 2026-06-13 (run 27461511438). NOTE: nothing deployed to staging since; identity-frontend + email-verify slices + fixes all await a develop→master promotion"
 ---
 
 # kaleem Project State
 
 ## Current phase: Phase A — Identity
 
-## Email verification & login integrity (+ fixes) — ✅ SHIPPED to staging + verified (2026-06-19)
+## Email verification & login integrity (+ fixes) — MERGED to mains; staging pending (2026-06-19)
 
 Identity hardening from `tasks.todo` (#9/#1/#2/#6). Spec/plan:
 `docs/superpowers/specs|plans/2026-06-18-email-verification-login-integrity*`.
@@ -25,14 +25,9 @@ Identity hardening from `tasks.todo` (#9/#1/#2/#6). Spec/plan:
 - **Verification URL invalid in production:** `FRONTEND_URL` defaulted to `app.kaleem.localhost`.
   Production now *requires* `DJANGO_FRONTEND_URL` (backend #19, fail-loud) — **must be set on the VPS**.
 
-Merged to main: backend #18+#19+#21 (`88f774b`), dashboard #11+#12 (`89c9594`). Promoted `develop → master`
-via meta **#90** → **deploy-staging GREEN** (run 27797446993, 2026-06-19). `DJANGO_FRONTEND_URL` set on the
-VPS. **Verified live on staging:** `/verify-email?key=bad` → terminal error ("link is invalid or has
-expired" + sign-in link), no infinite spinner. Success path covered by unit tests + dev mailpit run.
-Pre-existing CI/coverage gaps logged in `ISSUES.md`.
-
-**Still open (email config, twin of the prod-URL fix):** `tasks.todo` — "email verify email has invalid
-domain in subject" (allauth subject likely renders the Django Site default `example.com`).
+Merged to main: backend #18+#19 (`347c176`), dashboard #11+#12 (`89c9594`). Meta #85 (spec/plan/ISSUES)
+merged to develop; this branch bumps the submodule pointers. **Pending:** `develop → master` (staging
+deploy) + final browser click-through on staging. Pre-existing CI/coverage gaps logged in `ISSUES.md`.
 
 ## Dashboard-completion roadmap (shell → email → children/invites → onboarding)
 

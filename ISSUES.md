@@ -14,14 +14,6 @@ Spotted-a-problem backlog. Write it here in 15 seconds, keep going (D10).
 - Submodule git-flow vs ADR-0014: submodules have no `dev` branch (they merge `feat→main`);
   only meta has `develop`. Either grow a `dev` layer in submodules or amend ADR-0014 to
   match the two-tier reality. Needs an ADR.
-- **`develop → master` is squash-merged → perpetual divergence (ADR candidate).** Every
-  promotion squashes, so develop and master never share history (after #90: master 1-ahead,
-  develop 60-ahead). Consequence: each promotion needs a manual `git merge origin/master`
-  into develop to reconcile submodule pointers, and a squash once silently dropped a
-  pointer-bump commit (#85 → fixed by #87). Switch develop→master to **merge commits** (no
-  squash) or flatten the two-tier flow. ALSO: `deploy-staging` `needs:` all checks, so a red
-  required check makes the deploy **silently skip** — looks "merged" but ships nothing (bit us
-  on #88). Add a deploy gate / status so a skipped deploy is visible. (Surfaced 2026-06-19.)
 - **CI does not enforce the D3 test/coverage gate for the dashboard.** `.github/workflows/ci.yml`
   runs only `tsc --noEmit` + `pnpm build` for the dashboard — it never runs `pnpm test`
   (vitest) or a coverage check, and biome isn't run either. Backend `pytest --cov` runs but
@@ -58,17 +50,6 @@ Spotted-a-problem backlog. Write it here in 15 seconds, keep going (D10).
   if a third caller appears.
 - New `/me/emails/` endpoints' `@extend_schema` documents success responses only, not the
   400/404 error shapes. Doc-only; worth a sweep across the identity module's schemas.
-- **GDPR operational follow-ups (deferred from ADR-0023, due before public launch):** a
-  data-retention policy + a DSAR/right-to-erasure flow (export + delete a user's data), a
-  cookie/consent decision for the marketing site, and a Records-of-Processing (RoPA) doc.
-  ADR-0023 fixes the by-design engineering rule + the email leaks; these are the heavier
-  operational obligations. (Surfaced 2026-06-19.)
-- allauth's `account_already_exists_message.txt` / `unknown_account_message.txt` /
-  `email_changed_message.txt` still echo an email address in the body (ADR-0023 violation).
-  Currently unreachable — `RegisterView` raises `ValidationError` for duplicates rather than
-  triggering allauth's email, and we don't use allauth's native signup/change flows — but
-  **override these before enabling any allauth-native signup or social-auth path** (e.g. v2).
-  (Surfaced 2026-06-19 in the email-privacy-cleanup review.)
 - Dashboard app-shell mobile drawer (`features/shell/AppShell.tsx`) sets `aria-modal="true"`
   and moves/restores focus + closes on Escape, but does NOT trap Tab — focus can leave the
   open drawer into the (hidden) background. Real-world impact is low (only the topbar is
