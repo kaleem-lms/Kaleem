@@ -117,6 +117,11 @@ Spotted-a-problem backlog. Write it here in 15 seconds, keep going (D10).
 - Dashboard `verify-email.tsx` route now passes `onVerified={() => {}}` (no-op); the prop is
   retained for the spec'd component signature but is vestigial in the only production caller.
   Drop it or wire it when the post-verify UX firms up. (D10 note, email-verify slice.)
+- Dashboard **zod validation messages are not i18n'd** — they render English regardless of
+  locale (e.g. `registerSchema` birthdate refine "Enter a valid birthdate.", plus the default
+  zod messages on every form: full_name/email/password). zod runs outside React so `t()` can't
+  be called in the schema. Breaks ar parity for validation copy (ADR-0020). Fix repo-wide via a
+  locale-aware resolver wrapper or per-field `setError` translation. (Surfaced 2026-06-19, registration-polish review.)
 
 ## Someday / Won't fix
 
