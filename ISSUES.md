@@ -122,6 +122,11 @@ Spotted-a-problem backlog. Write it here in 15 seconds, keep going (D10).
   zod messages on every form: full_name/email/password). zod runs outside React so `t()` can't
   be called in the schema. Breaks ar parity for validation copy (ADR-0020). Fix repo-wide via a
   locale-aware resolver wrapper or per-field `setError` translation. (Surfaced 2026-06-19, registration-polish review.)
+- **No security-alert email on password change/reset.** `add_email`/`set_primary_email` send a
+  security alert (ADR-0023), but `change_password` and `confirm_password_reset` do not — a
+  silent takeover via password change/reset won't notify the account owner. Out of scope for the
+  password-management slice; add a "changed/reset" alert (reuse `_send_email_security_alert`
+  with a new action) as a follow-up. (Surfaced 2026-06-19, password-management review.)
 
 ## Someday / Won't fix
 
