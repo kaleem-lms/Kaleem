@@ -1,13 +1,36 @@
 ---
 current_phase: "A"
 active_spec: "2026-06-25-scheduling-availability-design — SHIPPED to develop 2026-06-26 (tz-aware weekly availability + Calendly-style editor; first slice of the Phase B scheduling module, started early per user direction = deviation). Built subagent-driven TDD (11 tasks, 2 repos); final whole-branch review READY TO MERGE. Matching/sessions/billing/video explicitly deferred. Earlier this session also shipped UI a11y-polish + frontend-only module scaffolds (deviation)."
-active_branch: "develop clean + consistent: backend pointer @ 38f64d4 (scheduling module), dashboard @ 8aff4b5 (availability editor). No active feature branch — all PRs merged (backend #28, dashboard #19, meta #106 spec+plan). In-flight Phase A identity work still lives on feat/child-verification-spec + the email-privacy campaign."
-last_green_ci: "develop→master #90 deploy-staging GREEN 2026-06-19. ⚠ develop is well AHEAD of master and NOT promoted: UI a11y-polish, module scaffolds, AND the scheduling-availability feature all sit on develop, none on staging. Backend scheduling suite (18 tests) + ruff/mypy/import-linter green; dashboard suite (242 tests) + tsc + biome green — all LOCAL (submodules have no CI). Next promotion ships all three."
+active_branch: "meta feat/dashboard-layout-audit (open PR → develop) carries the dashboard layout-system spec+plan+screenshots+pointer bump. dashboard @ 4f8c4ea (PR #20 layout-system, merged to main). backend pointer @ 38f64d4 (scheduling module). In-flight Phase A identity work still lives on feat/child-verification-spec + the email-privacy campaign."
+last_green_ci: "develop→master #90 deploy-staging GREEN 2026-06-19. ⚠ develop is well AHEAD of master and NOT promoted: UI a11y-polish, module scaffolds, the scheduling-availability feature, AND the dashboard layout-system all sit on develop, none on staging. Backend scheduling suite (18 tests) + ruff/mypy/import-linter green; dashboard suite (257 tests) + tsc + biome green — all LOCAL (submodules have no CI; dashboard coverage gate still unwired, see ISSUES). Next promotion ships all of it."
 ---
 
 # kaleem Project State
 
 ## Current phase: Phase A — Identity
+
+## Session 2026-06-26 (later) — dashboard layout system SHIPPED to develop (UI/UX audit)
+
+User-triggered UI/UX audit of the authed dashboard ("huge layout sizing problem"). Full process:
+brainstorm → spec (`docs/superpowers/specs/2026-06-26-dashboard-layout-system-design.md`) → plan
+(`docs/superpowers/plans/2026-06-26-dashboard-layout-system.md`) → TDD → **visual before/after run**
+(real running stack, Playwright @ 1440/768/375, screenshots in the spec's `assets/`) → merged.
+
+- **Root cause:** the shell `<main>` had no max-width/centering, so each page rolled its own width
+  wrapper (448 / 672 / 768px) and `mx-auto` centered within the post-sidebar region → content drifted
+  right into a void and the width jumped page-to-page. **Fix:** content-width `@theme` tokens
+  (`--container-page/narrow/wide`) + `PageContainer` + `PageHeader` primitives; every page + the
+  module placeholders routed through them (standard pages now all 768px; availability `wide`, double
+  padding removed; Account gained its missing `<h1>`); shell `<main>` owns vertical rhythm only;
+  sidebar links `min-h-11` (44px). Also fixed a **pre-existing 375px topbar horizontal-overflow**
+  (user-name button → name now hides below `sm`).
+- **Verified:** vitest **257 green** (53 files, +15 tests), tsc + biome clean; 375px overflow gone
+  (`scrollWidth` 372 ≤ 375). Visual after-shots confirm consistent width + no right-drift.
+- **Merged:** dashboard #20 → main (`4f8c4ea`). Meta PR (this branch) bumps the pointer + carries
+  spec/plan/screenshots → develop. **NOT deployed** (sits on develop with the prior work).
+- **Deviation logged (ISSUES):** layout tokens live in the dashboard `@theme`, not `@kaleem/tokens`
+  (pinned-git-tag consumption would need publish→rebuild + break HMR verification); promote on the
+  next tokens release.
 
 ## Session 2026-06-26 — scheduling availability SHIPPED to develop (Phase B started early)
 

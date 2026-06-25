@@ -10,6 +10,16 @@ Spotted-a-problem backlog. Write it here in 15 seconds, keep going (D10).
   (40px) for dense, pointer-first use. These two live in the mobile topbar, so they're
   touchable below 44px — passes WCAG 2.2 AA's 24px floor, not the 44px ideal. Bump them
   to the default size if mis-taps surface. (Surfaced 2026-06-25, UI/UX audit.)
+  _Update 2026-06-26: the related mobile horizontal-overflow caused by the wide
+  user-name button is fixed (name hides below `sm`); the 40px height itself still stands._
+
+- **Promote the dashboard layout tokens into `@kaleem/tokens`.** The content-width scale
+  (`--container-page/narrow/wide`) currently lives in the dashboard's own `@theme`
+  (src/index.css), not the shared tokens package, because `@kaleem/tokens` is consumed as a
+  pinned git tag baked into `node_modules` (`github:…#v0.1.1`) — changing it needs publish →
+  re-pin → reinstall → Docker rebuild, which would also break live HMR verification. On the
+  next tokens release, move these into the package and have the dashboard consume them.
+  (Surfaced 2026-06-26, dashboard layout-system spec — Deviation.)
 
 - ~~Frontend deploy gap~~ — RESOLVED 2026-06-13 (ADR-0019, frontend-delivery-pipeline).
   Dashboard + marketing now build to GHCR nginx images and deploy behind Traefik on
