@@ -1,13 +1,64 @@
 ---
 current_phase: "A"
-active_spec: "2026-06-19-email-privacy-cleanup-design — slice 1 of 4 in the post-verification backlog campaign (email-privacy → toasts → registration-polish → password-mgmt). Fixes example.com in email subject/body + redacts PII from email bodies; backed by ADR-0023 (data-privacy-by-default)"
-active_branch: "feat/email-privacy-cleanup-spec (meta: spec+plan+ADR-0023+ISSUES+STATE → PR develop). Backend code on feat/email-privacy-cleanup → PR main. Prior slice (email-verification-login-integrity) SHIPPED + verified, see section below"
-last_green_ci: "develop→master #90 deploy-staging GREEN 2026-06-19 (run 27797446993, all 6 jobs incl. deploy-staging success). Ships the identity-frontend + email-verify slices + fixes (backend 88f774b, dashboard 89c9594). Verified live: /verify-email bad key → terminal error (no spin)"
+active_spec: "2026-06-25-scheduling-availability-design — SHIPPED to develop 2026-06-26 (tz-aware weekly availability + Calendly-style editor; first slice of the Phase B scheduling module, started early per user direction = deviation). Built subagent-driven TDD (11 tasks, 2 repos); final whole-branch review READY TO MERGE. Matching/sessions/billing/video explicitly deferred. Earlier this session also shipped UI a11y-polish + frontend-only module scaffolds (deviation)."
+active_branch: "develop clean + consistent: backend pointer @ 38f64d4 (scheduling module), dashboard @ 8aff4b5 (availability editor). No active feature branch — all PRs merged (backend #28, dashboard #19, meta #106 spec+plan). In-flight Phase A identity work still lives on feat/child-verification-spec + the email-privacy campaign."
+last_green_ci: "develop→master #90 deploy-staging GREEN 2026-06-19. ⚠ develop is well AHEAD of master and NOT promoted: UI a11y-polish, module scaffolds, AND the scheduling-availability feature all sit on develop, none on staging. Backend scheduling suite (18 tests) + ruff/mypy/import-linter green; dashboard suite (242 tests) + tsc + biome green — all LOCAL (submodules have no CI). Next promotion ships all three."
 ---
 
 # kaleem Project State
 
 ## Current phase: Phase A — Identity
+
+## Session 2026-06-26 — scheduling availability SHIPPED to develop (Phase B started early)
+
+First real slice of the **Phase B `scheduling`** module, started early at user direction
+(deviation — recorded in journal W26). Full process: brainstorm → spec
+(`docs/superpowers/specs/2026-06-25-scheduling-availability-design.md`) → plan
+(`docs/superpowers/plans/2026-06-25-scheduling-availability.md`) → subagent-driven TDD (11 tasks,
+2 repos) → final whole-branch review (**READY TO MERGE**) → merged.
+
+- **What shipped:** teachers and students set a **recurring weekly availability in their own
+  timezone** via a Calendly-style per-day editor (layout B). Backend `scheduling` module with a
+  queryable `WeeklyAvailability` table, `GET/PUT /api/v1/scheduling/me/availability/` (full-replace,
+  merges overlaps, typed 400/403), `User.timezone`, and a tested `to_utc_intervals` tz-conversion
+  primitive. The student's old `StudentProfile.time_preferences` JSON was **removed** (availability
+  now lives in scheduling); `teacher_gender_preference` stays in identity. Dashboard:
+  `WeeklyAvailabilityEditor` + `TimezoneBar` on a teacher `/availability` page + the student
+  `/account` card; en/ar + RTL + jest-axe.
+- **Explicitly OUT (future specs):** the matching engine (overlap search + rule filters + broadcast
+  to teachers + first-accept-claim + linking), sessions/bookings/Zoom, billing/entitlement,
+  cross-user availability viewing. `to_utc_intervals` is the only matching-facing primitive built.
+- **Merged:** backend #28 → main (`38f64d4`), dashboard #19 → main (`8aff4b5`), meta #106 (spec+plan)
+  → develop. Pointers bumped on develop. Final-review follow-ups logged in ISSUES (route teacher-gate,
+  parseApiError shared-lib, stale child `time_preferences:[]` payload, tz picker Escape, weekday
+  DB-constraint, DST/multi-tz).
+- **NOT deployed:** sits on develop with the prior a11y + scaffolds work; a `develop → master`
+  promotion ships all three to staging. Manual browser click-through is the remaining D9 step
+  (post-deploy, as with prior slices).
+
+## Session 2026-06-25 — UI a11y polish + module scaffolds (on develop, NOT deployed)
+
+Triggered by "set up UI/UX" → turned out the **Serene Scholar** design system already
+exists, so the work was an **audit + improve** pass, then (at user request) **frontend
+scaffolds**. All merged to develop; **not yet on staging**.
+
+- **UI a11y polish** (dashboard #17 → main; meta #101 docs): 44px touch targets,
+  role-correct `Alert`, 16px mobile inputs (no iOS zoom), color+icon toasts, a
+  `PasswordInput` show/hide primitive across all 7 password fields, required-field
+  markers, locale-aware `Spinner`, hover-shade buttons. 181 tests green.
+- **Frontend-only module scaffolds** (dashboard #18 → main): `ModulePlaceholder` + 6
+  navigable placeholder routes (schedule, curriculum, assessments, messages, billing,
+  insights) behind role-gated nav, en/ar. **⚠ DELIBERATE ROADMAP DEVIATION** — these
+  modules have no backend and are later phases; built as placeholders at user request,
+  recorded in journal W26. They *look* built-out but are non-functional. Role gating +
+  which modules appear in nav are **provisional** until each module's real D1 spec.
+- Pointer bumps: meta #102 (a11y) + #104 (scaffolds) → develop now records dashboard
+  **7a10a48**. Journal W26 (#103) records the deviation. develop is clean/consistent.
+
+**Next step (roadmap-true):** do NOT keep scaffolding. Close **Phase A** (child-verification
++ email-privacy campaign), green its exit criteria, then open **Phase B (billing)** with a
+proper backend+frontend D1 spec — the scaffold billing page gets replaced by the real slice.
+Optional now: promote develop→master to put the a11y polish + scaffolds on staging.
 
 ## Email verification & login integrity (+ fixes) — ✅ SHIPPED to staging + verified (2026-06-19)
 

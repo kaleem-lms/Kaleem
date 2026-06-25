@@ -4,6 +4,13 @@ Spotted-a-problem backlog. Write it here in 15 seconds, keep going (D10).
 
 ## Now (next 1-2 weeks)
 
+- **Topbar `LocaleToggle` + `UserMenu` trigger are 40px (`size="sm"`), under the 44px
+  best-practice touch target.** The UI a11y-polish pass (dashboard PR #17) bumped the
+  default Button/Input and icon buttons to 44px but deliberately kept `sm` compact
+  (40px) for dense, pointer-first use. These two live in the mobile topbar, so they're
+  touchable below 44px — passes WCAG 2.2 AA's 24px floor, not the 44px ideal. Bump them
+  to the default size if mis-taps surface. (Surfaced 2026-06-25, UI/UX audit.)
+
 - ~~Frontend deploy gap~~ — RESOLVED 2026-06-13 (ADR-0019, frontend-delivery-pipeline).
   Dashboard + marketing now build to GHCR nginx images and deploy behind Traefik on
   `app-staging`/`staging`; backend moved to `api-staging`. Deployed green to staging.
@@ -37,6 +44,23 @@ Spotted-a-problem backlog. Write it here in 15 seconds, keep going (D10).
 
 ## Soon (next month or two)
 
+- **Scheduling-availability follow-ups (deferred from the final review, 2026-06-26).** All
+  non-blocking; the feature shipped (backend `scheduling` module + dashboard editor).
+  (1) `/availability` route component has no in-component `teacher` profile gate — nav hides
+  it for non-teachers and the API 403s a profile-less user, but a parent deep-linking lands on
+  the editor then hits a backend 403 with no graceful empty-state; add a route-level gate +
+  friendly empty-state. (2) `parseApiError` lives in `dashboard/src/features/identity/api.ts`;
+  promote it to a shared `src/lib` so other features (scheduling, future) don't cross-import
+  identity. (3) The dashboard still sends `time_preferences: []` in the child-create/preferences
+  payload though the backend dropped that field (backend ignores unknown keys — harmless);
+  tidy in a future identity slice. (4) `TimezoneBar` picker has no Escape-to-close and its
+  listbox `aria-label` reuses the search label; minor a11y polish. (5) `WeeklyAvailability.weekday`
+  is only service-validated (0..6), not DB-constrained — a raw ORM insert >6 would `IndexError`
+  in `__str__`; add a `CheckConstraint` if direct inserts ever happen. (6) `WeeklyAvailabilityEditor`
+  pill React key collides on two identical ranges in one day (cosmetic warning; backend merges them
+  on save anyway). (7) **tz-awareness is partial:** availability is stored/edited in the owner's
+  timezone and `to_utc_intervals` converts for a reference week, but DST exactness + multi-tz-per-user
+  are out of scope (documented in the spec) — revisit when the matching feature lands.
 - Deploy assumes a fresh DB. `migrate` orders `identity` (the custom `AUTH_USER_MODEL`)
   before `account` (allauth); any environment whose `account` migrations were applied
   before `identity` existed hits `InconsistentMigrationHistory` and the deploy aborts.
