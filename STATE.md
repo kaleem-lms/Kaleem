@@ -1,13 +1,37 @@
 ---
 current_phase: "A"
-active_spec: "2026-06-19-email-privacy-cleanup-design — slice 1 of 4 in the post-verification backlog campaign (email-privacy → toasts → registration-polish → password-mgmt). Fixes example.com in email subject/body + redacts PII from email bodies; backed by ADR-0023 (data-privacy-by-default)"
-active_branch: "feat/email-privacy-cleanup-spec (meta: spec+plan+ADR-0023+ISSUES+STATE → PR develop). Backend code on feat/email-privacy-cleanup → PR main. Prior slice (email-verification-login-integrity) SHIPPED + verified, see section below"
-last_green_ci: "develop→master #90 deploy-staging GREEN 2026-06-19 (run 27797446993, all 6 jobs incl. deploy-staging success). Ships the identity-frontend + email-verify slices + fixes (backend 88f774b, dashboard 89c9594). Verified live: /verify-email bad key → terminal error (no spin)"
+active_spec: "None committed/active. This session (2026-06-25) shipped an UNPLANNED UI a11y-polish pass + frontend-only feature-module scaffolds to develop — a deliberate roadmap DEVIATION (no spec; recorded in journal W26). Roadmap-true next: close Phase A (child-verification + email-privacy campaign), then open Phase B (billing) with a D1 spec."
+active_branch: "develop is clean + consistent (dashboard pointer @ 7a10a48 = a11y #17 + scaffolds #18). No active feature branch — all this session's PRs merged. In-flight Phase A identity work still lives on feat/child-verification-spec (meta: spec+plan committed, NOT yet built) and the email-privacy-cleanup campaign."
+last_green_ci: "develop→master #90 deploy-staging GREEN 2026-06-19 (run 27797446993). ⚠ develop is now AHEAD of master: UI a11y-polish + module scaffolds are on develop (dashboard 7a10a48) but NOT promoted to staging. Dashboard suite (207 tests) + tsc + biome + build were green LOCALLY (dashboard repo has no CI; D3 vitest gate still unenforced — see ISSUES)."
 ---
 
 # kaleem Project State
 
 ## Current phase: Phase A — Identity
+
+## Session 2026-06-25 — UI a11y polish + module scaffolds (on develop, NOT deployed)
+
+Triggered by "set up UI/UX" → turned out the **Serene Scholar** design system already
+exists, so the work was an **audit + improve** pass, then (at user request) **frontend
+scaffolds**. All merged to develop; **not yet on staging**.
+
+- **UI a11y polish** (dashboard #17 → main; meta #101 docs): 44px touch targets,
+  role-correct `Alert`, 16px mobile inputs (no iOS zoom), color+icon toasts, a
+  `PasswordInput` show/hide primitive across all 7 password fields, required-field
+  markers, locale-aware `Spinner`, hover-shade buttons. 181 tests green.
+- **Frontend-only module scaffolds** (dashboard #18 → main): `ModulePlaceholder` + 6
+  navigable placeholder routes (schedule, curriculum, assessments, messages, billing,
+  insights) behind role-gated nav, en/ar. **⚠ DELIBERATE ROADMAP DEVIATION** — these
+  modules have no backend and are later phases; built as placeholders at user request,
+  recorded in journal W26. They *look* built-out but are non-functional. Role gating +
+  which modules appear in nav are **provisional** until each module's real D1 spec.
+- Pointer bumps: meta #102 (a11y) + #104 (scaffolds) → develop now records dashboard
+  **7a10a48**. Journal W26 (#103) records the deviation. develop is clean/consistent.
+
+**Next step (roadmap-true):** do NOT keep scaffolding. Close **Phase A** (child-verification
++ email-privacy campaign), green its exit criteria, then open **Phase B (billing)** with a
+proper backend+frontend D1 spec — the scaffold billing page gets replaced by the real slice.
+Optional now: promote develop→master to put the a11y polish + scaffolds on staging.
 
 ## Email verification & login integrity (+ fixes) — ✅ SHIPPED to staging + verified (2026-06-19)
 
