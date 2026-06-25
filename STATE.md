@@ -1,13 +1,40 @@
 ---
 current_phase: "A"
-active_spec: "None committed/active. This session (2026-06-25) shipped an UNPLANNED UI a11y-polish pass + frontend-only feature-module scaffolds to develop — a deliberate roadmap DEVIATION (no spec; recorded in journal W26). Roadmap-true next: close Phase A (child-verification + email-privacy campaign), then open Phase B (billing) with a D1 spec."
-active_branch: "develop is clean + consistent (dashboard pointer @ 7a10a48 = a11y #17 + scaffolds #18). No active feature branch — all this session's PRs merged. In-flight Phase A identity work still lives on feat/child-verification-spec (meta: spec+plan committed, NOT yet built) and the email-privacy-cleanup campaign."
-last_green_ci: "develop→master #90 deploy-staging GREEN 2026-06-19 (run 27797446993). ⚠ develop is now AHEAD of master: UI a11y-polish + module scaffolds are on develop (dashboard 7a10a48) but NOT promoted to staging. Dashboard suite (207 tests) + tsc + biome + build were green LOCALLY (dashboard repo has no CI; D3 vitest gate still unenforced — see ISSUES)."
+active_spec: "2026-06-25-scheduling-availability-design — SHIPPED to develop 2026-06-26 (tz-aware weekly availability + Calendly-style editor; first slice of the Phase B scheduling module, started early per user direction = deviation). Built subagent-driven TDD (11 tasks, 2 repos); final whole-branch review READY TO MERGE. Matching/sessions/billing/video explicitly deferred. Earlier this session also shipped UI a11y-polish + frontend-only module scaffolds (deviation)."
+active_branch: "develop clean + consistent: backend pointer @ 38f64d4 (scheduling module), dashboard @ 8aff4b5 (availability editor). No active feature branch — all PRs merged (backend #28, dashboard #19, meta #106 spec+plan). In-flight Phase A identity work still lives on feat/child-verification-spec + the email-privacy campaign."
+last_green_ci: "develop→master #90 deploy-staging GREEN 2026-06-19. ⚠ develop is well AHEAD of master and NOT promoted: UI a11y-polish, module scaffolds, AND the scheduling-availability feature all sit on develop, none on staging. Backend scheduling suite (18 tests) + ruff/mypy/import-linter green; dashboard suite (242 tests) + tsc + biome green — all LOCAL (submodules have no CI). Next promotion ships all three."
 ---
 
 # kaleem Project State
 
 ## Current phase: Phase A — Identity
+
+## Session 2026-06-26 — scheduling availability SHIPPED to develop (Phase B started early)
+
+First real slice of the **Phase B `scheduling`** module, started early at user direction
+(deviation — recorded in journal W26). Full process: brainstorm → spec
+(`docs/superpowers/specs/2026-06-25-scheduling-availability-design.md`) → plan
+(`docs/superpowers/plans/2026-06-25-scheduling-availability.md`) → subagent-driven TDD (11 tasks,
+2 repos) → final whole-branch review (**READY TO MERGE**) → merged.
+
+- **What shipped:** teachers and students set a **recurring weekly availability in their own
+  timezone** via a Calendly-style per-day editor (layout B). Backend `scheduling` module with a
+  queryable `WeeklyAvailability` table, `GET/PUT /api/v1/scheduling/me/availability/` (full-replace,
+  merges overlaps, typed 400/403), `User.timezone`, and a tested `to_utc_intervals` tz-conversion
+  primitive. The student's old `StudentProfile.time_preferences` JSON was **removed** (availability
+  now lives in scheduling); `teacher_gender_preference` stays in identity. Dashboard:
+  `WeeklyAvailabilityEditor` + `TimezoneBar` on a teacher `/availability` page + the student
+  `/account` card; en/ar + RTL + jest-axe.
+- **Explicitly OUT (future specs):** the matching engine (overlap search + rule filters + broadcast
+  to teachers + first-accept-claim + linking), sessions/bookings/Zoom, billing/entitlement,
+  cross-user availability viewing. `to_utc_intervals` is the only matching-facing primitive built.
+- **Merged:** backend #28 → main (`38f64d4`), dashboard #19 → main (`8aff4b5`), meta #106 (spec+plan)
+  → develop. Pointers bumped on develop. Final-review follow-ups logged in ISSUES (route teacher-gate,
+  parseApiError shared-lib, stale child `time_preferences:[]` payload, tz picker Escape, weekday
+  DB-constraint, DST/multi-tz).
+- **NOT deployed:** sits on develop with the prior a11y + scaffolds work; a `develop → master`
+  promotion ships all three to staging. Manual browser click-through is the remaining D9 step
+  (post-deploy, as with prior slices).
 
 ## Session 2026-06-25 — UI a11y polish + module scaffolds (on develop, NOT deployed)
 
