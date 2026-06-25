@@ -4,6 +4,13 @@ Spotted-a-problem backlog. Write it here in 15 seconds, keep going (D10).
 
 ## Now (next 1-2 weeks)
 
+- **Topbar `LocaleToggle` + `UserMenu` trigger are 40px (`size="sm"`), under the 44px
+  best-practice touch target.** The UI a11y-polish pass (dashboard PR #17) bumped the
+  default Button/Input and icon buttons to 44px but deliberately kept `sm` compact
+  (40px) for dense, pointer-first use. These two live in the mobile topbar, so they're
+  touchable below 44px — passes WCAG 2.2 AA's 24px floor, not the 44px ideal. Bump them
+  to the default size if mis-taps surface. (Surfaced 2026-06-25, UI/UX audit.)
+
 - ~~Frontend deploy gap~~ — RESOLVED 2026-06-13 (ADR-0019, frontend-delivery-pipeline).
   Dashboard + marketing now build to GHCR nginx images and deploy behind Traefik on
   `app-staging`/`staging`; backend moved to `api-staging`. Deployed green to staging.

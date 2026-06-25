@@ -62,6 +62,20 @@ because both pull the same tokens.
   contrast (≥ 4.5:1) on key token pairings in **both** themes. The `/design-preview` route
   renders the 3-mode login (light/dark/RTL) for manual + automated checks.
 
+### Color-usage guardrails
+
+- **`--accent` (gold) is a surface/decoration color, not a text color.** Gold on the cream
+  `--background` is ≈ 2:1 — well under AA. Use `text-accent` only for decorative marks (e.g.
+  the brand "." in the wordmark) or paired with `--accent-foreground` *on* an accent surface.
+  Never use it for body copy, labels, links, or any meaningful text. For "highlight" text that
+  must stay readable, use `--primary` (emerald) or `--foreground`.
+- **Functional color is never the only signal.** Status meaning (error/success/info) must be
+  backed by an icon or text, not color alone — e.g. toast variants carry a leading status icon,
+  and form errors render text, not just a red border (WCAG color-not-only).
+- **Interactive controls meet the 44px touch-target minimum** by default (`Button`/`Input` are
+  `h-11`; icon buttons `h-11 w-11`). The `sm` button is a deliberately compact, pointer-first
+  variant — don't use it as the primary tap target on mobile.
+
 ## CI: fetching the private token package
 
 All CI is centralized in the meta repo's `.github/workflows/ci.yml` (the submodule repos
