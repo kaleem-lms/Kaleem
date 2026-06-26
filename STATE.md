@@ -1,7 +1,7 @@
 ---
 current_phase: "A"
 active_spec: "2026-06-25-scheduling-availability-design — SHIPPED to develop 2026-06-26 (tz-aware weekly availability + Calendly-style editor; first slice of the Phase B scheduling module, started early per user direction = deviation). Built subagent-driven TDD (11 tasks, 2 repos); final whole-branch review READY TO MERGE. Matching/sessions/billing/video explicitly deferred. Earlier this session also shipped UI a11y-polish + frontend-only module scaffolds (deviation)."
-active_branch: "meta feat/dashboard-layout-autofit (open PR → develop) carries the content-adaptive layout screenshots + pointer bump. dashboard @ dc96d90 (PR #22 auto-fit layout; #21 styling + #20 layout-system already in). backend pointer @ 38f64d4 (scheduling module). In-flight Phase A identity work still lives on feat/child-verification-spec + the email-privacy campaign."
+active_branch: "meta feat/bento-home (open PR → develop) carries the bento-home screenshots + pointer bump. dashboard @ 408ef0c (PR #23 bento home; #22 auto-fit layout + #21 styling + #20 layout-system already in). backend pointer @ 38f64d4 (scheduling module). In-flight Phase A identity work still lives on feat/child-verification-spec + the email-privacy campaign."
 last_green_ci: "develop→master #90 deploy-staging GREEN 2026-06-19. ⚠ develop is well AHEAD of master and NOT promoted: UI a11y-polish, module scaffolds, scheduling-availability, the dashboard layout-system, AND the dashboard styling pass all sit on develop, none on staging. Backend scheduling suite (18 tests) + ruff/mypy/import-linter green; dashboard suite (257 tests) + tsc + biome green — all LOCAL (submodules have no CI; dashboard coverage gate still unwired, see ISSUES). Next promotion ships all of it."
 ---
 
@@ -37,6 +37,13 @@ light/dark/RTL/mobile (screenshots in the spec `assets/`, `v2-*`).
   they fit (2 @1440, 3 @1920, 1 + no overflow @375), never forced; RTL-safe. Availability keeps its
   justified editor+timezone master-detail; ModulePlaceholder stays a modest centered card. Width
   tokens are now `content`/`narrow` (PageContainer). 256 vitest + tsc + biome green.
+- **Follow-up — bento dashboard home (dashboard #23 → main `408ef0c`):** user reviewed five rendered
+  layout-system mockups (a temporary `layout-lab.html`; screenshots `lab-opt{1..5}` in the spec
+  assets) and chose **#5 sidebar + bento dashboard**. Home is now a real dashboard: a wide spotlight
+  tile for the user's most relevant BUILT feature (teacher→availability, parent/student→family) +
+  a role-gated grid of `BentoTile`s (icon + title + description, whole-tile link). Scaffold modules
+  carry a "Coming soon" badge; built ones link through — honest about what exists, no faked stats.
+  Shell + subpages unchanged. 260 vitest + tsc + biome green; verified light/dark/RTL/mobile.
 
 ## Session 2026-06-26 (later) — dashboard layout system SHIPPED to develop (UI/UX audit)
 
