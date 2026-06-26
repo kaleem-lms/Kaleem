@@ -4,14 +4,12 @@ Spotted-a-problem backlog. Write it here in 15 seconds, keep going (D10).
 
 ## Now (next 1-2 weeks)
 
-- **Topbar `LocaleToggle` + `UserMenu` trigger are 40px (`size="sm"`), under the 44px
-  best-practice touch target.** The UI a11y-polish pass (dashboard PR #17) bumped the
-  default Button/Input and icon buttons to 44px but deliberately kept `sm` compact
-  (40px) for dense, pointer-first use. These two live in the mobile topbar, so they're
-  touchable below 44px — passes WCAG 2.2 AA's 24px floor, not the 44px ideal. Bump them
-  to the default size if mis-taps surface. (Surfaced 2026-06-25, UI/UX audit.)
-  _Update 2026-06-26: the related mobile horizontal-overflow caused by the wide
-  user-name button is fixed (name hides below `sm`); the 40px height itself still stands._
+- ~~**Topbar `LocaleToggle` + `UserMenu` trigger are 40px (`size="sm"`), under the 44px
+  best-practice touch target.**~~ RESOLVED 2026-06-26 (UI/UX audit re-check): all three
+  topbar controls now meet 44px — `LocaleToggle` and the `UserMenu` trigger carry
+  `className="h-11"` over `size="sm"`, and `ThemeToggle` is `size="icon"` (h-11 w-11).
+  The related mobile horizontal-overflow (wide user-name button) was already fixed
+  (name hides below `sm`). (Originally surfaced 2026-06-25.)
 
 - **Promote the dashboard token overrides into `@kaleem/tokens`.** Several token values now
   live in the dashboard's own `@theme`/cascade (`src/index.css`), not the shared package,
