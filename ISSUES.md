@@ -22,7 +22,13 @@ Spotted-a-problem backlog. Write it here in 15 seconds, keep going (D10).
   - layout: content-width scale (`--container-page/narrow/wide`) + `--text-display` (layout-system pass).
   - color/elevation: dark `--primary`/`--primary-foreground` (deeper green so the filled CTA
     dominates), lifted light `--shadow-sm`, and neutral dark `--shadow-sm/md/lg` (styling pass).
-  (Surfaced 2026-06-26, dashboard layout-system + styling passes — Deviation.)
+  - contrast (AA gaps, color/type audit): light `--muted-foreground` `#62736C`→`#55655F`
+    (secondary text on `bg-muted` pills was 4.14:1 on `#EFE9DB`); `--input` light
+    `#E0D9C8`→`#968B71` and dark `#2A3A34`→`#5E766C` (field-boundary affordance was ~1.4:1,
+    WCAG 1.4.11 wants 3:1 — `--border` card hairlines left soft, they're exempt); dark
+    `--success-foreground` `#07302A`→`#052621` (label was exactly on the 4.5:1 line). The
+    package's own values still fail these — promote the package, don't just drop the overrides.
+  (Surfaced 2026-06-26, dashboard layout-system + styling + color/type-contrast passes — Deviation.)
 
 - ~~Frontend deploy gap~~ — RESOLVED 2026-06-13 (ADR-0019, frontend-delivery-pipeline).
   Dashboard + marketing now build to GHCR nginx images and deploy behind Traefik on
