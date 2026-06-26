@@ -1,7 +1,7 @@
 ---
 current_phase: "A"
 active_spec: "2026-06-25-scheduling-availability-design — SHIPPED to develop 2026-06-26 (tz-aware weekly availability + Calendly-style editor; first slice of the Phase B scheduling module, started early per user direction = deviation). Built subagent-driven TDD (11 tasks, 2 repos); final whole-branch review READY TO MERGE. Matching/sessions/billing/video explicitly deferred. Earlier this session also shipped UI a11y-polish + frontend-only module scaffolds (deviation)."
-active_branch: "meta feat/dashboard-styling-polish (open PR → develop) carries the dashboard styling pass screenshots + pointer bump. dashboard @ 4b74565 (PR #21 styling-polish, merged to main; layout-system #20 already in). backend pointer @ 38f64d4 (scheduling module). In-flight Phase A identity work still lives on feat/child-verification-spec + the email-privacy campaign."
+active_branch: "meta feat/dashboard-layout-autofit (open PR → develop) carries the content-adaptive layout screenshots + pointer bump. dashboard @ dc96d90 (PR #22 auto-fit layout; #21 styling + #20 layout-system already in). backend pointer @ 38f64d4 (scheduling module). In-flight Phase A identity work still lives on feat/child-verification-spec + the email-privacy campaign."
 last_green_ci: "develop→master #90 deploy-staging GREEN 2026-06-19. ⚠ develop is well AHEAD of master and NOT promoted: UI a11y-polish, module scaffolds, scheduling-availability, the dashboard layout-system, AND the dashboard styling pass all sit on develop, none on staging. Backend scheduling suite (18 tests) + ruff/mypy/import-linter green; dashboard suite (257 tests) + tsc + biome green — all LOCAL (submodules have no CI; dashboard coverage gate still unwired, see ISSUES). Next promotion ships all of it."
 ---
 
@@ -30,6 +30,13 @@ light/dark/RTL/mobile (screenshots in the spec `assets/`, `v2-*`).
   Meta PR (this branch) bumps the pointer + carries the v2 screenshots → develop. **NOT deployed.**
 - **Deviation (ISSUES):** three dark/elevation token overrides live in the dashboard cascade (same
   pinned-git-tag reason as the layout tokens); promote on the next tokens release.
+- **Follow-up — content-adaptive layout (dashboard #22 → main `dc96d90`):** user pushed back that the
+  forced two-column grids on Account/Family weren't warranted. Replaced the `page/narrow/wide`
+  max-width tiers + forced `grid-cols-2` with one `--container-content` (88rem) cap + a `CardGrid`
+  auto-fit primitive (`repeat(auto-fit,minmax(min(--card-min,100%),1fr))`): columns appear only when
+  they fit (2 @1440, 3 @1920, 1 + no overflow @375), never forced; RTL-safe. Availability keeps its
+  justified editor+timezone master-detail; ModulePlaceholder stays a modest centered card. Width
+  tokens are now `content`/`narrow` (PageContainer). 256 vitest + tsc + biome green.
 
 ## Session 2026-06-26 (later) — dashboard layout system SHIPPED to develop (UI/UX audit)
 
