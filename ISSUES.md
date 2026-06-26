@@ -4,12 +4,29 @@ Spotted-a-problem backlog. Write it here in 15 seconds, keep going (D10).
 
 ## Now (next 1-2 weeks)
 
-- **Topbar `LocaleToggle` + `UserMenu` trigger are 40px (`size="sm"`), under the 44px
-  best-practice touch target.** The UI a11y-polish pass (dashboard PR #17) bumped the
-  default Button/Input and icon buttons to 44px but deliberately kept `sm` compact
-  (40px) for dense, pointer-first use. These two live in the mobile topbar, so they're
-  touchable below 44px — passes WCAG 2.2 AA's 24px floor, not the 44px ideal. Bump them
-  to the default size if mis-taps surface. (Surfaced 2026-06-25, UI/UX audit.)
+- ~~**Topbar `LocaleToggle` + `UserMenu` trigger are 40px (`size="sm"`), under the 44px
+  best-practice touch target.**~~ RESOLVED 2026-06-26 (UI/UX audit re-check): all three
+  topbar controls now meet 44px — `LocaleToggle` and the `UserMenu` trigger carry
+  `className="h-11"` over `size="sm"`, and `ThemeToggle` is `size="icon"` (h-11 w-11).
+  The related mobile horizontal-overflow (wide user-name button) was already fixed
+  (name hides below `sm`). (Originally surfaced 2026-06-25.)
+
+- **Promote the dashboard token overrides into `@kaleem/tokens`.** Several token values now
+  live in the dashboard's own `@theme`/cascade (`src/index.css`), not the shared package,
+  because `@kaleem/tokens` is consumed as a pinned git tag baked into `node_modules`
+  (`github:…#v0.1.1`) — changing it needs publish → re-pin → reinstall → Docker rebuild, which
+  would also break live HMR verification. On the next tokens release, move these into the
+  package's `:root`/`.dark` and have the dashboard consume them:
+  - layout: content-width scale (`--container-page/narrow/wide`) + `--text-display` (layout-system pass).
+  - color/elevation: dark `--primary`/`--primary-foreground` (deeper green so the filled CTA
+    dominates), lifted light `--shadow-sm`, and neutral dark `--shadow-sm/md/lg` (styling pass).
+  - contrast (AA gaps, color/type audit): light `--muted-foreground` `#62736C`→`#55655F`
+    (secondary text on `bg-muted` pills was 4.14:1 on `#EFE9DB`); `--input` light
+    `#E0D9C8`→`#968B71` and dark `#2A3A34`→`#5E766C` (field-boundary affordance was ~1.4:1,
+    WCAG 1.4.11 wants 3:1 — `--border` card hairlines left soft, they're exempt); dark
+    `--success-foreground` `#07302A`→`#052621` (label was exactly on the 4.5:1 line). The
+    package's own values still fail these — promote the package, don't just drop the overrides.
+  (Surfaced 2026-06-26, dashboard layout-system + styling + color/type-contrast passes — Deviation.)
 
 - ~~Frontend deploy gap~~ — RESOLVED 2026-06-13 (ADR-0019, frontend-delivery-pipeline).
   Dashboard + marketing now build to GHCR nginx images and deploy behind Traefik on

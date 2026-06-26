@@ -1,13 +1,72 @@
 ---
 current_phase: "A"
 active_spec: "2026-06-25-scheduling-availability-design — SHIPPED to develop 2026-06-26 (tz-aware weekly availability + Calendly-style editor; first slice of the Phase B scheduling module, started early per user direction = deviation). Built subagent-driven TDD (11 tasks, 2 repos); final whole-branch review READY TO MERGE. Matching/sessions/billing/video explicitly deferred. Earlier this session also shipped UI a11y-polish + frontend-only module scaffolds (deviation)."
-active_branch: "develop clean + consistent: backend pointer @ 38f64d4 (scheduling module), dashboard @ 8aff4b5 (availability editor). No active feature branch — all PRs merged (backend #28, dashboard #19, meta #106 spec+plan). In-flight Phase A identity work still lives on feat/child-verification-spec + the email-privacy campaign."
-last_green_ci: "develop→master #90 deploy-staging GREEN 2026-06-19. ⚠ develop is well AHEAD of master and NOT promoted: UI a11y-polish, module scaffolds, AND the scheduling-availability feature all sit on develop, none on staging. Backend scheduling suite (18 tests) + ruff/mypy/import-linter green; dashboard suite (242 tests) + tsc + biome green — all LOCAL (submodules have no CI). Next promotion ships all three."
+active_branch: "meta feat/bento-home (open PR → develop) carries the bento-home screenshots + pointer bump. dashboard @ 408ef0c (PR #23 bento home; #22 auto-fit layout + #21 styling + #20 layout-system already in). backend pointer @ 38f64d4 (scheduling module). In-flight Phase A identity work still lives on feat/child-verification-spec + the email-privacy campaign."
+last_green_ci: "develop→master #90 deploy-staging GREEN 2026-06-19. ⚠ develop is well AHEAD of master and NOT promoted: UI a11y-polish, module scaffolds, scheduling-availability, the dashboard layout-system, AND the dashboard styling pass all sit on develop, none on staging. Backend scheduling suite (18 tests) + ruff/mypy/import-linter green; dashboard suite (257 tests) + tsc + biome green — all LOCAL (submodules have no CI; dashboard coverage gate still unwired, see ISSUES). Next promotion ships all of it."
 ---
 
 # kaleem Project State
 
 ## Current phase: Phase A — Identity
+
+## Session 2026-06-26 (latest) — dashboard styling pass SHIPPED to develop (visual-quality audit)
+
+User pushed back ("styling still sucks") after the layout-system fix. Ran a **multi-agent styling
+audit** (8 dimensions → adversarial verification → synthesized plan; 34/39 findings confirmed),
+implemented the confirmed P0/P1/P2 fixes, and re-verified in the running app across
+light/dark/RTL/mobile (screenshots in the spec `assets/`, `v2-*`).
+
+- **Biggest fixes:** dark-mode primary CTA was a pale mint reading as low-emphasis → deeper saturated
+  deep-green + white label (AA 5.03:1); home's `—` Parent/Student cards → real empty states (icon +
+  message + CTA + subtitle, two-up, en/ar); denser layout (page column 768→1024px, two-up grids on
+  Account/Family, two-column availability); elevation/structure (bare-`border` → warm `--border`
+  token, lifted/visible shadows, card-header dividers, Fraunces card titles); calmer chrome (gold
+  active-nav block → tint + thin gold rail; topbar separator + 44px controls); availability editor on
+  a card with row dividers + tabular times + on-token success color (was AA-failing raw green);
+  aria-invalid input ring that doesn't suppress focus; global reduced-motion backstop.
+- **Regression caught in-verify:** the new topbar separator re-introduced a 375px overflow → hidden
+  below `sm`; re-measured `scrollWidth` 368 ≤ 375.
+- **Verified:** vitest **257 green**, tsc + biome clean. **Merged:** dashboard #21 → main (`4b74565`).
+  Meta PR (this branch) bumps the pointer + carries the v2 screenshots → develop. **NOT deployed.**
+- **Deviation (ISSUES):** three dark/elevation token overrides live in the dashboard cascade (same
+  pinned-git-tag reason as the layout tokens); promote on the next tokens release.
+- **Follow-up — content-adaptive layout (dashboard #22 → main `dc96d90`):** user pushed back that the
+  forced two-column grids on Account/Family weren't warranted. Replaced the `page/narrow/wide`
+  max-width tiers + forced `grid-cols-2` with one `--container-content` (88rem) cap + a `CardGrid`
+  auto-fit primitive (`repeat(auto-fit,minmax(min(--card-min,100%),1fr))`): columns appear only when
+  they fit (2 @1440, 3 @1920, 1 + no overflow @375), never forced; RTL-safe. Availability keeps its
+  justified editor+timezone master-detail; ModulePlaceholder stays a modest centered card. Width
+  tokens are now `content`/`narrow` (PageContainer). 256 vitest + tsc + biome green.
+- **Follow-up — bento dashboard home (dashboard #23 → main `408ef0c`):** user reviewed five rendered
+  layout-system mockups (a temporary `layout-lab.html`; screenshots `lab-opt{1..5}` in the spec
+  assets) and chose **#5 sidebar + bento dashboard**. Home is now a real dashboard: a wide spotlight
+  tile for the user's most relevant BUILT feature (teacher→availability, parent/student→family) +
+  a role-gated grid of `BentoTile`s (icon + title + description, whole-tile link). Scaffold modules
+  carry a "Coming soon" badge; built ones link through — honest about what exists, no faked stats.
+  Shell + subpages unchanged. 260 vitest + tsc + biome green; verified light/dark/RTL/mobile.
+
+## Session 2026-06-26 (later) — dashboard layout system SHIPPED to develop (UI/UX audit)
+
+User-triggered UI/UX audit of the authed dashboard ("huge layout sizing problem"). Full process:
+brainstorm → spec (`docs/superpowers/specs/2026-06-26-dashboard-layout-system-design.md`) → plan
+(`docs/superpowers/plans/2026-06-26-dashboard-layout-system.md`) → TDD → **visual before/after run**
+(real running stack, Playwright @ 1440/768/375, screenshots in the spec's `assets/`) → merged.
+
+- **Root cause:** the shell `<main>` had no max-width/centering, so each page rolled its own width
+  wrapper (448 / 672 / 768px) and `mx-auto` centered within the post-sidebar region → content drifted
+  right into a void and the width jumped page-to-page. **Fix:** content-width `@theme` tokens
+  (`--container-page/narrow/wide`) + `PageContainer` + `PageHeader` primitives; every page + the
+  module placeholders routed through them (standard pages now all 768px; availability `wide`, double
+  padding removed; Account gained its missing `<h1>`); shell `<main>` owns vertical rhythm only;
+  sidebar links `min-h-11` (44px). Also fixed a **pre-existing 375px topbar horizontal-overflow**
+  (user-name button → name now hides below `sm`).
+- **Verified:** vitest **257 green** (53 files, +15 tests), tsc + biome clean; 375px overflow gone
+  (`scrollWidth` 372 ≤ 375). Visual after-shots confirm consistent width + no right-drift.
+- **Merged:** dashboard #20 → main (`4f8c4ea`). Meta PR (this branch) bumps the pointer + carries
+  spec/plan/screenshots → develop. **NOT deployed** (sits on develop with the prior work).
+- **Deviation logged (ISSUES):** layout tokens live in the dashboard `@theme`, not `@kaleem/tokens`
+  (pinned-git-tag consumption would need publish→rebuild + break HMR verification); promote on the
+  next tokens release.
 
 ## Session 2026-06-26 — scheduling availability SHIPPED to develop (Phase B started early)
 
