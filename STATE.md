@@ -1,13 +1,35 @@
 ---
 current_phase: "A"
 active_spec: "2026-06-25-scheduling-availability-design — SHIPPED to develop 2026-06-26 (tz-aware weekly availability + Calendly-style editor; first slice of the Phase B scheduling module, started early per user direction = deviation). Built subagent-driven TDD (11 tasks, 2 repos); final whole-branch review READY TO MERGE. Matching/sessions/billing/video explicitly deferred. Earlier this session also shipped UI a11y-polish + frontend-only module scaffolds (deviation)."
-active_branch: "meta feat/dashboard-layout-audit (open PR → develop) carries the dashboard layout-system spec+plan+screenshots+pointer bump. dashboard @ 4f8c4ea (PR #20 layout-system, merged to main). backend pointer @ 38f64d4 (scheduling module). In-flight Phase A identity work still lives on feat/child-verification-spec + the email-privacy campaign."
-last_green_ci: "develop→master #90 deploy-staging GREEN 2026-06-19. ⚠ develop is well AHEAD of master and NOT promoted: UI a11y-polish, module scaffolds, the scheduling-availability feature, AND the dashboard layout-system all sit on develop, none on staging. Backend scheduling suite (18 tests) + ruff/mypy/import-linter green; dashboard suite (257 tests) + tsc + biome green — all LOCAL (submodules have no CI; dashboard coverage gate still unwired, see ISSUES). Next promotion ships all of it."
+active_branch: "meta feat/dashboard-styling-polish (open PR → develop) carries the dashboard styling pass screenshots + pointer bump. dashboard @ 4b74565 (PR #21 styling-polish, merged to main; layout-system #20 already in). backend pointer @ 38f64d4 (scheduling module). In-flight Phase A identity work still lives on feat/child-verification-spec + the email-privacy campaign."
+last_green_ci: "develop→master #90 deploy-staging GREEN 2026-06-19. ⚠ develop is well AHEAD of master and NOT promoted: UI a11y-polish, module scaffolds, scheduling-availability, the dashboard layout-system, AND the dashboard styling pass all sit on develop, none on staging. Backend scheduling suite (18 tests) + ruff/mypy/import-linter green; dashboard suite (257 tests) + tsc + biome green — all LOCAL (submodules have no CI; dashboard coverage gate still unwired, see ISSUES). Next promotion ships all of it."
 ---
 
 # kaleem Project State
 
 ## Current phase: Phase A — Identity
+
+## Session 2026-06-26 (latest) — dashboard styling pass SHIPPED to develop (visual-quality audit)
+
+User pushed back ("styling still sucks") after the layout-system fix. Ran a **multi-agent styling
+audit** (8 dimensions → adversarial verification → synthesized plan; 34/39 findings confirmed),
+implemented the confirmed P0/P1/P2 fixes, and re-verified in the running app across
+light/dark/RTL/mobile (screenshots in the spec `assets/`, `v2-*`).
+
+- **Biggest fixes:** dark-mode primary CTA was a pale mint reading as low-emphasis → deeper saturated
+  deep-green + white label (AA 5.03:1); home's `—` Parent/Student cards → real empty states (icon +
+  message + CTA + subtitle, two-up, en/ar); denser layout (page column 768→1024px, two-up grids on
+  Account/Family, two-column availability); elevation/structure (bare-`border` → warm `--border`
+  token, lifted/visible shadows, card-header dividers, Fraunces card titles); calmer chrome (gold
+  active-nav block → tint + thin gold rail; topbar separator + 44px controls); availability editor on
+  a card with row dividers + tabular times + on-token success color (was AA-failing raw green);
+  aria-invalid input ring that doesn't suppress focus; global reduced-motion backstop.
+- **Regression caught in-verify:** the new topbar separator re-introduced a 375px overflow → hidden
+  below `sm`; re-measured `scrollWidth` 368 ≤ 375.
+- **Verified:** vitest **257 green**, tsc + biome clean. **Merged:** dashboard #21 → main (`4b74565`).
+  Meta PR (this branch) bumps the pointer + carries the v2 screenshots → develop. **NOT deployed.**
+- **Deviation (ISSUES):** three dark/elevation token overrides live in the dashboard cascade (same
+  pinned-git-tag reason as the layout tokens); promote on the next tokens release.
 
 ## Session 2026-06-26 (later) — dashboard layout system SHIPPED to develop (UI/UX audit)
 

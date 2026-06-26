@@ -13,13 +13,16 @@ Spotted-a-problem backlog. Write it here in 15 seconds, keep going (D10).
   _Update 2026-06-26: the related mobile horizontal-overflow caused by the wide
   user-name button is fixed (name hides below `sm`); the 40px height itself still stands._
 
-- **Promote the dashboard layout tokens into `@kaleem/tokens`.** The content-width scale
-  (`--container-page/narrow/wide`) currently lives in the dashboard's own `@theme`
-  (src/index.css), not the shared tokens package, because `@kaleem/tokens` is consumed as a
-  pinned git tag baked into `node_modules` (`github:…#v0.1.1`) — changing it needs publish →
-  re-pin → reinstall → Docker rebuild, which would also break live HMR verification. On the
-  next tokens release, move these into the package and have the dashboard consume them.
-  (Surfaced 2026-06-26, dashboard layout-system spec — Deviation.)
+- **Promote the dashboard token overrides into `@kaleem/tokens`.** Several token values now
+  live in the dashboard's own `@theme`/cascade (`src/index.css`), not the shared package,
+  because `@kaleem/tokens` is consumed as a pinned git tag baked into `node_modules`
+  (`github:…#v0.1.1`) — changing it needs publish → re-pin → reinstall → Docker rebuild, which
+  would also break live HMR verification. On the next tokens release, move these into the
+  package's `:root`/`.dark` and have the dashboard consume them:
+  - layout: content-width scale (`--container-page/narrow/wide`) + `--text-display` (layout-system pass).
+  - color/elevation: dark `--primary`/`--primary-foreground` (deeper green so the filled CTA
+    dominates), lifted light `--shadow-sm`, and neutral dark `--shadow-sm/md/lg` (styling pass).
+  (Surfaced 2026-06-26, dashboard layout-system + styling passes — Deviation.)
 
 - ~~Frontend deploy gap~~ — RESOLVED 2026-06-13 (ADR-0019, frontend-delivery-pipeline).
   Dashboard + marketing now build to GHCR nginx images and deploy behind Traefik on
