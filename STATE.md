@@ -1,13 +1,50 @@
 ---
-current_phase: "A"
-active_spec: "2026-06-25-scheduling-availability-design — SHIPPED to develop 2026-06-26 (tz-aware weekly availability + Calendly-style editor; first slice of the Phase B scheduling module, started early per user direction = deviation). Built subagent-driven TDD (11 tasks, 2 repos); final whole-branch review READY TO MERGE. Matching/sessions/billing/video explicitly deferred. Earlier this session also shipped UI a11y-polish + frontend-only module scaffolds (deviation)."
-active_branch: "meta feat/bento-home (open PR → develop) carries the bento-home screenshots + pointer bump. dashboard @ 408ef0c (PR #23 bento home; #22 auto-fit layout + #21 styling + #20 layout-system already in). backend pointer @ 38f64d4 (scheduling module). In-flight Phase A identity work still lives on feat/child-verification-spec + the email-privacy campaign."
-last_green_ci: "develop→master #90 deploy-staging GREEN 2026-06-19. ⚠ develop is well AHEAD of master and NOT promoted: UI a11y-polish, module scaffolds, scheduling-availability, the dashboard layout-system, AND the dashboard styling pass all sit on develop, none on staging. Backend scheduling suite (18 tests) + ruff/mypy/import-linter green; dashboard suite (257 tests) + tsc + biome green — all LOCAL (submodules have no CI; dashboard coverage gate still unwired, see ISSUES). Next promotion ships all of it."
+current_phase: "A — CLOSING (exit criteria green except the manual staging click-through); Phase B is next"
+active_spec: "None active. Phase A closed via ADR-0024 (retrospective). NEXT: write the Phase B billing (B1) D1 spec — the roadmap-true Phase B entry gate; it replaces the scaffold billing page with a real slice. The early scheduling slice does not reorder Phase B."
+active_branch: "meta feat/close-phase-a (docs-only: ADR-0024 retrospective + STATE/ISSUES/identity.md reconcile) → PR to develop; this PR ALSO reconciles develop with master (see last_green_ci). Submodule pointers on master: backend @ 38f64d4 (scheduling), dashboard @ ebafafa (bento home + follow-ups), tokens v0.1.1 — all deployed."
+last_green_ci: "meta develop→master #115 deploy-staging GREEN 2026-06-26 (run 28241772959, deploy-staging job ran 3m46s — NOT skipped). This promoted the WHOLE batch to staging: UI a11y-polish, module scaffolds, scheduling-availability, dashboard layout-system, styling pass, AND bento home. All Phase A identity slices (login gate, birthdate, email-privacy/ADR-0023, password-mgmt, child-verification) are merged to backend main and LIVE on staging. identity/services.py 97% line+branch, 179 identity tests pass (re-verified 2026-07-08). ⚠ master is now 5 AHEAD of develop, 0 behind (squash-divergence, ISSUES) — the feat/close-phase-a PR reconciles it."
 ---
 
 # kaleem Project State
 
-## Current phase: Phase A — Identity
+## Session 2026-07-08 (latest) — Phase A CLOSED (retrospective) + STATE reconciled to reality
+
+Discovered STATE was badly stale: it claimed the big batch sat unpromoted on develop and that
+child-verification + the email-privacy campaign were still in-flight on feat branches. **All false.**
+Reconciled against git/CI:
+
+- **Everything is on staging.** Meta PRs #112–#115 merged and the `develop→master` promotion #115
+  **deployed green** (deploy-staging ran 3m46s, not skipped) on 2026-06-26. Live on staging: UI
+  a11y-polish, the 6 module scaffolds, scheduling-availability, the dashboard layout-system, the
+  styling pass, and the bento dashboard home.
+- **All Phase A identity slices merged + live:** login-verification gate, birthdate, email-privacy
+  (ADR-0023), multi-email (ADR-0022), password-management (#25), child-verification (#27) — all in
+  backend main below the scheduling pointer `38f64d4` (= what master deploys). No open backend PRs.
+- **Phase A closed via ADR-0024 (retrospective).** Walked the 7 roadmap exit criteria: import-linter
+  green, identity.md + ER diagram present (updated for child-verification), password reset shipped,
+  services.py **97% line+branch** (≥90 bar) with 179 tests passing (re-verified locally 2026-07-08).
+- **Child-verification supersedes the old placeholder-email design** — children now get a real
+  parent-provided email + activation and can log in. Closed the stale ISSUES "children can't log in"
+  gap; updated identity.md.
+- **The one residual (human step):** the real-inbox staging click-through — register student + parent
+  → SES link → verify → login → `/me` → password reset. Proves the cross-subdomain session cookie
+  against a real inbox. Gates nothing in code; Phase B planning can proceed in parallel. Steps below.
+- **Governance:** master is 5-ahead / 0-behind develop (squash-divergence, ISSUES); the feat/close-phase-a
+  → develop PR reconciles it. Docs-only changes (git-flow: meta = docs + pointer bumps).
+
+### ▶ Residual manual check to fully close Phase A (needs a real inbox)
+
+On `https://app-staging.kaleem.academy` (API `https://api-staging.kaleem.academy`):
+
+1. Register a **student** with a real email → receive the SES verification email → click the link →
+   land on `/verify-email` (success) → log in → see role-aware `/` home.
+2. Register a **parent** with a second real email → same verify → login → `/family` shows child mgmt.
+3. From the parent, add a **child** with a real email → child receives activation → activates → can log in.
+4. **Password reset:** forgot-password → SES reset email → set a new password → log in with it.
+Any failure → capture the response and reopen the relevant ISSUES entry. Success → mark Phase A fully
+done in the next handoff.
+
+## Current phase: Phase A — Identity (CLOSING)
 
 ## Session 2026-06-26 (latest) — dashboard styling pass SHIPPED to develop (visual-quality audit)
 

@@ -122,12 +122,14 @@ Spotted-a-problem backlog. Write it here in 15 seconds, keep going (D10).
 - Dashboard topbar brand wordmark is a plain `<span>`, not a `<Link to="/">` home link
   (matches the auth-layout's current span). A clickable logo is conventional; make both a
   link in one pass when convenient.
-- **Children can't actually log in yet.** `identity.create_child` makes a User with a
-  placeholder email (`child.<uuid>@placeholder.kaleem`) and an unusable password; the
-  parent can set a password (UI shipped in Spec 3, the `/family` page), but the child has
-  no externally known login identity, so the end-to-end child sign-in flow doesn't exist.
-  Needs its own spec (how a child authenticates: real email, parent-managed handle, magic
-  link, etc.). Surfaced by the children+invites UI (2026-06-18).
+- ~~**Children can't actually log in yet.**~~ RESOLVED 2026-06-23 (child-verification, backend
+  #27 + dashboard #16, deployed via meta #115). `create_child` now takes a **real
+  parent-provided email** and sends an activation link (verification if the parent set a
+  password, else a set-password link that also verifies); the parent manages
+  email/password/preferences from `/family` with a Verified/Pending badge, and legacy
+  placeholder children are migrated on first `set_child_email`. Children now have a real login
+  identity and authenticate like adults. (Superseded the placeholder-email v1 design — see
+  ADR-0024; `docs/architecture/identity.md` updated. Originally surfaced 2026-06-18.)
 - Dashboard `features/identity/schemas.ts` now has two near-identical child shapes:
   `ChildSummary` (the `/me`-embedded `{id, full_name, student_profile_id}`) and `Child`
   (the `/children/` list shape, adds `teacher_gender_preference`). Harmless (both are real
