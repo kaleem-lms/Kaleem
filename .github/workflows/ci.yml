@@ -77,8 +77,14 @@ jobs:
         run: pip install -r requirements/local.txt
       - name: Run migrations
         run: python manage.py migrate --noinput
+      # D3 (ADR-0021): 100% line AND branch coverage. --cov-branch is on so the
+      # real number is visible; --cov-fail-under=100 is deliberately NOT set yet
+      # because the repo sits at 97% from pre-existing identity/platform gaps and
+      # turning the gate on would fail every unrelated PR (D5). Owner decision
+      # 2026-07-30: measure now, enforce once those gaps are backfilled. See ISSUES.md.
       - name: Run tests with coverage
-        run: pytest --cov=kaleem --cov-report=term-missing -v
+        run: >-
+          pytest --cov=kaleem --cov-branch --cov-report=term-missing -v
 
   dashboard-lint:
     runs-on: ubuntu-latest

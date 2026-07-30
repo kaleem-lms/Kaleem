@@ -28,9 +28,15 @@ erDiagram
 - **Subscription** — many-over-time per user (`ForeignKey`, not `OneToOne` — a user can
   resubscribe after lapsing). `stripe_subscription_id` (unique), `status` (mirrors
   Stripe: `active` / `past_due` / `canceled` / `incomplete` / `incomplete_expired` /
-  `unpaid`), `current_period_end` (nullable — see below), `cancel_at_period_end`.
-  Indexed on `(user, status)`. At most one row is *current* per user; that invariant is
-  enforced in `services`, not the schema.
+  `unpaid`), `current_period_end` (nullable — see below), `cancel_at_period_end`,
+  `last_event_at` (nullable — the provider timestamp of the newest event applied to the
+  row). Indexed on `(user, status)`. At most one row is *live* per user, enforced by a
+  partial `UniqueConstraint` (`unique_live_subscription_per_user`, on `user` where
+  `status IN ('active', 'past_due')`) **and** by a pre-write check in `services`. The
+  service check alone is not enough: `create_checkout`'s guard is a TOCTOU read, so two
+  browser tabs both completing checkout would otherwise produce two live rows — and the
+  second would bill monthly while being invisible in the UI, which only ever shows and
+  cancels the newest live row.
 - **StripeEventLog** — `stripe_event_id` (unique), `event_type`, `received_at`,
   `processed_at` (nullable). The idempotency ledger: a webhook whose event id is already
   present and processed is a no-op (`billing/services.py:160-173`).
@@ -150,20 +156,65 @@ Full reasoning, threat model, and the "never copy this pattern" warning:
 Handled event types (unknown types are logged and acked 200, no effect):
 
 - `checkout.session.completed` → create/activate the `Subscription` (`status=active`).
+  Ignored (logged, acked) when the plan id or user id in the session metadata does not
+  resolve, or when the session carries no subscription at all (a `mode=payment` session,
+  or another integration sharing the Stripe account). If the user already has a *live*
+  row with a different `stripe_subscription_id`, nothing is written and nothing is
+  cancelled upstream: the handler logs at **CRITICAL** and acks 200. Deciding which
+  subscription to void and whether to refund is a money decision for an operator — see
+  `docs/runbook/stripe-billing.md`, "Duplicate live subscription".
 - `customer.subscription.updated` → sync `status` (only if it maps onto
   `Subscription.Status`; an unrecognised value is logged and dropped rather than
-  written), `current_period_end`, `cancel_at_period_end`.
-- `customer.subscription.deleted` → same sync path (typically lands `status=canceled`).
+  written), `current_period_end`, `cancel_at_period_end`. Never moves a row *out of*
+  `canceled`.
+- `customer.subscription.deleted` → `status=canceled`, **hardcoded** from the event type
+  rather than read from the payload (symmetrically with `checkout.session.completed`
+  hardcoding `active`). Trusting the payload's `status` here meant a missing or unmapped
+  value wrote no status at all, leaving a deleted subscription `active` — i.e. still
+  entitled, for free. `current_period_end` / `cancel_at_period_end` are still mirrored.
 - `invoice.paid` → `status=active`, refresh `current_period_end`.
 - `invoice.payment_failed` → `status=past_due`.
+
+**Ordering.** Stripe does not guarantee delivery order, so every event carries its
+provider timestamp (`WebhookEvent.created`) and each applied event stamps
+`Subscription.last_event_at`. An event older than the stored value is discarded: without
+this, a late-delivered `customer.subscription.updated` (`status=active`) landing after
+the `deleted` that superseded it would resurrect a dead subscription — an `active` row
+with no upstream subscription behind it, i.e. free access forever. The "never leave
+`canceled` on an `updated`" rule above is the floor beneath that guard, for when
+timestamps cannot help (missing or equal `created`).
+
+**Payload versioning.** Webhook payload shapes are versioned, and an endpoint registered
+without an explicit version inherits the Stripe *account* default — so a Stripe-side
+upgrade can reshape our inbound payloads with no deploy on our side. `2025-03-31.basil`
+did exactly that: it moved a subscription's `current_period_end` onto
+`items.data[].current_period_end` and an invoice's `subscription` to
+`parent.subscription_details.subscription`. Two defences: `StripeProvider.__init__` pins
+`stripe.api_version` from `settings.STRIPE_API_VERSION` (default read off the installed
+SDK's own outbound pin, override with `DJANGO_STRIPE_API_VERSION`), and the parser reads
+the new locations first with the legacy fields as fallback. Both shapes are covered by
+tests. The Stripe dashboard endpoint must be pinned to the same version — see the
+runbook.
+
+**Failures never become retry loops.** Everything reachable from a webhook that could
+raise is handled and acked: unresolvable metadata, non-numeric metadata, a session with
+no subscription, and `IntegrityError` from the live-subscription constraint (on both the
+`checkout.session.completed` insert and the `_apply_to_existing` save, each inside a
+savepoint so the surrounding transaction and the `StripeEventLog` write survive). An
+unhandled 500 here would make Stripe retry the same doomed event for three days.
 
 ## Module boundaries
 
 `billing` may import `kaleem.platform` and call `kaleem.identity.services`
 (`get_parent_profile`, `get_student_profile`, `get_parent_user_ids`) — nothing else.
-Enforced by an import-linter `forbidden` contract in `pyproject.toml`
-("billing imports no business modules except identity") listing every other business
-module as forbidden. `scheduling` (and later modules) call `billing.services.
+Enforced by two import-linter `forbidden` contracts in `pyproject.toml`: "billing
+imports no business modules except identity" lists every other business module as
+forbidden, and "billing does not import identity models directly" names
+`kaleem.identity.models` specifically — D4's headline rule is only actually enforced if
+the models package is listed. The second contract needs `allow_indirect_imports` (and so
+its own contract) because `billing` legitimately imports `kaleem.identity.services`,
+which of course imports its own models; `kaleem.billing.tests.*` is exempted, since test
+fixtures build identity rows directly. `scheduling` (and later modules) call `billing.services.
 is_entitled_to` directly for gating — `billing` never imports `scheduling`.
 
 `identity.services.get_parent_user_ids(student_user_id: int) -> list[int]` was added for

@@ -193,6 +193,56 @@ Spotted-a-problem backlog. Write it here in 15 seconds, keep going (D10).
 - The cancel dialog's `bg-black/40` overlay is a non-token colour, carried over from
   `RemoveEmailDialog`; fix both call sites together in a token audit.
 
+### From the billing final whole-branch reviews (2026-07-30)
+
+- **The backend coverage gate is measured but not enforced.** CI now runs `--cov-branch`,
+  but `--cov-fail-under=100` is deliberately omitted: the backend sits at **97%** from
+  pre-existing gaps in `identity`/`platform` (billing itself is 100% line+branch). Owner
+  decision 2026-07-30 — backfill those modules, then turn the gate on. Until then D3's
+  "machine-enforced" claim in CLAUDE.md is aspirational for the backend too, not just
+  the dashboard.
+- `requirements/base.txt` pins `stripe>=11.0` with no upper bound, and the Stripe API
+  version default is read off the installed SDK — so a routine `pip` upgrade can silently
+  change the pinned inbound webhook shape unless the runbook's re-pin step is followed.
+  Consider an upper bound or an explicit `DJANGO_STRIPE_API_VERSION` in every environment.
+- `invoice.paid` does not pass `keep_canceled=True` to `_apply_to_existing`, unlike the
+  `customer.subscription.updated` arm. A late `invoice.paid` that survives the
+  out-of-order timestamp guard (no `created`, or equal timestamps) could resurrect a solo
+  `canceled` row to `active` — the one-live-subscription constraint only fires when a
+  second live row already exists. Same category as the fixed `updated` case; extend the
+  floor to the invoice arms.
+- `test_checkout_completed_for_a_valid_plan_but_an_unknown_user_is_ignored` would still
+  pass if the explicit `get_user` existence check were deleted, because the new
+  `IntegrityError` savepoint handler masks the resulting FK violation. Add a `caplog`
+  assertion on `reason=unknown_user` to pin the intended path.
+- `WebhookEvent.stripe_customer_id` is parsed but never consumed, so a subscription
+  created directly in the Stripe dashboard (no checkout, no metadata) stays invisible to
+  us permanently and its events are logged as `unknown_subscription` and dropped. All
+  subscriptions must originate from `POST /checkout/` until reconciliation exists.
+- `unpaid` and `incomplete` are absent from `LIVE_STATUSES`, so such a subscription
+  vanishes from `GET me/subscription/` `current`, `cancel_subscription` 404s on it, and
+  `create_checkout` will sell the user a second one — while Stripe may still consider the
+  first live (end-of-dunning behaviour is account-configurable to `unpaid`).
+- The `canceled`-but-paid-through mirror of the documented `past_due` divergence: such a
+  row is entitled, yet `get_current_subscription` returns `None`, so the UI reads "no
+  subscription" while the user can still book, and an overlapping purchase is permitted
+  during the paid-through window. Only the `past_due` direction is documented.
+- The spec requires `display_amount`/`currency` "validated against the Stripe Price on
+  save"; there is no `clean()` or admin validation — the runbook says keep them in lockstep
+  by hand. Either implement the validation or amend the spec.
+- The `scheduling` import-linter contract has the same hole billing's just closed: it does
+  not forbid `kaleem.identity.models`, so a direct model import there would pass CI.
+- `?checkout=cancelled` never clears from the dashboard URL (only the success path calls
+  `onSettled`), so a refresh after an abandoned checkout re-shows the banner. Cosmetic now
+  that the plan list renders alongside it.
+- Arabic `_few`/`_many`/`_other` plural categories for the plan-session copy are verified
+  via `Intl.PluralRules` but only the dual (`_two`) is covered by a rendered test.
+- Dashboard dead i18n keys after the billing promotion: `billing.subscribed` and
+  `modules.billing.{title,description}` are now unreferenced.
+- `SubscriptionCard`'s history list includes the current subscription as its first row and
+  is hidden entirely for a lapsed user (the card only renders when `current` is non-null);
+  `useDateFormatter` builds a fresh `Intl.DateTimeFormat` per call.
+
 ## Someday / Won't fix
 
 (empty)
