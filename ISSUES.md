@@ -171,6 +171,28 @@ Spotted-a-problem backlog. Write it here in 15 seconds, keep going (D10).
   password-management slice; add a "changed/reset" alert (reuse `_send_email_security_alert`
   with a new action) as a follow-up. (Surfaced 2026-06-19, password-management review.)
 
+- Billing e2e gap: the hosted-Stripe redirect cannot run in Playwright; card → checkout →
+  webhook is a manual staging test (`docs/runbook/stripe-billing.md`).
+- The dashboard has **no Playwright harness at all**, so D3's end-to-end requirement is
+  unmet repo-wide, not just for billing.
+- **The dashboard has no coverage tooling installed** (`@vitest/coverage-v8` absent), so
+  the 100% line+branch gate in CLAUDE.md/D3 cannot actually be measured for the
+  dashboard. Reviewers substituted manual branch enumeration for the billing slice.
+- **The dashboard test suite has ~55 failures across 16 files on `main`**, pre-existing
+  and unrelated to billing: jsdom 29 leaves `localStorage` undefined
+  (`src/ui/toggles.test.tsx` and others). This blocks D5 (green CI before merge) until
+  fixed.
+- `/billing` nav shows for every student; a linked child gets a server-side typed 403 at
+  checkout rather than a hidden nav entry. Refine once `/me` exposes whether a student
+  has a parent.
+- Dunning UX beyond mirroring `past_due` (retry/notice flow) is deferred.
+- Stripe billing portal / card-update UI deferred.
+- Plan/Price creation is manual in Stripe; no programmatic sync (B1 scope).
+- `billing.services.get_current_subscription` lacks `select_related("plan")`, costing
+  one extra query when serializing `current` (the history query already does it).
+- The cancel dialog's `bg-black/40` overlay is a non-token colour, carried over from
+  `RemoveEmailDialog`; fix both call sites together in a token audit.
+
 ## Someday / Won't fix
 
 (empty)
