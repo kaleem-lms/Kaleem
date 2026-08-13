@@ -53,14 +53,24 @@ In the Stripe dashboard (test mode), add a webhook endpoint:
 https://api-staging.kaleem.academy/api/v1/billing/webhook/
 ```
 
-Subscribe it to exactly these five event types (this is the full set `handle_webhook`
-understands — anything else is logged and acked with no effect):
+Subscribe it to exactly these eight event types (this is the full set
+`_EVENT_HANDLERS` in `billing/services.py` understands — anything else is logged and
+acked with no effect):
 
 - `checkout.session.completed`
+- `checkout.session.async_payment_succeeded`
+- `checkout.session.async_payment_failed`
+- `checkout.session.expired`
 - `customer.subscription.updated`
 - `customer.subscription.deleted`
 - `invoice.paid`
 - `invoice.payment_failed`
+
+The three `checkout.session.*` events beyond `completed` matter for
+delayed-notification payment methods (SEPA debit, ACH, boleto). Those complete the
+session with `payment_status="unpaid"` and the subscription `incomplete`; kaleem
+grants nothing until `async_payment_succeeded` arrives. Without them subscribed, a
+customer paying by bank debit is charged and never gets access.
 
 **Pin the endpoint's API version.** Before registering, check the account's current
 default API version (Stripe dashboard → Developers → API versions / Overview). Then set
@@ -80,6 +90,66 @@ function of Stripe's release calendar. When you upgrade the `stripe` dependency,
 this endpoint's version against the new SDK pin.
 
 Copy the endpoint's signing secret into `DJANGO_STRIPE_WEBHOOK_SECRET` on staging.
+
+## 3b. Configure the billing portal
+
+`POST /api/v1/billing/portal/` opens a Stripe-hosted portal session. This is the only
+self-serve way out of a failed payment — `past_due` and `unpaid` subscriptions count as
+*live*, so they block starting a new subscription, and without a working portal the
+customer is locked out of the product and out of the fix at the same time.
+
+Stripe dashboard → Settings → Billing → Customer portal:
+
+- **Payment methods:** allow customers to update.
+- **Invoice history:** on.
+- **Cancellation:** allow, *at end of billing period* (matches
+  `cancel_subscription`, which is cancel-at-period-end).
+- **Subscription update:** on, with both plan Prices listed as switchable products.
+  Set proration to **create prorations** for upgrades and **at period end** for
+  downgrades (the decision recorded in the B2 spec, OQ-B2-2).
+
+⚠ This configuration is *not* in code and CI cannot check it. A portal with
+subscription-update switched off silently removes the plan-change path; a portal with
+cancellation set to "immediately" would cut access the customer has already paid for.
+Re-check it after any Stripe account change.
+
+The set of Prices a given user may switch to is still enforced server-side —
+`_allowed_plans_for` mirrors `_require_eligible_buyer`, so a linked child is offered
+nothing and a non-parent is never offered Family.
+
+## 3c. Scheduled jobs
+
+Two Celery beat tasks, declared in `config/settings/base.py` so they are reviewable in
+code rather than only in the beat database:
+
+| Task | Schedule | What it does |
+| --- | --- | --- |
+| `billing.tasks.reconcile_subscriptions` | nightly 03:17 | Asks Stripe for every customer's subscriptions and makes kaleem agree. Records a `reconciled_drift` incident per correction. |
+| `billing.tasks.detect_webhook_silence` | every 6h | Raises a CRITICAL `webhook_silence` incident when no Stripe event has arrived within `BILLING_WEBHOOK_SILENCE_HOURS` (default 24). |
+
+Both are safe to run by hand during an incident:
+
+```bash
+python manage.py shell -c "from kaleem.billing import services; services.reconcile_subscriptions()"
+```
+
+The reconciler is what makes **Stripe** the source of truth rather than webhook
+delivery. If it stops running, kaleem silently goes back to being only as correct as
+the last webhook that happened to arrive.
+
+## 3d. The incident queue
+
+Django admin → Billing → Billing incidents. Everything that needs a human lands here
+instead of only in a log line: duplicate live subscriptions, unresolvable events,
+unknown subscriptions or prices, amount mismatches, reconciliation drift, webhook
+silence.
+
+- Filter by **severity = critical** and **resolved = no** first. `critical` means money
+  is wrong right now.
+- Rows are read-only except for the **Mark selected incidents resolved** action.
+  Resolving is only a flag — the actual fix happens in the Stripe dashboard.
+- A repeating problem shows as one row with a rising `occurrences` count. Once
+  resolved, the next occurrence opens a fresh row.
 
 ## 4. Local development
 
@@ -118,7 +188,8 @@ a failed delivery before assuming a bug.
 
 ## 6. Incident: duplicate live subscription
 
-**Symptom.** A `CRITICAL` log line:
+**Symptom.** A `duplicate_live_subscription` row in the incident queue (severity
+`critical`), and a `CRITICAL` log line:
 
 ```text
 billing.webhook.duplicate_live_subscription reason=… user_id=… existing_subscription=sub_… incoming_subscription=sub_… event_id=…
@@ -150,9 +221,55 @@ refund is a money decision the webhook handler must not make silently.
    `existing_subscription` in Stripe, then update the `Subscription` row in Django admin
    to the surviving `stripe_subscription_id`. Do this only if there is a reason to; the
    simple path is step 3.
-6. Note the incident in the journal. Repeat occurrences mean the frontend is letting
-   users open two checkouts, which is a bug to fix there, not here.
+6. Mark the incident resolved in Django admin, and note it in the journal. A rising
+   `occurrences` count on one row means the same duplicate keeps being re-reported;
+   repeated *distinct* incidents mean something is letting users open two checkouts,
+   which is a bug to fix rather than an incident to keep clearing.
 
 Related: the `unique_live_subscription_per_user` constraint is added by migration
-`billing/0003`. If that migration ever fails to apply, it is because a user already has
-two live rows — reconcile them in Stripe (above) and fix the rows before deploying.
+`billing/0003` and widened by `billing/0004` to cover `unpaid` and `incomplete` as well
+as `active` and `past_due`. If either migration fails to apply, it is because a user
+already has two live rows — reconcile them in Stripe (above) and fix the rows before
+deploying.
+
+## 7. Incident: webhook silence
+
+**Symptom.** A `webhook_silence` incident, severity `critical`.
+
+**What it means.** No Stripe event has reached us for longer than
+`BILLING_WEBHOOK_SILENCE_HOURS`. Usually the endpoint secret was rotated, the endpoint
+was deleted or disabled in Stripe, or the API host has been unreachable long enough for
+Stripe to give up retrying.
+
+**What to check, in order.**
+
+1. Stripe dashboard → Developers → Webhooks → the endpoint. Is it enabled? Are recent
+   deliveries failing, and with what status?
+2. If deliveries show `400 Invalid webhook signature`, the signing secret no longer
+   matches `DJANGO_STRIPE_WEBHOOK_SECRET`. Copy it again and redeploy.
+3. If deliveries show 5xx, read the application logs for that window.
+4. Once fixed, **run the reconciler by hand** (§3c). Stripe will not resend events it
+   has given up on, so anything lost during the silence is only recoverable by
+   reconciling.
+
+**What kaleem did meanwhile.** Checkouts completed in the browser still settled, because
+`POST /billing/checkout/settle/` asks Stripe directly rather than waiting to be told.
+Everything *after* checkout — renewals, failed cards, cancellations — was not applied
+until the reconciler next ran.
+
+## 8. Incident: amount mismatch
+
+**Symptom.** An `amount_mismatch` incident, severity `critical`, with `expected_*` and
+`charged_*` in its detail.
+
+**What it means.** Stripe charged something other than what the plan says it sells —
+almost always a `SubscriptionPlan.stripe_price_id` pointing at the wrong Price, or a
+Price edited in the Stripe dashboard without the plan being updated.
+
+**What kaleem did.** Recorded the subscription anyway. The customer *was* charged;
+refusing to record it would leave them paying for nothing.
+
+**What you must do.** Decide which side is wrong. If the Price is right and the plan row
+is stale, fix `display_amount`/`currency`/`stripe_price_id` in Django admin. If the plan
+is right and the customer was overcharged, refund the difference in Stripe. Then resolve
+the incident.

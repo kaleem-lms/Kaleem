@@ -2,7 +2,7 @@
 name: billing-hardening
 phase: B
 modules: [billing, identity]
-status: draft
+status: implemented
 created: 2026-08-13
 closed: null
 extends: docs/superpowers/specs/2026-07-09-billing-subscriptions-design.md
@@ -187,6 +187,11 @@ built here.
 ## Part 2 — Remediation
 
 Ordered by "what stops money being lost", not by effort.
+
+**Status 2026-08-13:** all of R1–R8 implemented. R2 was pulled to the front after the
+owner reproduced B1 directly (webhook delivery disabled → card charged, kaleem never
+learned about it), since settle-on-redirect is the direct fix for that path.
+Backend `feat/billing-hardening`, dashboard `feat/billing-hardening`.
 
 ### R1 — Widen the live-subscription invariant (fixes A1)
 

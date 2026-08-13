@@ -2,7 +2,7 @@
 name: billing-hardening
 spec: docs/superpowers/specs/2026-08-13-billing-hardening-design.md
 created: 2026-08-13
-status: not-started
+status: done
 ---
 
 ## Plan — billing hardening (B2)
