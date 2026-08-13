@@ -36,8 +36,9 @@ All inter-module calls enter here — no other module may import identity's mode
 | Function | Purpose |
 | --- | --- |
 | `register_user(full_name, email, password, account_type)` | Adult student/parent + initial profile |
-| `create_child(parent_user_id, full_name, preferences)` | Child User (placeholder email, unusable password) + StudentProfile + link |
+| `create_child(parent_user_id, full_name, email, password=None, preferences=None)` | Child User with a **real parent-provided email** + StudentProfile + link; sends an activation email (verification link if a password was set, else a set-password link that also verifies) |
 | `set_child_password(parent_user_id, student_profile_id, password)` | Parent sets a child's login password |
+| `set_child_email(...)` / `set_child_preferences(...)` / `resend_child_verification(...)` | Parent manages a child's email (migrates legacy placeholder children + re-sends activation), preferences, or re-sends a pending activation |
 | `create_invite(parent_user_id)` / `accept_invite(student_user_id, code)` | Parent↔child self-linking |
 | `set_student_profile(...)` | Onboarding preferences |
 | `create_teacher_account(email, full_name)` | Admin-driven; unusable password + password-set email, email pre-verified |
@@ -94,9 +95,15 @@ endpoints.
 
 ## v1 decisions worth knowing
 
-- **Children have no email of their own.** `create_child` assigns a placeholder
-  `child.<uuid>@placeholder.kaleem` and an unusable password; the parent sets a real
-  password later via `set_child_password`. No verification email is sent for children.
+- **Children have a real, parent-provided email and can log in.** `create_child` takes an
+  email (uniqueness-checked), creates an unverified `EmailAddress`, and sends an activation
+  email — the standard verification link when the parent set a password, or a set-password
+  link (which also verifies the email on use) when they didn't. The parent manages the
+  child's email/password/preferences from `/family` and can re-send activation; a
+  Verified/Pending badge reflects state. Legacy children created before this change (with a
+  `child.<uuid>@placeholder.kaleem` placeholder) are migrated the first time the parent sets
+  a real email via `set_child_email`. (Superseded the earlier v1 "children have no email"
+  design — see the Phase A retrospective, ADR-0024.)
 - **Teachers are admin-created**, not self-registered, and start out of the matching pool
   (`is_in_pool=False`). Admin UX lives in the React dashboard, not Django admin
   (ADR-0013); Django admin is internal-only.

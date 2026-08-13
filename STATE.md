@@ -1,13 +1,92 @@
 ---
-current_phase: "A"
-active_spec: "2026-06-25-scheduling-availability-design — SHIPPED to develop 2026-06-26 (tz-aware weekly availability + Calendly-style editor; first slice of the Phase B scheduling module, started early per user direction = deviation). Built subagent-driven TDD (11 tasks, 2 repos); final whole-branch review READY TO MERGE. Matching/sessions/billing/video explicitly deferred. Earlier this session also shipped UI a11y-polish + frontend-only module scaffolds (deviation)."
-active_branch: "meta feat/bento-home (open PR → develop) carries the bento-home screenshots + pointer bump. dashboard @ 408ef0c (PR #23 bento home; #22 auto-fit layout + #21 styling + #20 layout-system already in). backend pointer @ 38f64d4 (scheduling module). In-flight Phase A identity work still lives on feat/child-verification-spec + the email-privacy campaign."
-last_green_ci: "develop→master #90 deploy-staging GREEN 2026-06-19. ⚠ develop is well AHEAD of master and NOT promoted: UI a11y-polish, module scaffolds, scheduling-availability, the dashboard layout-system, AND the dashboard styling pass all sit on develop, none on staging. Backend scheduling suite (18 tests) + ruff/mypy/import-linter green; dashboard suite (257 tests) + tsc + biome green — all LOCAL (submodules have no CI; dashboard coverage gate still unwired, see ISSUES). Next promotion ships all of it."
+current_phase: "B — Billing. B1 (subscriptions + entitlement) CODE COMPLETE on feature branches; PRs open, not merged, not deployed."
+active_spec: "docs/superpowers/specs/2026-07-09-billing-subscriptions-design.md (B1 billing subscriptions) — implemented via docs/superpowers/plans/2026-07-29-billing-subscriptions.md (15 tasks, subagent-driven TDD). Spec still status: draft — close it when B1 ships to staging."
+active_branch: "THREE open branches: backend feat/billing-subscriptions @ 0baa19e (PR → main), dashboard feat/billing-subscriptions @ d83497a (PR → main), meta feat/billing-spec (docs + ISSUES + STATE; PR → develop). ⚠ Submodule pointers deliberately NOT bumped — bump them in a follow-up meta commit only after the two submodule PRs merge to main (the same discipline as the Phase A slices)."
+last_green_ci: "meta develop→master #115 deploy-staging GREEN 2026-06-26 (run 28241772959). Nothing from B1 has run in CI or reached staging yet. Local gates on the B1 branches: backend 338 tests green (billing 100% line+branch, lint-imports 5/5); dashboard 65 files / 351 tests green on a clean tree, verified twice. ⚠ Dashboard D3 caveat: no coverage tooling is installed (@vitest/coverage-v8 absent), so the 100% gate is unmeasurable there — reviewers substituted manual branch enumeration. Backend CI now measures branch coverage but the 100% fail-under is deliberately deferred (repo at 97% from pre-existing identity/platform gaps — owner decision 2026-07-30). Both in ISSUES.md. NOTE: the ~55 dashboard failures reported mid-build were jsdom failing to initialise under concurrent-agent memory pressure, not a real defect — see ISSUES.md."
 ---
 
 # kaleem Project State
 
-## Current phase: Phase A — Identity
+## Session 2026-07-30 (latest) — Phase B B1 billing BUILT (3 branches open, nothing deployed)
+
+Full process: the committed D1 spec (`2026-07-09-billing-subscriptions-design.md`) → a D2 plan
+(`2026-07-29-billing-subscriptions.md`, 15 tasks) → subagent-driven TDD, one fresh implementer plus
+a spec+quality review per task → two whole-branch final reviews on Opus (backend, dashboard) → one
+fix wave each → scoped re-reviews, both clean.
+
+**What was built.** Backend `kaleem.billing`: `SubscriptionPlan` / `BillingCustomer` /
+`Subscription` / `StripeEventLog`; a `PaymentProvider` Protocol with `StripeProvider` as the only
+module that imports `stripe`; checkout with server-side role/plan eligibility (Family ⇒ parent,
+Individual ⇒ student and not a linked child); idempotent webhook mirroring of five event types via
+`StripeEventLog`; cancel-at-period-end; and `is_entitled_to(user, Capability.BOOK_SESSION)` with
+Family inheritance for children — the gate scheduling's booking slice will call. Five endpoints
+under `/api/v1/billing/`, one of them the CSRF-exempt signature-authenticated webhook (ADR-0025 —
+the only `csrf_exempt` in the codebase). `identity.services.get_parent_user_ids` added.
+Dashboard: the scaffold `/billing` placeholder replaced by the real page — plan cards → hosted
+Stripe checkout redirect → a "finishing up…" poller for the async webhook (idempotent settle,
+polling stops at 20s) → subscription card with an exhaustive status map, renewal/cancellation date,
+history, and a cancel confirm dialog; en + ar with Arabic plural forms; `/billing` promoted out of
+the scaffold set and shown to parents **and** students.
+
+**What the final reviews caught** (all fixed, all re-reviewed): the webhook parser only understood
+the pre-`basil` Stripe payload shape and **failed open** — on a `basil`-or-later account a failed
+renewal would never mark `past_due`, leaving the user entitled forever; out-of-order delivery could
+resurrect a cancelled subscription; `subscription.deleted` could leave a row `active`; nothing
+enforced one live subscription per user, so two browser tabs could produce invisible double billing
+(now a partial unique constraint + a CRITICAL operator log, never a silent auto-cancel); raw Stripe
+SDK errors escaped the provider seam; `extra=` logging was silently discarded so warnings carried no
+event id; the import-linter contract did not actually forbid `identity.models`; and on the frontend,
+the subscription-load error showed the plans copy, `?checkout=cancelled` was a whole-page dead end,
+and Arabic had no plural forms ("2 حصص" instead of the dual "حصتان").
+
+**Verified:** backend 338 tests green, `kaleem/billing/**` 100% line+branch, `lint-imports` 5/5,
+ruff+mypy clean. Dashboard 67 billing tests green, tsc+biome clean. **Not verified:** anything in CI
+or on staging — see `last_green_ci` for the two dashboard gates that will bite.
+
+**Next steps, in order:** merge backend PR → main; merge dashboard PR → main; merge the
+meta docs PR → develop; **then** a follow-up meta commit bumping both submodule pointers; then
+`develop → master` to deploy; then the manual staging click-through with Stripe test card
+`4242 4242 4242 4242` per `docs/runbook/stripe-billing.md`, which is the only way to exercise the
+real card → checkout → webhook path (no Playwright harness exists). Close the spec after that.
+
+## Session 2026-07-08 — Phase A CLOSED (retrospective) + STATE reconciled to reality
+
+Discovered STATE was badly stale: it claimed the big batch sat unpromoted on develop and that
+child-verification + the email-privacy campaign were still in-flight on feat branches. **All false.**
+Reconciled against git/CI:
+
+- **Everything is on staging.** Meta PRs #112–#115 merged and the `develop→master` promotion #115
+  **deployed green** (deploy-staging ran 3m46s, not skipped) on 2026-06-26. Live on staging: UI
+  a11y-polish, the 6 module scaffolds, scheduling-availability, the dashboard layout-system, the
+  styling pass, and the bento dashboard home.
+- **All Phase A identity slices merged + live:** login-verification gate, birthdate, email-privacy
+  (ADR-0023), multi-email (ADR-0022), password-management (#25), child-verification (#27) — all in
+  backend main below the scheduling pointer `38f64d4` (= what master deploys). No open backend PRs.
+- **Phase A closed via ADR-0024 (retrospective).** Walked the 7 roadmap exit criteria: import-linter
+  green, identity.md + ER diagram present (updated for child-verification), password reset shipped,
+  services.py **97% line+branch** (≥90 bar) with 179 tests passing (re-verified locally 2026-07-08).
+- **Child-verification supersedes the old placeholder-email design** — children now get a real
+  parent-provided email + activation and can log in. Closed the stale ISSUES "children can't log in"
+  gap; updated identity.md.
+- **The one residual (human step):** the real-inbox staging click-through — register student + parent
+  → SES link → verify → login → `/me` → password reset. Proves the cross-subdomain session cookie
+  against a real inbox. Gates nothing in code; Phase B planning can proceed in parallel. Steps below.
+- **Governance:** master is 5-ahead / 0-behind develop (squash-divergence, ISSUES); the feat/close-phase-a
+  → develop PR reconciles it. Docs-only changes (git-flow: meta = docs + pointer bumps).
+
+### ▶ Residual manual check to fully close Phase A (needs a real inbox)
+
+On `https://app-staging.kaleem.academy` (API `https://api-staging.kaleem.academy`):
+
+1. Register a **student** with a real email → receive the SES verification email → click the link →
+   land on `/verify-email` (success) → log in → see role-aware `/` home.
+2. Register a **parent** with a second real email → same verify → login → `/family` shows child mgmt.
+3. From the parent, add a **child** with a real email → child receives activation → activates → can log in.
+4. **Password reset:** forgot-password → SES reset email → set a new password → log in with it.
+Any failure → capture the response and reopen the relevant ISSUES entry. Success → mark Phase A fully
+done in the next handoff.
+
+## Current phase: Phase A — Identity (CLOSING)
 
 ## Session 2026-06-26 (latest) — dashboard styling pass SHIPPED to develop (visual-quality audit)
 
