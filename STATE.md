@@ -2,7 +2,7 @@
 current_phase: "B — Billing. B1 (subscriptions + entitlement) CODE COMPLETE on feature branches; PRs open, not merged, not deployed."
 active_spec: "docs/superpowers/specs/2026-07-09-billing-subscriptions-design.md (B1 billing subscriptions) — implemented via docs/superpowers/plans/2026-07-29-billing-subscriptions.md (15 tasks, subagent-driven TDD). Spec still status: draft — close it when B1 ships to staging."
 active_branch: "THREE open branches: backend feat/billing-subscriptions @ 0baa19e (PR → main), dashboard feat/billing-subscriptions @ d83497a (PR → main), meta feat/billing-spec (docs + ISSUES + STATE; PR → develop). ⚠ Submodule pointers deliberately NOT bumped — bump them in a follow-up meta commit only after the two submodule PRs merge to main (the same discipline as the Phase A slices)."
-last_green_ci: "meta develop→master #115 deploy-staging GREEN 2026-06-26 (run 28241772959). Nothing from B1 has run in CI or reached staging yet. ⚠ TWO gates will bite on the dashboard PR: (1) the suite has ~55 pre-existing failures across 16 files on main (jsdom 29 leaves localStorage undefined) which blocks D5 for ANY dashboard PR; (2) the dashboard has no coverage tooling installed at all, so D3's 100% gate is unmeasurable there. Backend CI now measures branch coverage but the 100% fail-under is deliberately deferred (repo at 97% from pre-existing identity/platform gaps — owner decision 2026-07-30). All three are in ISSUES.md."
+last_green_ci: "meta develop→master #115 deploy-staging GREEN 2026-06-26 (run 28241772959). Nothing from B1 has run in CI or reached staging yet. Local gates on the B1 branches: backend 338 tests green (billing 100% line+branch, lint-imports 5/5); dashboard 65 files / 351 tests green on a clean tree, verified twice. ⚠ Dashboard D3 caveat: no coverage tooling is installed (@vitest/coverage-v8 absent), so the 100% gate is unmeasurable there — reviewers substituted manual branch enumeration. Backend CI now measures branch coverage but the 100% fail-under is deliberately deferred (repo at 97% from pre-existing identity/platform gaps — owner decision 2026-07-30). Both in ISSUES.md. NOTE: the ~55 dashboard failures reported mid-build were jsdom failing to initialise under concurrent-agent memory pressure, not a real defect — see ISSUES.md."
 ---
 
 # kaleem Project State
@@ -43,8 +43,7 @@ and Arabic had no plural forms ("2 حصص" instead of the dual "حصتان").
 ruff+mypy clean. Dashboard 67 billing tests green, tsc+biome clean. **Not verified:** anything in CI
 or on staging — see `last_green_ci` for the two dashboard gates that will bite.
 
-**Next steps, in order:** merge backend PR → main; merge dashboard PR (its CI needs the pre-existing
-jsdom/`localStorage` failures fixed first — that is D5, and it blocks any dashboard PR); merge the
+**Next steps, in order:** merge backend PR → main; merge dashboard PR → main; merge the
 meta docs PR → develop; **then** a follow-up meta commit bumping both submodule pointers; then
 `develop → master` to deploy; then the manual staging click-through with Stripe test card
 `4242 4242 4242 4242` per `docs/runbook/stripe-billing.md`, which is the only way to exercise the

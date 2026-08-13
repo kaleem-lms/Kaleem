@@ -178,10 +178,14 @@ Spotted-a-problem backlog. Write it here in 15 seconds, keep going (D10).
 - **The dashboard has no coverage tooling installed** (`@vitest/coverage-v8` absent), so
   the 100% line+branch gate in CLAUDE.md/D3 cannot actually be measured for the
   dashboard. Reviewers substituted manual branch enumeration for the billing slice.
-- **The dashboard test suite has ~55 failures across 16 files on `main`**, pre-existing
-  and unrelated to billing: jsdom 29 leaves `localStorage` undefined
-  (`src/ui/toggles.test.tsx` and others). This blocks D5 (green CI before merge) until
-  fixed.
+- **Flaky under load, NOT a standing failure:** during the billing build, several agents
+  running full suites plus throwaway Postgres containers concurrently saw ~55 failures
+  across 16 files, all `localStorage`/`window` undefined in jsdom 29
+  (`src/ui/toggles.test.tsx` and others) — i.e. the jsdom environment failing to
+  initialise under memory pressure, not a code defect. Re-verified on a clean tree with
+  nothing else running: **65 files / 351 tests green, twice.** Worth knowing because it
+  will reappear on a loaded CI runner or a busy dev box and looks alarming; if it does,
+  suspect resources (or cap `poolOptions.threads.maxThreads`) before suspecting the tests.
 - `/billing` nav shows for every student; a linked child gets a server-side typed 403 at
   checkout rather than a hidden nav entry. Refine once `/me` exposes whether a student
   has a parent.
