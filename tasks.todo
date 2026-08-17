@@ -1,0 +1,79 @@
+[x] when user change email its should be unverifed and require verification to be able to use it
+    - until new email is verified the old verifed email should function normally
+    - DONE 2026-06-19 (merged to main, backend #18): already enforced by add→verify→set-primary; locked in with tests. staging+browser pending.
+[x] replace email acctivation url in email with handled page in frontend
+    - DONE: already implemented (allauth adapter routes links to frontend /verify-email). confirmed.
+[x] setup django_extensions and replace shell with shell_plus
+    - DONE (already configured during the docker-dev-env work): `django-extensions>=3.2` in
+      requirements/local.txt + `django_extensions` in local.py INSTALLED_APPS; `just shell`
+      runs `manage.py shell_plus` (falls back to plain shell). Verified 2026-06-25.
+[x] if user go to login/register page should redirect to profile page if he is authenticated
+    - DONE 2026-06-19 (slice 3, dashboard PR pending): redirectIfAuthed in /login + /register beforeLoad
+      (authed -> "/", else render). Awaits merge+deploy.
+[ ] resume kaleem branding package (paused 2026-06-18)
+    - BLOCKED on human action (2026-06-25): asset generation happens in Recraft (paid UI,
+      manual) + realfavicongenerator.net — can't be done autonomously by Claude. Once you
+      drop the generated images into brand/<category>/ per ASSET-INDEX, Claude assembles the
+      SVGs + favicon.ico + webmanifest. Planning docs in brand/ are ready.
+    - all planning docs ready in brand/: design.md, IMAGE-PROMPTS.md (21 prompts -> 74 assets), RECRAFT-GUIDE.md, ASSET-INDEX.md
+    - generate in recraft (entry paid tier): lock icon first, save "Kaleem Flat" style, then logos/illustrations
+    - favicon + pwa set via realfavicongenerator.net; set arabic "كليم" type by hand (IBM Plex Sans Arabic / Amiri)
+    - stitch left a project in cloud (id 18007247280796336213) - delete in stitch UI if unwanted
+    - on return: drop images into brand/<category>/ using ASSET-INDEX stems, then claude assembles svgs + favicon.ico + webmanifest
+[x] dashboard /verify-email route spin for every even when backend request respond with 200
+    - 1st attempt (dashboard #11, merged) was INCOMPLETE — still spun in dev. REAL root cause: confirm ran as a
+      useMutation in useEffect; React StrictMode's dev double-mount drops the mutation result -> stuck spinner
+      (it only worked in prod builds, which masked it). FIXED 2026-06-19 in dashboard #12 (PR OPEN): model the
+      confirm as a keyed useQuery (StrictMode-safe) + missing-key shows error. Verified live w/ StrictMode on:
+      bad/missing key -> error, real mailpit link -> success (POST 200).
+    - SHIPPED + VERIFIED ON STAGING 2026-06-19 (meta #90, deploy-staging green): bad key -> terminal error
+      ("link is invalid or has expired" + sign-in link), no infinite spinner. CLOSED.
+[x] setup change password and account password reset
+    - DONE 2026-06-19 (slice 4, backend PR #25 + dashboard PR #15 OPEN): change-password card on
+      /account (re-auth, keeps session); forgot-password (no enumeration) + reset-password
+      (Django token uid+token) routes. Security review fixes applied. Awaits merge+deploy.
+[x] users should enter thier birthdate on registeration
+    - DONE 2026-06-19 (slice 3, backend + dashboard PRs pending): required birthdate at registration
+      (not future, age<=120), stored on User (nullable). Stored only, not emailed/exposed (ADR-0023).
+      Age-gating/minor-consent deferred to ISSUES. Awaits merge+deploy.
+[x] BUG: when i add new email and still not verifed iam able to login using it i shouldn't be able to login using unverifed email at any case
+    - DONE 2026-06-19 (merged to main, backend #18): login gate now checks the SUBMITTED email's verification, not "any verified email". any verified email works; unverified always rejected. staging+browser pending.
+[x] create adr to ensure everything we build should follow data privecy laws like GDPR and eu laws
+    - DONE 2026-06-19: ADR-0023 (data-privacy-by-default + email minimization), meta PR #91 (OPEN).
+      Operational follow-ups (retention, DSAR/erasure, cookie consent, RoPA) logged in ISSUES for pre-launch.
+[x] for security alert email and confirm request we send email in email body i think this voliate data privacy laws tho we should fix it
+    - DONE 2026-06-19 (slice 1, backend PR #22 OPEN): security-alert body no longer names the changed
+      address (links to /account behind auth); confirmation body no longer echoes the user identifier.
+      Backed by ADR-0023. Awaits merge + deploy.
+[x] we should use toast notifications and replace all current notes and notifications with toast
+    - DONE 2026-06-19 (slice 2, dashboard PR #13 OPEN + meta #92): radix-based toast system
+      (src/ui/toast.tsx, no new dep); migrated transient SUCCESS notices (profile/prefs/email/children)
+      to toasts. Errors + page states stay inline (a11y, ADR-0020). 145 tests green. Awaits merge+deploy.
+[x] if child account already created and verifed parent should see set password or prefernces
+    - DONE 2026-06-23 (child-verification feature, backend PR #27 + dashboard PR #16 OPEN): chose
+      "model child verification first" — children now get a REAL parent-provided email + verify like
+      adults; parent manages email/password/preferences from /family with a Verified/Pending badge.
+      Opus security review: approved. Awaits merge + deploy.
+[ ] time selection for student to make it like calendly time selection
+    - NOT a quick task (2026-06-25): this is the scheduling module, which has NO backend yet
+      (only identity + platform exist) and is Phase B/C on the roadmap. Needs a D1 spec
+      (backend availability/booking model + API + the frontend grid) — not a placeholder.
+      A non-functional /schedule SCAFFOLD page now exists (dashboard #18) but is just a
+      "coming soon" placeholder. Do this properly via spec after Phase A closes.
+[x] email verification url not valid in production
+    - cause: FRONTEND_URL defaults to app.kaleem.localhost (dev); DJANGO_FRONTEND_URL not set on the VPS, so prod
+      emails link to localhost. FIXED: backend #19 requires DJANGO_FRONTEND_URL in production (fail-loud, no
+      localhost fallback); #21 passed a build-only value to Dockerfile collectstatic; DJANGO_FRONTEND_URL set on
+      the VPS. DONE 2026-06-19: shipped via meta #90 (deploy-staging green), staging healthy.
+[x] email verify email has invliad domain in subject
+    - DONE 2026-06-19 (slice 1, backend PR #22 OPEN): pinned ACCOUNT_EMAIL_SUBJECT_PREFIX="[Kaleem] "
+      + Site migration (Kaleem/kaleem.academy). No more "[example.com]" in subject or body. Awaits merge+deploy.
+[x] A new email address was added email has dot at the end of url that make url not working
+    - DONE 2026-06-19 (backend PR #23 OPEN): my slice-1 alert body ended the sentence with the URL +
+      a period -> ".../account." -> mail clients pulled the dot into the href. Fixed: URL on its own
+      line, no trailing punctuation; regression test asserts "/account." absent. Awaits merge.
+[x] birthdate picker icon is black and hidden in background when darkmode is enabled we need to use another date picker or improve this one is UI
+    - DONE 2026-06-19 (slice 3, dashboard PR pending): set CSS color-scheme light/dark on :root/.dark
+      so the native date-picker icon (and all native controls) follow the theme + stay visible in dark mode.
+[ ] nothing prevent user from subscribe in two plans or in one plan more than one time
+[ ] we should rely on more that source for payment not only webhook use global standards

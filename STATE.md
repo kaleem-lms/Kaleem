@@ -1,13 +1,94 @@
 ---
-current_phase: "B — Billing. B1 (subscriptions + entitlement) CODE COMPLETE on feature branches; PRs open, not merged, not deployed."
-active_spec: "docs/superpowers/specs/2026-07-09-billing-subscriptions-design.md (B1 billing subscriptions) — implemented via docs/superpowers/plans/2026-07-29-billing-subscriptions.md (15 tasks, subagent-driven TDD). Spec still status: draft — close it when B1 ships to staging."
-active_branch: "THREE open branches: backend feat/billing-subscriptions @ 0baa19e (PR → main), dashboard feat/billing-subscriptions @ d83497a (PR → main), meta feat/billing-spec (docs + ISSUES + STATE; PR → develop). ⚠ Submodule pointers deliberately NOT bumped — bump them in a follow-up meta commit only after the two submodule PRs merge to main (the same discipline as the Phase A slices)."
-last_green_ci: "meta develop→master #115 deploy-staging GREEN 2026-06-26 (run 28241772959). Nothing from B1 has run in CI or reached staging yet. Local gates on the B1 branches: backend 338 tests green (billing 100% line+branch, lint-imports 5/5); dashboard 65 files / 351 tests green on a clean tree, verified twice. ⚠ Dashboard D3 caveat: no coverage tooling is installed (@vitest/coverage-v8 absent), so the 100% gate is unmeasurable there — reviewers substituted manual branch enumeration. Backend CI now measures branch coverage but the 100% fail-under is deliberately deferred (repo at 97% from pre-existing identity/platform gaps — owner decision 2026-07-30). Both in ISSUES.md. NOTE: the ~55 dashboard failures reported mid-build were jsdom failing to initialise under concurrent-agent memory pressure, not a real defect — see ISSUES.md."
+current_phase: "B — Billing. B1 + B2 (hardening) MERGED to backend/dashboard main and to meta master. Nothing has run in CI or reached staging yet."
+active_spec: "docs/superpowers/specs/2026-08-13-billing-hardening-design.md (B2 billing hardening, status: implemented) — via docs/superpowers/plans/2026-08-13-billing-hardening.md (6 slices, all done). B1's spec (2026-07-09-billing-subscriptions-design.md) is still status: draft — close it together with B2 when billing reaches staging."
+active_branch: "No open code branches. backend main @ 17a2285 (PR #32 merged), dashboard main @ 3bd0b16 (PR #28 merged), meta master @ 12594a7 already records both pointers. ⚠ ONE PR STILL OPEN: meta kaleem-lms/Kaleem#124 (feat/billing-hardening-spec → develop) carrying the B2 spec, plan, and the rewritten stripe-billing runbook. The billing code is on main; the docs explaining it are not, and two production-blocking Stripe-console steps exist ONLY in that unmerged runbook."
+last_green_ci: "STILL meta develop→master #115 deploy-staging GREEN 2026-06-26 (run 28241772959). Neither B1 nor B2 has run in CI or reached staging. Local gates on the merged B2 work: backend 479 tests green, kaleem.billing 100% line+branch, lint-imports 5/5, ruff+mypy clean; dashboard 363 tests green, tsc+biome clean, en/ar key parity. Dashboard D3 caveat unchanged: no coverage tooling installed (@vitest/coverage-v8 absent) so the 100% gate is unmeasurable there. Backend CI measures branch coverage but the 100% fail-under is still deferred (repo ~97% from pre-existing identity/platform gaps — owner decision 2026-07-30). Both in ISSUES.md."
+
 ---
 
 # kaleem Project State
 
-## Session 2026-07-30 (latest) — Phase B B1 billing BUILT (3 branches open, nothing deployed)
+## Session 2026-08-13 (latest) — B2 billing hardening: 13 audit findings fixed, merged, not deployed
+
+**Why this happened.** The owner reported two bugs in B1 billing: nothing prevented subscribing
+twice, and the system relied on the webhook as its only source of truth. Both were real. A full
+audit of the merged module found seven more, written up as **D1 spec
+`2026-08-13-billing-hardening-design.md`** with a **D2 plan** of six slices. All 13 findings are
+now fixed and merged.
+
+**The two reported bugs, precisely.**
+
+- *Duplicate subscription.* It was half-guarded: `LIVE_STATUSES` and the partial unique constraint
+  covered only `active`/`past_due`, but `customer.subscription.updated` will write `unpaid` or
+  `incomplete` onto a row. A user in either was invisible to `get_current_subscription`, so
+  `create_checkout` waved them through and the constraint never fired — two real Stripe
+  subscriptions, both billing, one visible.
+- *Webhook-only.* Reproduced directly by the owner mid-session: with webhook delivery disabled,
+  the card was charged, Stripe created the subscription, and kaleem never learned about it.
+  `handle_webhook` was the only writer to `Subscription`, and since we ack everything we receive,
+  Stripe never resends.
+
+**What was built** (backend PR #32, 7 commits; dashboard PR #28, 2 commits):
+
+1. Four pure webhook defects — missing out-of-order guard on `checkout.session.completed`
+   (resurrection); `payment_status` never checked (access granted for money that never arrived);
+   `async_payment_*` unhandled; cancel not recording the period end.
+2. `POST /billing/checkout/settle/` — asks Stripe what a session did instead of waiting to be
+   told. Same state machine, second entry point; idempotent via a `settle:<session_id>` ledger key.
+3. `LIVE_STATUSES` widened (+ migration 0004), Billing Portal endpoint, plan re-pointing,
+   `past_due` made entitled.
+4. `BillingIncident` model + admin queue (migration 0005) replacing logger-only handling.
+5. Nightly `reconcile_subscriptions` + `detect_webhook_silence` Celery beat tasks.
+6. Idempotency keys on every Stripe write + charge-vs-plan verification.
+7. Migration 0006 widening all six Stripe-id columns to 255 (see the bug below).
+
+**Product decisions taken with the owner** (recorded as OQ-B2-1/-2 in the spec):
+
+- A `past_due` customer keeps **full** access through Stripe's retry schedule; access stops at
+  `unpaid`. No timer of our own — Stripe owns the retry schedule and a parallel clock would drift.
+- Plan changes go through the **Stripe Billing Portal**: upgrades prorate immediately, downgrades
+  at period end. No proration UI of our own.
+
+**The bug my own tests missed.** `settle` raised `DataError: value too long for character
+varying(64)` on every real checkout. All six Stripe-id columns were 64 — fine for an *event* id
+(`evt_…`, ~28 chars), too short for a Checkout Session id (~66-70). The tests passed because they
+used short stand-in ids like `cs_test_1`. Fixed as a class, not one column: shared
+`STRIPE_ID_MAX_LENGTH = 255` plus a test asserting the whole set, so a new column added at 64
+fails there rather than in production. Migration 0006 is already applied to the local dev DB.
+
+**Deviation from D1/D2:** none on process (spec → plan → TDD → PRs). One ordering deviation
+inside the plan: R2 (settle-on-redirect) was pulled ahead of slices 2–6 after the owner
+reproduced the webhook failure directly, since it was the direct fix for what they hit.
+
+### What is NOT done
+
+- **meta PR #124 is still open** (`feat/billing-hardening-spec` → develop): the B2 spec, plan, and
+  the rewritten `docs/runbook/stripe-billing.md`. Merge this — the two Stripe-console steps below
+  are documented only there.
+- **Two production-blocking Stripe-console settings, neither checkable by CI:**
+  1. The webhook endpoint must subscribe to **eight** event types, not five. Without
+     `checkout.session.async_payment_succeeded`, anyone paying by SEPA/ACH/boleto is charged and
+     never gets access.
+  2. The customer portal must be configured (subscription-update on with both Prices, cancellation
+     at period end, proration per OQ-B2-2). A misconfigured portal fails silently — the "Manage
+     billing" button opens a page that cannot change plan.
+- **Nothing has reached CI or staging.** `last_green_ci` is still 2026-06-26.
+- **OQ-B2-3 still open** (does not block): when the reconciler finds a genuine double
+  subscription, is auto-cancel-plus-refund acceptable policy, or does every case stay manual?
+  Currently manual by design; the incident queue exists to make that tolerable.
+- B1's residual human staging click-through from Phase A is still outstanding.
+
+### Next
+
+1. Merge meta #124, then `develop → master` to get billing onto staging (first CI run for both
+   B1 and B2 — expect to fix CI-only issues).
+2. Do the two Stripe-console configurations before believing any staging test.
+3. Manual staging click-through: subscribe → cancel → portal → failed-card recovery.
+4. Close both billing specs (B1 draft + B2) once staging is verified.
+
+---
+
+## Session 2026-07-30 — Phase B B1 billing BUILT (3 branches open, nothing deployed)
 
 Full process: the committed D1 spec (`2026-07-09-billing-subscriptions-design.md`) → a D2 plan
 (`2026-07-29-billing-subscriptions.md`, 15 tasks) → subagent-driven TDD, one fresh implementer plus
