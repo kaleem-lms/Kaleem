@@ -1,8 +1,8 @@
 ---
-current_phase: "B — Billing. B1 + B2 (hardening) MERGED to backend/dashboard main and to meta master. Nothing has run in CI or reached staging yet."
+current_phase: "B — Billing. B1 + B2 (hardening) merged AND DEPLOYED TO STAGING 2026-08-17 (meta #126, first green CI for either). Remaining: two Stripe-console configs, then the human click-through."
 active_spec: "docs/superpowers/specs/2026-08-13-billing-hardening-design.md (B2 billing hardening, status: implemented) — via docs/superpowers/plans/2026-08-13-billing-hardening.md (6 slices, all done). B1's spec (2026-07-09-billing-subscriptions-design.md) is still status: draft — close it together with B2 when billing reaches staging."
-active_branch: "No open code branches. backend main @ 17a2285 (PR #32 merged), dashboard main @ 3bd0b16 (PR #28 merged), meta master @ 12594a7 already records both pointers. ⚠ ONE PR STILL OPEN: meta kaleem-lms/Kaleem#124 (feat/billing-hardening-spec → develop) carrying the B2 spec, plan, and the rewritten stripe-billing runbook. The billing code is on main; the docs explaining it are not, and two production-blocking Stripe-console steps exist ONLY in that unmerged runbook."
-last_green_ci: "STILL meta develop→master #115 deploy-staging GREEN 2026-06-26 (run 28241772959). Neither B1 nor B2 has run in CI or reached staging. Local gates on the merged B2 work: backend 479 tests green, kaleem.billing 100% line+branch, lint-imports 5/5, ruff+mypy clean; dashboard 363 tests green, tsc+biome clean, en/ar key parity. Dashboard D3 caveat unchanged: no coverage tooling installed (@vitest/coverage-v8 absent) so the 100% gate is unmeasurable there. Backend CI measures branch coverage but the 100% fail-under is still deferred (repo ~97% from pre-existing identity/platform gaps — owner decision 2026-07-30). Both in ISSUES.md."
+active_branch: "No open branches, nothing in flight. backend main @ 17a2285, dashboard main @ 3bd0b16, meta master and develop both record those pointers. Meta #124 (B2 spec/plan/runbook), #125 (pointer alignment on develop) and #126 (develop→master promotion) are all merged."
+last_green_ci: "meta develop→master #126 GREEN 2026-08-17 (run 32009357958) — deploy-staging success in 3m10s. FIRST green CI for both B1 and B2: backend-lint, backend-test, dashboard-lint, dashboard-build, marketing-build all passed. Verified over HTTP afterwards on api-staging.kaleem.academy: /health/ready/ 200, /api/v1/billing/plans/ and /portal/ 403 (auth-gated), POST /checkout/settle/ 403 — the 403s on the two NEW B2 endpoints are what prove the new code is actually serving rather than the old image. POST /billing/webhook/ returns 400 on an unsigned body, i.e. signature verification is live. Dashboard serves 200 on app-staging.kaleem.academy. Billing migrations 0004-0006 were applied on 2026-08-13 by the earlier pointer-bump deploy, so #126 correctly reported \"no migrations to apply\". Local gates on the merged B2 work: backend 479 tests green, kaleem.billing 100% line+branch, lint-imports 5/5, ruff+mypy clean; dashboard 363 tests green, tsc+biome clean, en/ar key parity. Dashboard D3 caveat unchanged: no coverage tooling installed (@vitest/coverage-v8 absent) so the 100% gate is unmeasurable there. Backend CI measures branch coverage but the 100% fail-under is still deferred (repo ~97% from pre-existing identity/platform gaps — owner decision 2026-07-30). Both in ISSUES.md."
 
 ---
 
@@ -60,11 +60,19 @@ fails there rather than in production. Migration 0006 is already applied to the 
 inside the plan: R2 (settle-on-redirect) was pulled ahead of slices 2–6 after the owner
 reproduced the webhook failure directly, since it was the direct fix for what they hit.
 
+### Deployed to staging 2026-08-17 (same session, after the handoff)
+
+Promotion went `#124` (docs) → `#125` (pointer alignment) → `#126` (develop→master). **#125 was
+not busywork:** `develop` still pointed at `backend@8574a12`, the commit *before* the varchar fix,
+so promoting develop as-is would have moved master's pointer backwards and deployed billing
+without `40e702b`. Caught by diffing the pointers before opening the promotion PR.
+
+All five CI jobs green — the first time any Phase B code has run in CI — and `deploy-staging`
+succeeded in 3m10s. Verified over HTTP: the two new B2 endpoints return 403 rather than 404, which
+is what distinguishes "new code is serving" from "old image still up".
+
 ### What is NOT done
 
-- **meta PR #124 is still open** (`feat/billing-hardening-spec` → develop): the B2 spec, plan, and
-  the rewritten `docs/runbook/stripe-billing.md`. Merge this — the two Stripe-console steps below
-  are documented only there.
 - **Two production-blocking Stripe-console settings, neither checkable by CI:**
   1. The webhook endpoint must subscribe to **eight** event types, not five. Without
      `checkout.session.async_payment_succeeded`, anyone paying by SEPA/ACH/boleto is charged and
@@ -72,7 +80,9 @@ reproduced the webhook failure directly, since it was the direct fix for what th
   2. The customer portal must be configured (subscription-update on with both Prices, cancellation
      at period end, proration per OQ-B2-2). A misconfigured portal fails silently — the "Manage
      billing" button opens a page that cannot change plan.
-- **Nothing has reached CI or staging.** `last_green_ci` is still 2026-06-26.
+- **The human staging click-through for billing** — subscribe → cancel → portal → failed-card
+  recovery. Blocked on the two Stripe-console steps above; do those first or the results are
+  meaningless.
 - **OQ-B2-3 still open** (does not block): when the reconciler finds a genuine double
   subscription, is auto-cancel-plus-refund acceptable policy, or does every case stay manual?
   Currently manual by design; the incident queue exists to make that tolerable.
@@ -80,11 +90,11 @@ reproduced the webhook failure directly, since it was the direct fix for what th
 
 ### Next
 
-1. Merge meta #124, then `develop → master` to get billing onto staging (first CI run for both
-   B1 and B2 — expect to fix CI-only issues).
-2. Do the two Stripe-console configurations before believing any staging test.
-3. Manual staging click-through: subscribe → cancel → portal → failed-card recovery.
-4. Close both billing specs (B1 draft + B2) once staging is verified.
+1. **Do the two Stripe-console configurations** (runbook §3 and §3b). Nothing else about billing
+   on staging can be trusted until these are done, and both fail silently.
+2. Manual staging click-through: subscribe → cancel → portal → failed-card recovery.
+3. Close both billing specs (B1 is still `draft`, B2 is `implemented`) once that passes.
+4. Then Phase B's next slice, or the Phase A residual identity click-through.
 
 ---
 
