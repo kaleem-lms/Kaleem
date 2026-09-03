@@ -57,23 +57,6 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
   one up is its own D1 slice. Note the hosted-Stripe redirect can never run in Playwright —
   card → checkout → webhook stays a manual staging test (`docs/runbook/stripe-billing.md`
   §5) even after the harness lands.
-- **`unknown_subscription` (warning) fires on EVERY checkout — 4 of 4 observed.** The
-  period-end fix (backend #34) compensates for the dropped `invoice.paid` but does not stop
-  the drop: the invoice won the race on all four staging checkouts run on 2026-09-03
-  (04:18, 16:08, 16:41, plus the original), so the event is discarded and records an
-  incident every time. The data is now correct, so the incident is pure noise — and noise in
-  a queue whose whole value is that `critical` means "money is wrong right now". Not
-  "roughly every checkout": every one measured so far. Either suppress it when a backfill
-  subsequently succeeds, or drop invoice arms to `info`.
-  (Surfaced 2026-09-03, verifying the fix.)
-
-- **A 403 eligibility rejection at checkout renders "Couldn't start checkout. Please try
-  again."** Observed 2026-09-03: a parent clicking **Individual** gets a correct server-side
-  403 (Individual ⇒ student and not a linked child), but the dashboard shows a generic retry
-  message. Retrying will *never* work, so the copy actively misleads. The backend returns a
-  typed error; the frontend collapses it. Map the typed 403 to real copy — or hide the
-  ineligible plan, which is the related `/billing` nav entry in this file.
-
 - **The `past_due` / dunning path has never been exercised end to end.** A *declined card at
   checkout* is verified (2026-09-03: `4000 0000 0000 0341` → 0 subscriptions, not entitled,
   no incidents — correct). But `past_due` arises from a **renewal** failing on an already

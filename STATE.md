@@ -25,15 +25,14 @@ Phase A (identity) is closed via ADR-0024, with one residual human check outstan
 
 ## ▶ Next actions, in order
 
-1. **Quieten the `unknown_subscription` incident** (`ISSUES.md`): it fires on **every**
-   checkout — 4 of 4 measured — and is pure noise since the period-end fix, which devalues a
-   queue whose point is that `critical` means money is wrong.
-2. **Fix the 403 checkout copy** (`ISSUES.md`): an eligibility rejection renders "Please try
-   again", advice that can never work.
-3. **Close both billing specs** (B1 `draft`, B2 `implemented`). Everything they claim is now
-   verified on staging except the `past_due` renewal path, which needs Stripe test clocks
-   (`ISSUES.md`) rather than a click-through.
-4. Then: Phase B's next slice, the Phase A residual, or the Playwright harness slice.
+1. **Close both billing specs** (B1 `draft`, B2 `implemented`). Everything they claim is now
+   verified on staging **except** the `past_due` renewal path, which needs Stripe **test
+   clocks** rather than a click-through (`ISSUES.md`) — and which, since `past_due` keeps
+   full access by design, is the transition that actually removes entitlement. Decide
+   whether that blocks closing the specs or is tracked separately.
+2. **Playwright harness** as its own D1 slice — the last wholly-unmet ADR-0021 clause, and
+   the thing that would have caught the period-end race without a human clicking.
+3. Then: Phase B's next slice, or the Phase A residual identity click-through.
 
 ## In flight
 
@@ -58,7 +57,11 @@ Phase A (identity) is closed via ADR-0024, with one residual human check outstan
   it. Verified by a live subscription afterwards: events delivered, signature verified
   against the new secret, renewal date rendered immediately.
 - **Eligibility enforcement verified:** a parent clicking Individual gets a server-side 403
-  and no subscription. (The *copy* shown is wrong — see Next actions.)
+  and no subscription — and now real copy ("This plan isn't available for your account.")
+  instead of "please try again" (dashboard #30).
+- **Incident queue quietened** (backend #35): an orphan `invoice.paid` is `info`, not a
+  warning per subscriber, now that the backfill covers it. `invoice.payment_failed` stays a
+  warning — nothing backfills a payment failure.
 - **D3 coverage gates are live** (backend 97, dashboard 92/87/84; ADR-0026) and meta CI now
   runs on `develop` PRs. The floor already earned itself: the first pass at #34 dropped the
   repo to 96.96% and CI went red.
