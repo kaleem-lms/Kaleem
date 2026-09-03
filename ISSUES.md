@@ -58,13 +58,13 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
 
 ## Blocks a phase close
 
-- **e2e covers `identity` only.** The harness exists and blocks CI as of 2026-09-03
-  (ADR-0027), with six identity flows. Every other user-facing area — scheduling
-  availability, the family/children surface, account and email management, the app shell —
-  still has **no** e2e, so ADR-0021's per-feature requirement is only partly met and D9
-  still leans on the manual click-through for those. Convert them feature by feature; keep
-  the `CLAUDE.md` D3 table honest as you go. A table that claims less than reality is
-  harmless, one that claims more is how the gate stayed fictional for three months.
+- **e2e now covers every shipped user-facing area; what remains is listed below.** The
+  2026-09-04 conversion took the suite from 6 flows to 20 — availability, family, account
+  and email, and the app shell all have specs, and the `CLAUDE.md` D3 table names them.
+  Still uncovered, each for a stated reason: **change-password** (would rotate the shared
+  seed password mid-suite — needs its own throwaway account, a small slice), the
+  inbox-dependent flows below, and billing. A table that claims less than reality is
+  harmless; one that claims more is how the gate stayed fictional for three months.
 - **Flows the harness structurally cannot reach without more infrastructure:** anything
   needing a real inbox — registration, password reset, child activation — because CI has no
   mail-catcher wired in. That is its own slice (a mailpit service plus a way to read the
@@ -157,10 +157,20 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
   label.
 - `WeeklyAvailabilityEditor` pill React key collides on two identical ranges in one day
   (cosmetic; the backend merges them on save).
-- App-shell mobile drawer sets `aria-modal="true"` and moves/restores focus + closes on
-  Escape, but does **not** trap Tab. Low impact (only the topbar is behind it). Note `inert`
-  would break the drawer-landmark-count test, which relies on jsdom keeping both navs
-  queryable.
+- **App-shell mobile drawer does not restore focus when it closes.** Measured in a real
+  browser on 2026-09-04 while writing `e2e/shell.spec.ts`: after Escape, focus is on
+  `<body>`, so a keyboard user is dropped at the top of the document every time they
+  dismiss the menu (WCAG 2.4.3, and ADR-0020 makes AA a repo-wide baseline). Cause: the
+  drawer is opened from `AppShell` state rather than a `Dialog.Trigger`, so Radix has no
+  trigger to restore to. Fix is either a `Dialog.Trigger` around the topbar's menu button —
+  which reshapes `AppTopbar`'s `onOpenMenu` prop contract — or an `onCloseAutoFocus`
+  handler focusing a ref. The e2e spec documents the gap in a comment rather than asserting
+  it. (Supersedes the older "does not trap Tab" note: the Radix migration fixed the trap.)
+- Two buttons on `/family` share the accessible name **"Add child"** — the disclosure that
+  opens the form and the form's submit. A screen-reader user hears the same name for two
+  different actions, and the e2e spec has to scope to the form to disambiguate. Rename the
+  submit (`family.addChildSubmit`) to something distinct. Same shape worth checking on
+  `account.addEmail` / `account.addEmailSubmit`, which happen to differ today.
 - Shell CSS padding drift: `UserMenu` uses logical `ps-/pe-`, `AppSidebar` uses symmetric
   `px-` (both RTL-safe). Unify on logical.
 - Topbar brand wordmark is a plain `<span>`, not a `<Link to="/">`. Make it and the

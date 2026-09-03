@@ -30,9 +30,9 @@ Phase A (identity) is closed via ADR-0024, with one residual human check outstan
    which needs Stripe **test clocks** rather than a click-through (`ISSUES.md`). Since
    `past_due` keeps full access by design, that is the transition which actually removes
    entitlement. Decide whether it blocks closing the specs or is tracked separately.
-2. **Extend e2e past identity** (`ISSUES.md`) — scheduling availability, family/children,
-   account+email, the app shell. The harness exists; each area is now a small conversion
-   rather than a project. Keep the `CLAUDE.md` D3 table honest as you go.
+2. ~~**Extend e2e past identity**~~ — **done 2026-09-04.** 6 flows → 20: availability,
+   family, account+email, and the app shell (backend #38, dashboard #32). What is still
+   uncovered and why is in the `CLAUDE.md` D3 table and `ISSUES.md`.
 3. **`past_due` via Stripe test clocks** — the one billing behaviour never exercised, and
    the one that actually removes entitlement. Cannot be clicked; needs a test-clock harness.
 4. Then: Phase B's next slice, or the Phase A residual identity click-through.
@@ -44,6 +44,14 @@ Phase A (identity) is closed via ADR-0024, with one residual human check outstan
   coverage and e2e gates are all that stand between a PR and staging.
 
 ## Recently verified (2026-09-03 / 04)
+
+- **e2e extended past identity** (spec `2026-09-04-e2e-beyond-identity-design.md`). Every
+  new flow is a *write*, so the suite now exercises CSRF on a mutation across the ADR-0019
+  subdomain boundary — the six original flows were reads plus one login. Run locally
+  20/20 against a real Django on `api.kaleem.localhost:8000` and a real production build
+  on `app.kaleem.localhost:4173`. Two defects found and logged rather than fixed (D10): the
+  mobile drawer does not restore focus on close, and two "Add child" buttons share an
+  accessible name.
 
 - **Billing verified end to end on staging** — subscribe → checkout → portal → cancel, twice
   (before and after the renewal-date fix); kaleem and Stripe agreed exactly each time.

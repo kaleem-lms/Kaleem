@@ -45,16 +45,23 @@ See `STATE.md` for the current phase and active spec. At the time of this file's
    blanket file/directory exclusions of business logic. Raising a floor is a normal part
    of any PR that lifts coverage — do it.
 
-   **End-to-end tests: in force for `identity`, not yet for anything else.** A Playwright
+   **End-to-end tests: in force for every user-facing area that has shipped.** A Playwright
    harness exists as of 2026-09-03 (`dashboard/e2e/`, ADR-0027) and blocks merge in CI. It
    runs against a real build and a real Django server on sibling subdomains, so it proves
-   the ADR-0019 cross-subdomain session cookie — the thing no unit test can reach.
+   the ADR-0019 cross-subdomain session cookie — the thing no unit test can reach — and,
+   since 2026-09-04, CSRF on real mutations across that same boundary.
 
    | Area | e2e | Notes |
    | --- | --- | --- |
-   | `identity` | ✅ 6 flows | login gate, session, sign-out, `_authed` guard, verify-email, RTL |
-   | everything else | ❌ | D9's manual browser click-through is still the substitute |
+   | `identity` — auth | ✅ 6 flows | login gate, session, sign-out, `_authed` guard, verify-email, RTL |
+   | `identity` — account/email | ✅ 3 flows | add/remove an alias, wrong-password refusal, role-conditional panels |
+   | `identity` — family | ✅ 3 flows | add a child, invite code, the non-parent empty state |
+   | `scheduling` — availability | ✅ 3 flows | add/remove a range with a reload, end-before-start refused |
+   | app shell | ✅ 5 flows | role-aware nav both ways, `aria-current`, mobile drawer, Escape |
+   | scaffold routes | ❌ by design | placeholder pages with no behaviour beyond a heading |
    | `billing` | ❌ by design | the hosted Stripe redirect cannot run in Playwright (`ISSUES.md`) |
+   | anything needing an inbox | ❌ | registration, password reset, child activation — CI has no mail-catcher (`ISSUES.md`) |
+   | change-password | ❌ | would rotate the shared seed password mid-suite; needs its own account |
 
    Adding a user-facing feature? Add its e2e spec. Say precisely what is and isn't covered
    rather than claiming coverage the harness does not have.
