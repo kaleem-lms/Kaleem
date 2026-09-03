@@ -151,6 +151,133 @@ jobs:
       - name: Build
         run: pnpm build
 
+  # ADR-0021 has required end-to-end tests since 2026-06-17 and no harness existed
+  # until 2026-09-03; ADR-0026 recorded the clause as suspended in the meantime. This
+  # job un-suspends it for identity. It deliberately mirrors the ADR-0019 subdomain
+  # topology rather than serving both halves from localhost: cookies ignore ports, so
+  # `localhost:4173` + `localhost:8000` would share a session by accident and prove
+  # nothing about the cross-subdomain cookie that production actually depends on.
+  e2e:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_DB: kaleem_e2e
+          POSTGRES_USER: kaleem
+          POSTGRES_PASSWORD: kaleem
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:8-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgres://kaleem:kaleem@localhost:5432/kaleem_e2e
+      CELERY_BROKER_URL: redis://localhost:6379/0
+      DJANGO_SETTINGS_MODULE: config.settings.local
+      # No mailpit here; an unreachable SMTP host would turn an incidental send into
+      # a 500 rather than a no-op.
+      DJANGO_EMAIL_BACKEND: django.core.mail.backends.locmem.EmailBackend
+      E2E_APP_URL: http://app.kaleem.localhost:4173
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          token: ${{ secrets.SUBMODULE_TOKEN }}
+
+      - name: Map the kaleem.localhost subdomains
+        run: |
+          echo "127.0.0.1 app.kaleem.localhost api.kaleem.localhost" | sudo tee -a /etc/hosts
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "pnpm"
+          cache-dependency-path: dashboard/pnpm-lock.yaml
+      - name: Configure git auth for private @kaleem/tokens
+        run: |
+          git config --global url."https://x-access-token:${{ secrets.TOKENS_REPO_TOKEN }}@github.com/".insteadOf "https://github.com/"
+          git config --global url."https://x-access-token:${{ secrets.TOKENS_REPO_TOKEN }}@github.com/".insteadOf "git@github.com:"
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: pip install -r requirements/local.txt
+      - name: Migrate and seed
+        working-directory: backend
+        run: |
+          python manage.py migrate --noinput
+          python manage.py seed_e2e
+      - name: Start the API
+        working-directory: backend
+        run: |
+          nohup python manage.py runserver api.kaleem.localhost:8000 --noreload \
+            > /tmp/django.log 2>&1 &
+      - name: Wait for the API
+        run: |
+          for _ in $(seq 1 60); do
+            curl -sf -o /dev/null http://api.kaleem.localhost:8000/health/ready/ && exit 0
+            sleep 2
+          done
+          echo "::error::API never became ready"; cat /tmp/django.log; exit 1
+
+      - name: Install dashboard dependencies
+        working-directory: dashboard
+        run: pnpm install --frozen-lockfile
+      - name: Build the dashboard
+        working-directory: dashboard
+        env:
+          VITE_API_URL: http://api.kaleem.localhost:8000/api/v1/
+        run: pnpm build
+      - name: Serve the built dashboard
+        working-directory: dashboard
+        run: |
+          nohup pnpm preview --host app.kaleem.localhost --port 4173 \
+            > /tmp/preview.log 2>&1 &
+      - name: Wait for the dashboard
+        run: |
+          for _ in $(seq 1 60); do
+            curl -sf -o /dev/null http://app.kaleem.localhost:4173/ && exit 0
+            sleep 2
+          done
+          echo "::error::Dashboard never became ready"; cat /tmp/preview.log; exit 1
+
+      - name: Install Playwright chromium
+        working-directory: dashboard
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Run e2e
+        working-directory: dashboard
+        run: pnpm e2e
+
+      # A red e2e job with no artefact is a guessing game.
+      - name: Upload the Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            dashboard/playwright-report/
+            dashboard/test-results/
+            /tmp/django.log
+            /tmp/preview.log
+          retention-days: 7
+
   marketing-build:
     runs-on: ubuntu-latest
     defaults:
@@ -179,7 +306,8 @@ jobs:
         run: pnpm build
 
   deploy-staging:
-    needs: [backend-lint, backend-test, dashboard-lint, dashboard-build, marketing-build]
+    needs:
+      [backend-lint, backend-test, dashboard-lint, dashboard-build, e2e, marketing-build]
     if: github.ref == 'refs/heads/master' && github.event_name == 'push'
     runs-on: ubuntu-latest
     steps:
