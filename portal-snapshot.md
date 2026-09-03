@@ -1,0 +1,95 @@
+- generic [active]:
+  - generic [ref=f23e4]:
+    - generic [ref=f23e7]:
+      - generic:
+        - generic:
+          - link "Kaleem sandbox Sandbox" [ref=f23e9] [cursor=pointer]:
+            - /url: https://app-staging.kaleem.academy/billing
+            - generic:
+              - generic:
+                - generic [ref=f23e13]: Kaleem sandbox
+                - generic [ref=f23e14]: Sandbox
+          - generic [ref=f23e19]:
+            - generic:
+              - generic:
+                - generic [ref=f23e20]: Kaleem sandbox partners with Stripe for simplified billing.
+                - link "Return to Kaleem sandbox" [ref=f23e24] [cursor=pointer]:
+                  - /url: https://app-staging.kaleem.academy/billing
+      - contentinfo [ref=f23e29]:
+        - link "Powered by Stripe" [ref=f23e30] [cursor=pointer]:
+          - /url: https://stripe.com
+          - generic [ref=f23e32]:
+            - generic:
+              - generic:
+                - generic [ref=f23e33]: Powered by
+                - img "Stripe" [ref=f23e36]
+        - generic [ref=f23e39]:
+          - link "Terms" [ref=f23e40] [cursor=pointer]:
+            - /url: https://stripe.com/terms
+          - link "Privacy" [ref=f23e41] [cursor=pointer]:
+            - /url: https://stripe.com/privacy
+    - generic [ref=f23e51]:
+      - generic:
+        - generic:
+          - generic [ref=f23e54]:
+            - generic [ref=f23e55]: Current subscription
+            - generic [ref=f23e60]:
+              - generic:
+                - generic:
+                  - generic [ref=f23e62]:
+                    - generic:
+                      - generic:
+                        - generic [ref=f23e64]:
+                          - generic:
+                            - generic:
+                              - generic [ref=f23e65]: Family
+                              - generic [ref=f23e70]: €35.00 per month
+                        - generic [ref=f23e72]: Your next billing date is October 3, 2026.
+                        - generic [ref=f23e79]:
+                          - generic:
+                            - generic:
+                              - generic [ref=f23e88]: Visa •••• 4242
+                              - button [ref=f23e91] [cursor=pointer]
+                  - generic [ref=f23e95]:
+                    - generic:
+                      - generic:
+                        - link "Update subscription" [ref=f23e99] [cursor=pointer]:
+                          - /url: /p/session/subscriptions/sub_1UBS6nCavwnriKDQJKrBkVJI/update?secret=test_YWNjdF8xUnBLNHBDYXZ3bnJpS0RRLF9WQnBwcjdyQ1JRYk1heG5aV0dHN0VTN3lqVG96TjRZ0100Qh11QpaC
+                        - link "Cancel subscription" [ref=f23e106] [cursor=pointer]:
+                          - /url: /p/session/subscriptions/sub_1UBS6nCavwnriKDQJKrBkVJI/cancel?secret=test_YWNjdF8xUnBLNHBDYXZ3bnJpS0RRLF9WQnBwcjdyQ1JRYk1heG5aV0dHN0VTN3lqVG96TjRZ0100Qh11QpaC
+          - generic [ref=f23e112]:
+            - generic [ref=f23e113]: Payment method
+            - generic [ref=f23e116]:
+              - generic:
+                - generic:
+                  - generic [ref=f23e120]:
+                    - generic [ref=f23e132]:
+                      - generic:
+                        - generic:
+                          - generic [ref=f23e133]: Visa •••• 4242
+                          - generic [ref=f23e134]: Expires 12/2034
+                    - button "More options" [ref=f23e141] [cursor=pointer]
+                  - link "Add payment method" [ref=f23e151] [cursor=pointer]:
+                    - /url: /p/session/payment-methods?secret=test_YWNjdF8xUnBLNHBDYXZ3bnJpS0RRLF9WQnBwcjdyQ1JRYk1heG5aV0dHN0VTN3lqVG96TjRZ0100Qh11QpaC
+          - generic [ref=f23e157]:
+            - generic [ref=f23e158]: Billing information
+            - generic:
+              - generic:
+                - generic [ref=f23e162]:
+                  - generic [ref=f23e163]: Email
+                  - generic [ref=f23e165]: billing.clickthrough@example.com
+                - link "Update information" [ref=f23e167] [cursor=pointer]:
+                  - /url: /p/session/customer/update?secret=test_YWNjdF8xUnBLNHBDYXZ3bnJpS0RRLF9WQnBwcjdyQ1JRYk1heG5aV0dHN0VTN3lqVG96TjRZ0100Qh11QpaC
+          - generic [ref=f23e173]:
+            - generic [ref=f23e174]:
+              - generic [ref=f23e175]: Invoice history
+              - button [ref=f23e180] [cursor=pointer]
+            - link "Sep 3, 2026 €35.00 Paid Family" [ref=f23e185] [cursor=pointer]:
+              - /url: https://invoice.stripe.com/i/acct_1RpK4pCavwnriKDQ/test_YWNjdF8xUnBLNHBDYXZ3bnJpS0RRLF9WQnBtd3lrM2R3WjI0Njg3ZWtNcXpodEZENkEzREpxLDE3ODk1MDEwNA020015mGrwoD?s=il&locale=en-US
+              - generic [ref=f23e186]:
+                - generic [ref=f23e187]: Sep 3, 2026
+                - generic [ref=f23e188]: €35.00
+                - generic [ref=f23e190]: Paid
+                - paragraph [ref=f23e192]: Family
+  - generic:
+    - iframe

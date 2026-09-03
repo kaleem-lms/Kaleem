@@ -1,10 +1,15 @@
 name: CI
 
+# `develop` must be listed here. Without it no `feat/… -> develop` PR runs CI at
+# all, and the first time anything is checked is the `develop -> master`
+# promotion — which is also the deploy. That is how two full phases reached
+# 2026-08-17 before any Phase B code had ever run in CI. Checks belong on the PR
+# that introduces the change, not on the one that ships it.
 on:
   pull_request:
-    branches: [master, main]
+    branches: [master, main, develop]
   push:
-    branches: [master, main]
+    branches: [master, main, develop]
 
 concurrency:
   group: ${{ github.head_ref || github.run_id }}
@@ -77,14 +82,12 @@ jobs:
         run: pip install -r requirements/local.txt
       - name: Run migrations
         run: python manage.py migrate --noinput
-      # D3 (ADR-0021): 100% line AND branch coverage. --cov-branch is on so the
-      # real number is visible; --cov-fail-under=100 is deliberately NOT set yet
-      # because the repo sits at 97% from pre-existing identity/platform gaps and
-      # turning the gate on would fail every unrelated PR (D5). Owner decision
-      # 2026-07-30: measure now, enforce once those gaps are backfilled. See ISSUES.md.
+      # D3 coverage gate. The floor lives in backend/pyproject.toml
+      # ([tool.coverage.report] fail_under), NOT here, so the gate runs
+      # identically on a developer's machine and on this runner. It is a ratchet
+      # floor set to the measured value, not the 100% target — see ADR-0026.
       - name: Run tests with coverage
-        run: >-
-          pytest --cov=kaleem --cov-branch --cov-report=term-missing -v
+        run: pytest --cov=kaleem --cov-report=term-missing -v
 
   dashboard-lint:
     runs-on: ubuntu-latest
@@ -112,6 +115,13 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: TypeScript check
         run: pnpm tsc --noEmit
+      # Until 2026-09-03 this job ran tsc ONLY: vitest, biome and coverage were
+      # never executed in CI at all, so D3 was unenforceable for the dashboard
+      # (see ADR-0026). Coverage thresholds live in dashboard/vitest.config.ts.
+      - name: Biome
+        run: pnpm lint
+      - name: Tests with coverage
+        run: pnpm test:coverage
 
   dashboard-build:
     runs-on: ubuntu-latest
