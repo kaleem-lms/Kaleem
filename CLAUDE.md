@@ -30,13 +30,31 @@ See `STATE.md` for the current phase and active spec. At the time of this file's
 
 1. **D1 Spec-before-code.** Every feature starts with a spec in `docs/superpowers/specs/YYYY-MM-DD-<name>.md`. No code without a committed spec.
 2. **D2 Plan-before-code.** Anything > 1 day gets an implementation plan in `docs/superpowers/plans/` before coding.
-3. **D3 Test-driven development.** Failing test first, then the code. **100% coverage (line + branch), machine-enforced in CI, in every repo** (`backend`, `dashboard`, `marketing`); exclusions are per-line and justified, never blanket. Every user-facing feature also ships **end-to-end tests** (Playwright) for its primary happy path and key failure paths, run against a real built app. Both gates block merge and deploy. See ADR-0021.
+3. **D3 Test-driven development.** Failing test first, then the code. Coverage is a
+   **ratchet floor, enforced in CI today** — not the aspirational 100% (ADR-0026 amends
+   ADR-0021). The floor may only go up; **lowering it requires an ADR**, so a
+   coverage-dropping PR goes red rather than being quietly waved through.
+
+   | Repo | Floor (line/branch) | Where it lives | Enforced |
+   | --- | --- | --- | --- |
+   | `backend` | 97 | `pyproject.toml` `[tool.coverage.report]` | ✅ |
+   | `dashboard` | 92 lines / 87 branches / 84 functions | `vitest.config.ts` | ✅ |
+   | `marketing` | — | no test suite exists yet | ❌ |
+
+   100% line+branch remains the target; exclusions are per-line and justified, never
+   blanket file/directory exclusions of business logic. Raising a floor is a normal part
+   of any PR that lifts coverage — do it.
+
+   **⚠ End-to-end tests are NOT YET IN FORCE.** ADR-0021 requires Playwright for every
+   user-facing feature; **no Playwright harness exists in any repo**. Standing one up is
+   its own D1 slice (`ISSUES.md`). Until then D9's manual browser click-through is the
+   substitute — say that in specs rather than claiming e2e coverage that does not exist.
 4. **D4 Module boundary enforcement** via `import-linter` in CI. Violations fail.
 5. **D5 Green CI before merge.** No `--no-verify`, no exceptions.
 6. **D6 One feature branch at a time.** No WIP sprawl.
 7. **D7 Weekly review** every Friday: fill `docs/superpowers/journal/YYYY-WW.md`, update `STATE.md`, re-read the roadmap, write ADRs for any decisions.
 8. **D8 ADRs** in `docs/adr/NNNN-*.md` for any non-trivial decision.
-9. **D9 Definition of Done:** spec closed, plan done, tests passing, boundary check green, **100% coverage gate green (line + branch)**, **end-to-end tests green for the feature's primary + key failure paths**, manual test in browser, staging deploy, arch doc updated, journal entry, `STATE.md` updated. `/ship` walks this list. See ADR-0021.
+9. **D9 Definition of Done:** spec closed, plan done, tests passing, boundary check green, **coverage floor green (D3 table)**, manual browser click-through, staging deploy, arch doc updated, journal entry, `STATE.md` updated. `/ship` walks this list. See ADR-0021 + ADR-0026. (The e2e clause is suspended until a Playwright harness exists — see D3.)
 10. **D10 No refactoring sprees.** Spotted a problem while working on something else? Add it to `ISSUES.md` in 15 seconds and keep going. Do not "clean up while you're here".
 11. **D11 No heroes.** Sustainable pace. No 3-day marathons. Energy check in the weekly journal; if ≤ 2/5 for two weeks, stop and re-plan.
 
