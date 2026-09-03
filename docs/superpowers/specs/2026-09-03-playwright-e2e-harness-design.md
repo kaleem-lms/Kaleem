@@ -49,12 +49,20 @@ the `backend-test` job already does this. Django runs via `runserver`, the dashb
 `vite preview` on a production build. Compose would be higher fidelity and several minutes
 slower; the fidelity that matters (cookie domain, CSRF, a real build) is covered above.
 
-**4. `manage.py seed e2e` becomes real.** Today `seed` is a stub whose every branch prints
-"requires the identity module (Phase A)" — Phase A closed in July. This slice implements an
-`e2e` dataset creating deterministic, **idempotent** accounts: a verified parent, a verified
-student, a verified teacher, and — deliberately — one **unverified** user, because the login
-gate is one of the flows under test. Fixed emails and one shared password, both defined in
-the command and imported by the specs so they cannot drift.
+**4. A real seed, as `identity`'s `manage.py seed_e2e` — not `platform`'s `seed`.**
+
+The existing `kaleem/platform/management/commands/seed.py` is a stub whose every branch
+prints "requires the identity module (Phase A)". Phase A closed in July, but the command
+**still cannot be implemented as written**: `import-linter`'s `platform imports no business
+modules` is an *independence* contract, so a seeder living in `platform` may never call
+`identity.services`. The stub is not merely unfinished, it is architecturally impossible
+where it sits — logged separately in `ISSUES.md`.
+
+So the e2e seed lives in `kaleem/identity/management/commands/seed_e2e.py`, which is where
+identity fixtures belong. Deterministic and **idempotent** accounts: a verified parent, a
+verified student, a verified teacher, and — deliberately — one **unverified** user, because
+the login gate is one of the flows under test. Fixed emails and one shared password, defined
+once in the command and imported by the specs so they cannot drift.
 
 **5. Selectors are role + accessible name. No `data-testid`.** `getByRole("button", {name:
 "Sign in"})` fails when the accessible name breaks, which is exactly what ADR-0020's WCAG
@@ -92,8 +100,10 @@ All identity, all reachable without an inbox:
 
 ## Module boundaries
 
-`seed` lives in `kaleem.platform` (it already does) and calls `identity.services` for user
-creation — public API only, no model imports, so `lint-imports` stays green (D4).
+`seed_e2e` lives in `kaleem.identity` and creates only identity data, so it needs no
+cross-module call at all. This was a design correction found while writing the code: the
+first draft put it in `kaleem.platform`, which `import-linter` forbids from importing any
+business module (D4 caught it before implementation, which is the point of D4).
 
 ## Definition of done
 

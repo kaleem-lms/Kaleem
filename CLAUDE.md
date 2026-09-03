@@ -45,16 +45,25 @@ See `STATE.md` for the current phase and active spec. At the time of this file's
    blanket file/directory exclusions of business logic. Raising a floor is a normal part
    of any PR that lifts coverage — do it.
 
-   **⚠ End-to-end tests are NOT YET IN FORCE.** ADR-0021 requires Playwright for every
-   user-facing feature; **no Playwright harness exists in any repo**. Standing one up is
-   its own D1 slice (`ISSUES.md`). Until then D9's manual browser click-through is the
-   substitute — say that in specs rather than claiming e2e coverage that does not exist.
+   **End-to-end tests: in force for `identity`, not yet for anything else.** A Playwright
+   harness exists as of 2026-09-03 (`dashboard/e2e/`, ADR-0027) and blocks merge in CI. It
+   runs against a real build and a real Django server on sibling subdomains, so it proves
+   the ADR-0019 cross-subdomain session cookie — the thing no unit test can reach.
+
+   | Area | e2e | Notes |
+   | --- | --- | --- |
+   | `identity` | ✅ 6 flows | login gate, session, sign-out, `_authed` guard, verify-email, RTL |
+   | everything else | ❌ | D9's manual browser click-through is still the substitute |
+   | `billing` | ❌ by design | the hosted Stripe redirect cannot run in Playwright (`ISSUES.md`) |
+
+   Adding a user-facing feature? Add its e2e spec. Say precisely what is and isn't covered
+   rather than claiming coverage the harness does not have.
 4. **D4 Module boundary enforcement** via `import-linter` in CI. Violations fail.
 5. **D5 Green CI before merge.** No `--no-verify`, no exceptions.
 6. **D6 One feature branch at a time.** No WIP sprawl.
 7. **D7 Weekly review** every Friday: fill `docs/superpowers/journal/YYYY-WW.md`, update `STATE.md`, re-read the roadmap, write ADRs for any decisions.
 8. **D8 ADRs** in `docs/adr/NNNN-*.md` for any non-trivial decision.
-9. **D9 Definition of Done:** spec closed, plan done, tests passing, boundary check green, **coverage floor green (D3 table)**, manual browser click-through, staging deploy, arch doc updated, journal entry, `STATE.md` updated. `/ship` walks this list. See ADR-0021 + ADR-0026. (The e2e clause is suspended until a Playwright harness exists — see D3.)
+9. **D9 Definition of Done:** spec closed, plan done, tests passing, boundary check green, **coverage floor green (D3 table)**, **e2e green where the harness covers the area (D3 table)**, manual browser click-through, staging deploy, arch doc updated, journal entry, `STATE.md` updated. `/ship` walks this list. See ADR-0021, ADR-0026, ADR-0027.
 10. **D10 No refactoring sprees.** Spotted a problem while working on something else? Add it to `ISSUES.md` in 15 seconds and keep going. Do not "clean up while you're here".
 11. **D11 No heroes.** Sustainable pace. No 3-day marathons. Energy check in the weekly journal; if ≤ 2/5 for two weeks, stop and re-plan.
 

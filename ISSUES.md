@@ -52,11 +52,17 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
 
 ## Blocks a phase close
 
-- **No Playwright harness exists in any repo**, so ADR-0021's e2e requirement is unmet
-  repo-wide and D9's e2e clause is formally suspended (ADR-0026, `CLAUDE.md` D3). Standing
-  one up is its own D1 slice. Note the hosted-Stripe redirect can never run in Playwright —
-  card → checkout → webhook stays a manual staging test (`docs/runbook/stripe-billing.md`
-  §5) even after the harness lands.
+- **e2e covers `identity` only.** The harness exists and blocks CI as of 2026-09-03
+  (ADR-0027), with six identity flows. Every other user-facing area — scheduling
+  availability, the family/children surface, account and email management, the app shell —
+  still has **no** e2e, so ADR-0021's per-feature requirement is only partly met and D9
+  still leans on the manual click-through for those. Convert them feature by feature; keep
+  the `CLAUDE.md` D3 table honest as you go. A table that claims less than reality is
+  harmless, one that claims more is how the gate stayed fictional for three months.
+- **Flows the harness structurally cannot reach without more infrastructure:** anything
+  needing a real inbox — registration, password reset, child activation — because CI has no
+  mail-catcher wired in. That is its own slice (a mailpit service plus a way to read the
+  link). Note this is *not* the same as the billing exclusion below, which is permanent.
 - **The `past_due` / dunning path has never been exercised end to end.** A *declined card at
   checkout* is verified (2026-09-03: `4000 0000 0000 0341` → 0 subscriptions, not entitled,
   no incidents — correct). But `past_due` arises from a **renewal** failing on an already

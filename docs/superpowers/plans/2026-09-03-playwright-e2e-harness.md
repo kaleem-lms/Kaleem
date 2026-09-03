@@ -9,9 +9,12 @@ status: in-progress
 Six slices. Each is independently reviewable; 1–3 are the harness, 4 proves it, 5 wires CI,
 6 tells the truth in the docs.
 
-## 1. `seed e2e` (backend)
+## 1. `seed_e2e` (backend, in `identity`)
 
-Replace the stubbed `_seed_basic`/`_seed_rich` warnings with a real `e2e` dataset.
+New `kaleem/identity/management/commands/seed_e2e.py`. **Not** an `e2e` branch on
+`platform`'s existing `seed` stub: `import-linter`'s `platform imports no business modules`
+is an independence contract, so nothing in `platform` may call `identity.services`. The old
+stub cannot be implemented where it sits — that goes to `ISSUES.md`, not into this slice.
 
 - Accounts, all idempotent (`get_or_create` + explicit `set_password` every run so a
   re-seed repairs a drifted password rather than crashing):
