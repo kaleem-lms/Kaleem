@@ -23,13 +23,11 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
   `account` migrations were applied first hits `InconsistentMigrationHistory` and the
   deploy aborts. This bit staging once (2026-06-10, fixed by recreating the DB). Either
   start prod empty or write the documented repair step first.
-- **`develop → master` is squash-merged, so the branches never share history** — and
-  `deploy-staging` `needs:` every check, which means a red required check makes the deploy
-  **silently skip**: the PR looks merged but nothing shipped. That bit us on #88, and a
-  squash once silently dropped a pointer-bump commit (#85, fixed by #87). Every promotion
-  now needs a manual `git merge origin/master` into develop to reconcile submodule
-  pointers. Fix: merge commits (no squash) for `develop → master`, plus a deploy gate or
-  status so a skipped deploy is visible. **Needs an ADR.**
+- **`deploy-staging` `needs:` every check, so a red required check makes the deploy
+  *silently skip*** — the PR looks merged but nothing shipped. That bit us on #88. Add a
+  deploy gate or status so a skipped deploy is visible rather than looking like success.
+  (The squash-divergence half of this entry is **resolved** by ADR-0028: no `develop`, and
+  merge commits for anything carrying submodule pointers.)
 - **GDPR operational obligations.** ADR-0023 fixed the by-design engineering rule and the
   email leaks; these are the heavier operational duties, all still missing: a data-retention
   policy, a DSAR / right-to-erasure flow (export + delete a user's data), a cookie/consent
@@ -97,9 +95,6 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
   locale (`registerSchema`'s birthdate refine, plus zod's defaults on every form). zod runs
   outside React so `t()` cannot be called in the schema. Breaks ar parity for validation copy
   (ADR-0020). Fix repo-wide via a locale-aware resolver wrapper or per-field `setError`.
-- **Submodule git-flow does not match ADR-0014.** Submodules have no `dev` branch (they merge
-  `feat → main`); only meta has `develop`. Either grow a `dev` layer in the submodules or
-  amend ADR-0014 to match the two-tier reality. **Needs an ADR.**
 - `test_checkout_completed_for_a_valid_plan_but_an_unknown_user_is_ignored` would still pass
   if the explicit `get_user` existence check were deleted — the `IntegrityError` savepoint
   handler masks the resulting FK violation. Add a `caplog` assertion on `reason=unknown_user`

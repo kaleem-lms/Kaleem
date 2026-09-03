@@ -1,15 +1,15 @@
 name: CI
 
-# `develop` must be listed here. Without it no `feat/… -> develop` PR runs CI at
-# all, and the first time anything is checked is the `develop -> master`
-# promotion — which is also the deploy. That is how two full phases reached
-# 2026-08-17 before any Phase B code had ever run in CI. Checks belong on the PR
-# that introduces the change, not on the one that ships it.
+# Trunk-based since ADR-0028: there is no `develop` branch, so every PR targets the
+# trunk and every check runs on the PR that introduces the change. `develop` was
+# briefly listed here (2026-09-03) because until then no `feat -> develop` PR ran CI
+# at all — the first check was the promotion, which was also the deploy. That is how
+# two full phases reached staging unverified. Removing the branch removed the problem.
 on:
   pull_request:
-    branches: [master, main, develop]
+    branches: [master, main]
   push:
-    branches: [master, main, develop]
+    branches: [master, main]
 
 concurrency:
   group: ${{ github.head_ref || github.run_id }}
