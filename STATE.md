@@ -1,8 +1,8 @@
 ---
-current_phase: "B — Billing. B1 + B2 are built, merged, and live on staging (2026-08-17). Not closed: two Stripe-console configs and the human click-through."
-active_spec: "docs/superpowers/specs/2026-08-13-billing-hardening-design.md (B2, status: implemented). B1's spec (2026-07-09-billing-subscriptions-design.md) is still status: draft — close both together once the click-through passes."
+current_phase: "B — Billing. B1 + B2 built, merged, live on staging, and both specs CLOSED 2026-09-04. The phase itself is not closed: the `past_due` renewal path still needs a Stripe test-clock harness."
+active_spec: "None. Pick the next slice. The open Phase-B gate is the `past_due` test-clock harness (`ISSUES.md`, blocks a phase close); it has no spec yet."
 active_branch: "None. TRUNK-BASED as of 2026-09-04 (ADR-0028) — `master` is the only long-lived branch; `develop` is deleted. Branch feat/… off master, PR into master."
-last_green_ci: "meta #138 → master, 2026-09-04 (run 33809825565) — all 7 jobs green including e2e (3m19s, 6 specs), then deploy-staging green. Staging is current with master."
+last_green_ci: "meta #140 → master, 2026-09-04 (run 33817184626) — all 7 jobs green including e2e (2m40s, 20 specs), then deploy-staging green. Staging is current with master."
 ---
 
 # kaleem Project State
@@ -25,16 +25,20 @@ Phase A (identity) is closed via ADR-0024, with one residual human check outstan
 
 ## ▶ Next actions, in order
 
-1. **Close both billing specs** (B1 `draft`, B2 `implemented`) — a decision, not a task.
-   Everything they claim is verified on staging **except** the `past_due` renewal path,
-   which needs Stripe **test clocks** rather than a click-through (`ISSUES.md`). Since
-   `past_due` keeps full access by design, that is the transition which actually removes
-   entitlement. Decide whether it blocks closing the specs or is tracked separately.
+1. ~~**Close both billing specs**~~ — **done 2026-09-04.** Both now `implemented` /
+   `closed`. The decision taken, and recorded in B2's closure note: **closing a spec
+   asserts its scope was built and verified; it does not assert the phase is done.** The
+   test-clock gap stays a `blocks a phase close` entry rather than holding a spec in
+   `draft` — which is how B1 sat unclosed for eight weeks while its contents shipped and
+   were then amended by B2. B1's `past_due ⇒ not entitled` lines are struck through, not
+   deleted, so the mid-phase reversal stays visible.
 2. ~~**Extend e2e past identity**~~ — **done 2026-09-04.** 6 flows → 20: availability,
    family, account+email, and the app shell (backend #38, dashboard #32). What is still
    uncovered and why is in the `CLAUDE.md` D3 table and `ISSUES.md`.
-3. **`past_due` via Stripe test clocks** — the one billing behaviour never exercised, and
-   the one that actually removes entitlement. Cannot be clicked; needs a test-clock harness.
+3. **`past_due` via Stripe test clocks** — now the top open item, and the only thing
+   between here and a Phase B close. Never exercised, and the transition that actually
+   removes entitlement. Cannot be clicked; needs a test-clock harness. **No spec yet — it
+   needs one (D1).**
 4. Then: Phase B's next slice, or the Phase A residual identity click-through.
 
 ## In flight

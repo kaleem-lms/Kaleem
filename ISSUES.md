@@ -77,6 +77,16 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
   `unpaid` is where access stops, the transition nobody has ever observed is the one that
   actually removes entitlement. Worth a test-clock harness before launch.
 
+  **Scoped precisely 2026-09-04 while closing the billing specs**, because "past_due is
+  untested" overstates it. *Covered by tests at the provider seam:*
+  `invoice.payment_failed → past_due`; `past_due` entitled; `unpaid` not; child inherits
+  `past_due` but not `unpaid`; an `unpaid` row blocks a second checkout. *Covered
+  manually:* a declined card **at checkout**. *Covered by nothing:* that real Stripe's
+  renewal failure emits those events, in the shape we parse, on an already-`active`
+  subscription. So the gap is the wiring between real Stripe and well-covered handlers —
+  narrower than an untested state machine, but still the only path to `unpaid`. **This is
+  now the sole gate on closing Phase B, and it needs a spec (D1).**
+
 - **The `scheduling` import-linter contract does not forbid `kaleem.identity.models`** —
   the same hole billing closed in B2. A direct model import there would pass CI today (D4).
 - **`WebhookEvent.stripe_customer_id` is parsed but never consumed.** A subscription created

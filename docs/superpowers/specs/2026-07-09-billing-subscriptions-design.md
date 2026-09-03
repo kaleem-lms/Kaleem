@@ -2,9 +2,10 @@
 name: billing-subscriptions
 phase: B
 modules: [billing, identity]
-status: draft
+status: implemented
 created: 2026-07-09
-closed: null
+closed: 2026-09-04
+amended_by: docs/superpowers/specs/2026-08-13-billing-hardening-design.md
 ---
 
 ## Goal
@@ -55,7 +56,9 @@ period end** (keep access through the paid month, no refund/proration).
 - User abandons Stripe checkout → Stripe redirects to the **cancel URL**; no subscription is
   created; the pricing page is shown again.
 - Payment fails on renewal → Stripe emits `invoice.payment_failed` → subscription mirrored as
-  `past_due` → **not entitled** (dunning UX beyond the status flag is deferred; see Out of scope).
+  `past_due` → ~~**not entitled**~~ ⚠ **superseded by B2 R8 (OQ-B2-1, 2026-08-13): `past_due`
+  keeps full access through Stripe's retry schedule; entitlement stops at `unpaid`.**
+  (Dunning UX beyond the status flag is deferred; see Out of scope.)
 - Child/student attempts to view billing → they don't; entitlement is inherited from the parent.
 
 ## Data model delta
@@ -166,7 +169,8 @@ Replaces the non-functional scaffold `/billing` placeholder (dashboard #18) with
     (`cancel_at_period_end`/`canceled` **and** `current_period_end` > now).
   - **Chaining:** a student is entitled if any parent (`get_parent_user_ids`) holds a
     paid-through **Family** subscription.
-  - `past_due` / lapsed ⇒ not entitled.
+  - ~~`past_due`~~ / lapsed ⇒ not entitled. ⚠ **`past_due` superseded by B2 R8** — it is
+    entitled; `unpaid` is where access stops.
 - **New events:** none in B1 (no event bus yet; scheduling will call the service directly).
 
 ## Out of scope
@@ -205,8 +209,9 @@ tests never hit the network.
 - Checkout with a **role/plan mismatch** (non-parent buys Family; child buys anything) → typed
   403/400.
 - Entitlement matrix: Individual active / canceled-but-paid-through / lapsed; Family child
-  inherit vs. no parent subscription; `past_due` ⇒ not entitled.
-- `invoice.payment_failed` → `past_due` → not entitled; `invoice.paid` → back to `active`.
+  inherit vs. no parent subscription; ~~`past_due` ⇒ not entitled~~ (⚠ B2 R8: entitled).
+- `invoice.payment_failed` → `past_due` → ~~not entitled~~ (⚠ B2 R8: **still entitled**;
+  `unpaid` is where access stops); `invoice.paid` → back to `active`.
 
 **E2E:** the hosted-Stripe redirect cannot run in Playwright. CI e2e covers the pre-checkout UI
 and the post-webhook **entitled** state against a mocked backend. The true
@@ -224,3 +229,26 @@ abstraction). Non-blocking, deferred (not required to implement B1):_
 - **OQ-02** (product spec) — teacher pay rate. Payroll is out of scope (Phase G).
 - Whether the marketing site later shows a **public** pricing page (B1's pricing page is authed,
   in the dashboard). Revisit with marketing.
+
+---
+
+## Closure (2026-09-04)
+
+Closed together with B2, which amends it. Everything B1 designed is built, merged, and
+running on staging; the click-through was walked twice on 2026-09-03 (subscribe →
+checkout → portal → cancel), and kaleem and Stripe agreed exactly each time. That
+click-through is also what found the two defects B2's follow-ups fixed — a subscription
+created with no renewal date, and a 403 telling users to retry something that could never
+succeed.
+
+**Amended by B2, not merely extended.** B1's `past_due ⇒ not entitled` rule was reversed
+by B2's R8 (OQ-B2-1). The four places B1 stated the old rule are struck through above
+rather than deleted — a closed spec is a record of what was decided and when, and silently
+rewriting it would hide that the entitlement rule changed mid-phase. **Read B2's R8 for
+the behaviour that actually ships.**
+
+**What closing does and does not assert.** It asserts B1's scope was built and verified.
+It does **not** assert Phase B is done: the `past_due` renewal path has still never been
+exercised against real Stripe, and that remains a `blocks a phase close` entry in
+`ISSUES.md`. See B2's closure note for why that gap is narrower than it sounds — and why
+it is nonetheless the one that matters.

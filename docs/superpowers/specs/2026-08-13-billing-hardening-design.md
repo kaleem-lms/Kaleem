@@ -4,7 +4,7 @@ phase: B
 modules: [billing, identity]
 status: implemented
 created: 2026-08-13
-closed: null
+closed: 2026-09-04
 extends: docs/superpowers/specs/2026-07-09-billing-subscriptions-design.md
 ---
 
@@ -321,3 +321,46 @@ Standard D9, plus: reconciliation task covered by tests that assert it corrects 
 direction; a test proving an `unpaid` row blocks a second checkout; a test proving a late
 `checkout.session.completed` cannot resurrect a canceled row; runbook
 `docs/runbook/stripe-billing.md` extended with the incident queue and the reconciler.
+
+---
+
+## Closure (2026-09-04)
+
+All thirteen audit findings are remediated, merged, and live on staging since 2026-08-17.
+Verified over HTTP against `api-staging` rather than inferred from a green build: the two
+new B2 endpoints return 403 rather than 404 (so new code is serving, not a stale image),
+and the webhook returns 400 on an unsigned body (so signature verification is live). The
+full click-through ran twice on 2026-09-03 and reconciled exactly with Stripe both times.
+
+### The one thing that is still not proven, stated precisely
+
+The `past_due` **renewal** path has never run against real Stripe. It is worth being exact
+about how big that hole is, because "past_due is untested" overstates it:
+
+- **Covered by tests, at the provider seam:** `invoice.payment_failed → past_due`;
+  `past_due` is entitled; `unpaid` is not; a child inherits a `past_due` Family plan and
+  does not inherit an `unpaid` one; an `unpaid` row still blocks a second checkout.
+- **Covered by the manual click-through:** a *declined card at checkout*
+  (`4000 0000 0000 0341` → zero subscriptions, not entitled, no incidents).
+- **Not covered by anything:** that Stripe's *real* renewal failure emits those events, in
+  the shape we parse, on a subscription that was already `active`. That transition cannot
+  be clicked — it needs **Stripe test clocks** to advance the billing cycle.
+
+So the untested part is the wiring between real Stripe and handlers that are themselves
+well covered. That is a narrower risk than an untested state machine — but it is not a
+small one, because R8 makes `unpaid` the status that actually revokes access, and `unpaid`
+is only ever reached by walking through `past_due` on a real renewal schedule. **The one
+transition nobody has ever observed is the one that takes entitlement away.**
+
+### Why that does not block closing the specs
+
+Closing a spec asserts *what it designed was built and verified*. It does not assert the
+phase is done. The test-clock gap stays a `blocks a phase close` entry in `ISSUES.md`,
+where it already is, and it should be worked before real money — not held open as an
+indefinitely-`draft` spec, which is how B1 sat unclosed for eight weeks while its contents
+shipped, drifted, and were amended by another spec.
+
+**OQ-B2-3 remains open and still does not block:** whether the reconciler should
+auto-cancel a genuine double subscription with a proportional refund, or leave every case
+manual. Manual until we have seen a few real ones; R5's incident queue exists to make that
+tolerable.
