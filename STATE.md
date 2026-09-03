@@ -25,14 +25,11 @@ Phase A (identity) is closed via ADR-0024, with one residual human check outstan
 
 ## ▶ Next actions, in order
 
-1. **Rotate the webhook endpoint to the SDK's API version** (`ISSUES.md`). Needs a human:
-   Stripe makes `api_version` create-only, so it means creating a fresh endpoint and putting
-   its new `whsec_` into `DJANGO_STRIPE_WEBHOOK_SECRET` on the VPS, then deleting the old one.
-   Not urgent — the parser handles basil and two click-throughs passed on it — but do it
-   before production.
-2. **Quieten the `unknown_subscription` incident** (`ISSUES.md`): it now fires on roughly
-   every checkout and is pure noise since the period-end fix, which devalues a queue whose
-   point is that `critical` means money is wrong.
+1. **Quieten the `unknown_subscription` incident** (`ISSUES.md`): it fires on **every**
+   checkout — 4 of 4 measured — and is pure noise since the period-end fix, which devalues a
+   queue whose point is that `critical` means money is wrong.
+2. **Fix the 403 checkout copy** (`ISSUES.md`): an eligibility rejection renders "Please try
+   again", advice that can never work.
 3. **Close both billing specs** (B1 `draft`, B2 `implemented`). Everything they claim is now
    verified on staging except the `past_due` renewal path, which needs Stripe test clocks
    (`ISSUES.md`) rather than a click-through.
@@ -55,6 +52,13 @@ Phase A (identity) is closed via ADR-0024, with one residual human check outstan
   the backfill now supplies it.
 - **Declined card verified:** `4000 0000 0000 0341` → 0 subscriptions, not entitled, no
   incidents. Stripe confirms the first payment inline, so a bad card writes nothing at all.
+- **Webhook endpoint rotated to a pinned API version.** Old basil endpoint deleted; new
+  `we_1UBdRwCavwnriKDQ2ygx6z2V` created at `2026-08-26.dahlia`, with
+  `DJANGO_STRIPE_API_VERSION` now set explicitly on the VPS so a `pip` upgrade cannot move
+  it. Verified by a live subscription afterwards: events delivered, signature verified
+  against the new secret, renewal date rendered immediately.
+- **Eligibility enforcement verified:** a parent clicking Individual gets a server-side 403
+  and no subscription. (The *copy* shown is wrong — see Next actions.)
 - **D3 coverage gates are live** (backend 97, dashboard 92/87/84; ADR-0026) and meta CI now
   runs on `develop` PRs. The floor already earned itself: the first pass at #34 dropped the
   repo to 96.96% and CI went red.

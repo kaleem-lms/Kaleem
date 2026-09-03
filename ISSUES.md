@@ -57,14 +57,22 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
   one up is its own D1 slice. Note the hosted-Stripe redirect can never run in Playwright —
   card → checkout → webhook stays a manual staging test (`docs/runbook/stripe-billing.md`
   §5) even after the harness lands.
-- **`unknown_subscription` (warning) now fires on roughly every checkout.** The
+- **`unknown_subscription` (warning) fires on EVERY checkout — 4 of 4 observed.** The
   period-end fix (backend #34) compensates for the dropped `invoice.paid` but does not stop
-  the drop: when the invoice wins the race — which it did on both staging checkouts tested,
-  2026-09-03 04:18 and 16:08 — the event is still discarded and still records an incident.
-  The data is now correct, so the incident is pure noise, and noise in a queue whose whole
-  value is that `critical` means "money is wrong right now". Either suppress it when a
-  backfill subsequently succeeds, or drop it to `info` for invoice arms specifically.
+  the drop: the invoice won the race on all four staging checkouts run on 2026-09-03
+  (04:18, 16:08, 16:41, plus the original), so the event is discarded and records an
+  incident every time. The data is now correct, so the incident is pure noise — and noise in
+  a queue whose whole value is that `critical` means "money is wrong right now". Not
+  "roughly every checkout": every one measured so far. Either suppress it when a backfill
+  subsequently succeeds, or drop invoice arms to `info`.
   (Surfaced 2026-09-03, verifying the fix.)
+
+- **A 403 eligibility rejection at checkout renders "Couldn't start checkout. Please try
+  again."** Observed 2026-09-03: a parent clicking **Individual** gets a correct server-side
+  403 (Individual ⇒ student and not a linked child), but the dashboard shows a generic retry
+  message. Retrying will *never* work, so the copy actively misleads. The backend returns a
+  typed error; the frontend collapses it. Map the typed 403 to real copy — or hide the
+  ineligible plan, which is the related `/billing` nav entry in this file.
 
 - **The `past_due` / dunning path has never been exercised end to end.** A *declined card at
   checkout* is verified (2026-09-03: `4000 0000 0000 0341` → 0 subscriptions, not entitled,
@@ -73,15 +81,6 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
   to advance the billing cycle. Since `past_due` keeps full access by design (OQ-B2-1) and
   `unpaid` is where access stops, the transition nobody has ever observed is the one that
   actually removes entitlement. Worth a test-clock harness before launch.
-
-- **The Stripe webhook endpoint is pinned to `2025-06-30.basil`; the backend SDK pins
-  `2026-07-29.dahlia`.** Runbook §3 says to keep them equal. Stripe does **not** allow changing
-  `api_version` on an existing endpoint — it is create-only — so fixing this means creating a
-  fresh endpoint, which issues a NEW signing secret: `DJANGO_STRIPE_WEBHOOK_SECRET` must be
-  rotated on the VPS and the stack restarted, with a brief window where deliveries still hit
-  the old endpoint. Deferred deliberately 2026-09-03 (owner decision) because the parser
-  tolerates both shapes and the 2026-09-03 click-through passed on basil. Do it before
-  production. Re-check it whenever the `stripe` pin moves.
 
 - **The `scheduling` import-linter contract does not forbid `kaleem.identity.models`** —
   the same hole billing closed in B2. A direct model import there would pass CI today (D4).
@@ -209,7 +208,17 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
   code defect. Re-verified twice on a clean tree: green. If it reappears on a loaded CI runner
   or a busy dev box, suspect resources (or cap `poolOptions.threads.maxThreads`) before
   suspecting the tests.
-- `requirements/base.txt` pins `stripe>=15.5,<16.0` and the Stripe API version default is read
-  off the installed SDK. The upper bound is load-bearing: without it a routine `pip` upgrade
-  silently changes the pinned inbound webhook shape. When you raise it, re-check the webhook
-  endpoint's pinned API version in the Stripe dashboard (runbook §3).
+- **The Stripe API version is now pinned explicitly, and it must stay that way.**
+  `DJANGO_STRIPE_API_VERSION=2026-08-26.dahlia` is set on staging, and the webhook endpoint
+  `we_1UBdRwCavwnriKDQ2ygx6z2V` was created at that same version (2026-09-03). Do the same in
+  every new environment — **production included** — or the two sides drift.
+
+  This is not theoretical. Watched live on 2026-09-03: the SDK's default moved from
+  `2026-07-29.dahlia` to `2026-08-26.dahlia` **between two deploys on the same day**, because
+  `requirements/base.txt` allows `stripe>=15.5,<16.0` and the rebuild picked up 15.6.1. Left
+  to the SDK default, the inbound payload shape is a function of Stripe's release calendar
+  and whenever you last rebuilt. The explicit env var is what stops that.
+
+  Note `api_version` is **create-only** on a webhook endpoint — changing it means creating a
+  new endpoint and rotating `DJANGO_STRIPE_WEBHOOK_SECRET`. Cheap to get right up front,
+  annoying afterwards.
