@@ -57,6 +57,20 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
   one up is its own D1 slice. Note the hosted-Stripe redirect can never run in Playwright —
   card → checkout → webhook stays a manual staging test (`docs/runbook/stripe-billing.md`
   §5) even after the harness lands.
+- **A fresh subscription has no renewal date until the nightly reconciler runs (up to ~24h).**
+  Found in the 2026-09-03 staging click-through, reproducible and timestamped:
+  `invoice.paid` arrived 80ms **before** `checkout.session.completed`, so no `Subscription`
+  row existed yet, the event was dropped with an `unknown_subscription` incident — and it was
+  the only event carrying the period end. A Checkout Session payload has no
+  `current_period_end` and no `items`, so the row is created with `current_period_end=None`.
+  The UI therefore shows "Active" with no renewal date. Only `reconcile_subscriptions`
+  (nightly) fixes it, via the SDK path where `items[0].current_period_end` exists — the
+  `reconciled_drift` incidents for users 5 and 7 are exactly this. Not money-wrong, but a
+  visible defect in the primary flow, and it means the authoritative period end is discarded.
+  Fix candidates: have `checkout.session.completed` / `settle` read the period end off the
+  subscription via the SDK, or re-drive dropped `unknown_subscription` invoice events once the
+  row appears. **Verified 2026-09-03.**
+
 - **`invoice.paid` does not pass `keep_canceled=True` to `_apply_to_existing`**
   (`billing/services.py:565`), unlike the `async_payment_succeeded` (`:483`) and
   `customer.subscription.updated` (`:537`) arms. A late `invoice.paid` that survives the
@@ -64,6 +78,15 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
   `canceled` row to `active` — the one-live-subscription constraint only fires when a
   second live row already exists. Same class as the `updated` case that B2 fixed; extend
   the floor to the invoice arms. **Verified still open 2026-09-03.**
+- **The Stripe webhook endpoint is pinned to `2025-06-30.basil`; the backend SDK pins
+  `2026-07-29.dahlia`.** Runbook §3 says to keep them equal. Stripe does **not** allow changing
+  `api_version` on an existing endpoint — it is create-only — so fixing this means creating a
+  fresh endpoint, which issues a NEW signing secret: `DJANGO_STRIPE_WEBHOOK_SECRET` must be
+  rotated on the VPS and the stack restarted, with a brief window where deliveries still hit
+  the old endpoint. Deferred deliberately 2026-09-03 (owner decision) because the parser
+  tolerates both shapes and the 2026-09-03 click-through passed on basil. Do it before
+  production. Re-check it whenever the `stripe` pin moves.
+
 - **The `scheduling` import-linter contract does not forbid `kaleem.identity.models`** —
   the same hole billing closed in B2. A direct model import there would pass CI today (D4).
 - **`WebhookEvent.stripe_customer_id` is parsed but never consumed.** A subscription created

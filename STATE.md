@@ -25,33 +25,38 @@ Phase A (identity) is closed via ADR-0024, with one residual human check outstan
 
 ## ▶ Next actions, in order
 
-1. **Do the two Stripe-console configurations** — runbook
-   [`docs/runbook/stripe-billing.md`](docs/runbook/stripe-billing.md) §3 and §3b.
-   **This is the critical path and has been open since 2026-08-17.** Both are ~20 minutes
-   of clicking, neither is checkable by CI, and **both fail silently**:
-   - §3 — the webhook endpoint must subscribe to **eight** event types, not five. Without
-     `checkout.session.async_payment_succeeded`, anyone paying by SEPA/ACH/boleto is
-     charged and never gets access.
-   - §3b — the customer portal must be configured. Misconfigured, the "Manage billing"
-     button opens a page that cannot change plan.
-
-   *Nothing else about billing on staging can be trusted until these are done.* Do not
-   start new feature work in front of this.
-2. **Manual staging click-through** (runbook §5): subscribe → cancel → portal → failed-card
-   recovery, with test card `4242 4242 4242 4242`.
-3. **Close both billing specs** (B1 `draft`, B2 `implemented`) once that passes.
-4. Then: Phase B's next slice, **or** the Phase A residual (`ISSUES.md` → "Blocks phase
-   close"), **or** the Playwright harness slice.
+1. **Decide what to do about the missing renewal date** (`ISSUES.md` → "Blocks a phase
+   close", first entry). Found by the 2026-09-03 click-through: `invoice.paid` can arrive
+   *before* `checkout.session.completed`, and it is the only event carrying the period end,
+   so a fresh subscription shows "Active" with no renewal date until the nightly reconciler
+   runs. Needs a D1 slice, not a drive-by fix (D10).
+2. **Optional remaining click-through leg: failed-card recovery** (card
+   `4000 0000 0000 0341`) — proves `past_due` mirroring and that the portal is a real way out.
+   Not yet run; needs a user without a live subscription.
+3. **Close both billing specs** (B1 `draft`, B2 `implemented`). Everything they claim is now
+   verified on staging except the failed-card leg.
+4. Then: Phase B's next slice, the Phase A residual, or the Playwright harness slice.
 
 ## In flight
 
-- **Coverage gates (this session, 2026-09-03).** D3 was aspirational in all three repos —
-  the dashboard had no coverage tooling installed at all and CI never ran its tests.
-  Replaced with an enforced ratchet floor: **ADR-0026**, backend PR #33 (`fail_under = 97`),
-  dashboard PR #29 (thresholds 92/87/84), both merged to `main`. This meta branch bumps the
-  pointers, wires `pnpm lint` + `pnpm test:coverage` into `ci.yml`, and rewrites D3/D9 in
-  `CLAUDE.md` to say what is actually enforced. **The meta PR's CI run is the real
-  verification** — submodule repos have no CI of their own.
-- **OQ-B2-3 open** (does not block): when the reconciler finds a genuine double
-  subscription, is auto-cancel-plus-refund acceptable, or does every case stay manual?
-  Manual by design today; the incident queue exists to make that tolerable.
+- Nothing on a branch. `develop` is 5 ahead of `master`; a `develop → master` promotion would
+  deploy the coverage-gate + docs work (test config and docs only — no runtime change).
+
+## Recently verified (2026-09-03)
+
+- **Billing click-through PASSED on staging.** Subscribe → hosted checkout (`4242…`) →
+  subscription card → portal → cancel. kaleem and Stripe agree exactly afterwards: `active`,
+  `cancel_at_period_end=True`, period end `2026-10-03 04:18:39` on both sides. Idempotency
+  held — the webhook and the `settle:` path both ran and produced one row. **Webhooks are
+  being delivered again** (first since 2026-08-13; the `webhook_silence` critical incident,
+  `occurrences=80`, is now stale and can be resolved in Django admin).
+- **Stripe console configs verified against the API, not the console UI.** All 8 event types
+  subscribed; portal offers both plans (Individual €20 / Family €35), cancel-at-period-end,
+  card update, invoice history. Note: `billing_portal.Configuration` reports
+  `subscription_update.products = null` at every API version even when switching demonstrably
+  works — do not trust that field, test the portal.
+- **One defect found**, logged in `ISSUES.md`: the missing renewal date (see Next actions).
+- Test account on staging: `billing.clickthrough@example.com` (user id 7, verified parent).
+  Throwaway — clear it with the other smoke-test users on the next staging DB reset.
+- **D3 coverage gates are live and enforced** in CI (backend 97, dashboard 92/87/84;
+  ADR-0026), and meta CI now runs on `develop` PRs rather than only at promotion time.
