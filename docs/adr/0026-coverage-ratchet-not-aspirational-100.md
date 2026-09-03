@@ -19,7 +19,7 @@ Measured 2026-09-03, on `master` as deployed to staging:
 | `backend` | 100% line+branch, `fail_under = 100` | runs `pytest --cov --cov-branch`, **no `--cov-fail-under`**; sits at ~97% |
 | `dashboard` | 100% line+branch, thresholds at 100 | **never runs `pnpm test`**, never runs biome; `@vitest/coverage-v8` was **not installed**, so coverage was not measurable at all |
 | `marketing` | 100% line+branch | build only |
-| all | e2e (Playwright) for every user-facing feature | **no Playwright harness exists anywhere** |
+| all | e2e (Playwright) for every user-facing feature | **no Playwright harness exists anywhere** (built 2026-09-03 — ADR-0027) |
 
 The gap is not an oversight anyone hid — the backend omission is commented in `ci.yml`
 and both gaps are logged in `ISSUES.md`. It is the *duration* that matters: two full
@@ -70,6 +70,8 @@ at whatever the number currently is.**
 
 5. **E2E (ADR-0021 clause 3) is explicitly marked NOT YET IN FORCE** in `CLAUDE.md` and
    `ISSUES.md` until a Playwright harness exists. Standing one up is its own D1 slice.
+   **Superseded 2026-09-03 by ADR-0027:** the harness now exists and blocks CI, so the
+   clause is in force for `identity` and still suspended for everything else.
    Until then D9's manual browser click-through is the honest substitute, and specs must
    say so rather than claiming e2e coverage they do not have.
 

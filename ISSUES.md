@@ -52,40 +52,24 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
 
 ## Blocks a phase close
 
-- **No Playwright harness exists in any repo**, so ADR-0021's e2e requirement is unmet
-  repo-wide and D9's e2e clause is formally suspended (ADR-0026, `CLAUDE.md` D3). Standing
-  one up is its own D1 slice. Note the hosted-Stripe redirect can never run in Playwright —
-  card → checkout → webhook stays a manual staging test (`docs/runbook/stripe-billing.md`
-  §5) even after the harness lands.
-- **A fresh subscription has no renewal date until the nightly reconciler runs (up to ~24h).**
-  Found in the 2026-09-03 staging click-through, reproducible and timestamped:
-  `invoice.paid` arrived 80ms **before** `checkout.session.completed`, so no `Subscription`
-  row existed yet, the event was dropped with an `unknown_subscription` incident — and it was
-  the only event carrying the period end. A Checkout Session payload has no
-  `current_period_end` and no `items`, so the row is created with `current_period_end=None`.
-  The UI therefore shows "Active" with no renewal date. Only `reconcile_subscriptions`
-  (nightly) fixes it, via the SDK path where `items[0].current_period_end` exists — the
-  `reconciled_drift` incidents for users 5 and 7 are exactly this. Not money-wrong, but a
-  visible defect in the primary flow, and it means the authoritative period end is discarded.
-  Fix candidates: have `checkout.session.completed` / `settle` read the period end off the
-  subscription via the SDK, or re-drive dropped `unknown_subscription` invoice events once the
-  row appears. **Verified 2026-09-03.**
-
-- **`invoice.paid` does not pass `keep_canceled=True` to `_apply_to_existing`**
-  (`billing/services.py:565`), unlike the `async_payment_succeeded` (`:483`) and
-  `customer.subscription.updated` (`:537`) arms. A late `invoice.paid` that survives the
-  out-of-order timestamp guard (no `created`, or equal timestamps) can resurrect a solo
-  `canceled` row to `active` — the one-live-subscription constraint only fires when a
-  second live row already exists. Same class as the `updated` case that B2 fixed; extend
-  the floor to the invoice arms. **Verified still open 2026-09-03.**
-- **The Stripe webhook endpoint is pinned to `2025-06-30.basil`; the backend SDK pins
-  `2026-07-29.dahlia`.** Runbook §3 says to keep them equal. Stripe does **not** allow changing
-  `api_version` on an existing endpoint — it is create-only — so fixing this means creating a
-  fresh endpoint, which issues a NEW signing secret: `DJANGO_STRIPE_WEBHOOK_SECRET` must be
-  rotated on the VPS and the stack restarted, with a brief window where deliveries still hit
-  the old endpoint. Deferred deliberately 2026-09-03 (owner decision) because the parser
-  tolerates both shapes and the 2026-09-03 click-through passed on basil. Do it before
-  production. Re-check it whenever the `stripe` pin moves.
+- **e2e covers `identity` only.** The harness exists and blocks CI as of 2026-09-03
+  (ADR-0027), with six identity flows. Every other user-facing area — scheduling
+  availability, the family/children surface, account and email management, the app shell —
+  still has **no** e2e, so ADR-0021's per-feature requirement is only partly met and D9
+  still leans on the manual click-through for those. Convert them feature by feature; keep
+  the `CLAUDE.md` D3 table honest as you go. A table that claims less than reality is
+  harmless, one that claims more is how the gate stayed fictional for three months.
+- **Flows the harness structurally cannot reach without more infrastructure:** anything
+  needing a real inbox — registration, password reset, child activation — because CI has no
+  mail-catcher wired in. That is its own slice (a mailpit service plus a way to read the
+  link). Note this is *not* the same as the billing exclusion below, which is permanent.
+- **The `past_due` / dunning path has never been exercised end to end.** A *declined card at
+  checkout* is verified (2026-09-03: `4000 0000 0000 0341` → 0 subscriptions, not entitled,
+  no incidents — correct). But `past_due` arises from a **renewal** failing on an already
+  active subscription, which cannot be reached by clicking: it needs Stripe **test clocks**
+  to advance the billing cycle. Since `past_due` keeps full access by design (OQ-B2-1) and
+  `unpaid` is where access stops, the transition nobody has ever observed is the one that
+  actually removes entitlement. Worth a test-clock harness before launch.
 
 - **The `scheduling` import-linter contract does not forbid `kaleem.identity.models`** —
   the same hole billing closed in B2. A direct model import there would pass CI today (D4).
@@ -213,7 +197,17 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
   code defect. Re-verified twice on a clean tree: green. If it reappears on a loaded CI runner
   or a busy dev box, suspect resources (or cap `poolOptions.threads.maxThreads`) before
   suspecting the tests.
-- `requirements/base.txt` pins `stripe>=15.5,<16.0` and the Stripe API version default is read
-  off the installed SDK. The upper bound is load-bearing: without it a routine `pip` upgrade
-  silently changes the pinned inbound webhook shape. When you raise it, re-check the webhook
-  endpoint's pinned API version in the Stripe dashboard (runbook §3).
+- **The Stripe API version is now pinned explicitly, and it must stay that way.**
+  `DJANGO_STRIPE_API_VERSION=2026-08-26.dahlia` is set on staging, and the webhook endpoint
+  `we_1UBdRwCavwnriKDQ2ygx6z2V` was created at that same version (2026-09-03). Do the same in
+  every new environment — **production included** — or the two sides drift.
+
+  This is not theoretical. Watched live on 2026-09-03: the SDK's default moved from
+  `2026-07-29.dahlia` to `2026-08-26.dahlia` **between two deploys on the same day**, because
+  `requirements/base.txt` allows `stripe>=15.5,<16.0` and the rebuild picked up 15.6.1. Left
+  to the SDK default, the inbound payload shape is a function of Stripe's release calendar
+  and whenever you last rebuilt. The explicit env var is what stops that.
+
+  Note `api_version` is **create-only** on a webhook endpoint — changing it means creating a
+  new endpoint and rotating `DJANGO_STRIPE_WEBHOOK_SECRET`. Cheap to get right up front,
+  annoying afterwards.
