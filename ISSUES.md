@@ -16,6 +16,14 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
 
 ## Blocks launch
 
+- **No automated security or performance scanning runs anywhere.** `semgrep`, `gitleaks`
+  (as a CLI), `pip-audit`, `trivy` and `lhci` are all absent, so every `/handoff` gate has
+  been satisfied by "review manually" and no OWASP-Top-10 pass, dependency-CVE scan, or
+  Core-Web-Vitals budget has ever actually executed. Same shape as the coverage and e2e
+  gates before ADR-0026/0027: a documented check that does not run. `backend`'s pre-commit
+  does run a gitleaks hook, so committed secrets have *some* cover; nothing else does.
+  Wire at least `pip-audit` + `gitleaks` into CI, and Lighthouse against staging, before
+  real users. (Surfaced 2026-09-04 during handoff.)
 - **Production environment does not exist.** Staging only. Prod hosts (`app.` / `api.` /
   apex + `www`), the `www` redirect, and a prod VPS are all deferred per ADR-0019.
 - **First production deploy must start from an empty DB.** `migrate` orders `identity`
