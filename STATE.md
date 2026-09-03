@@ -1,8 +1,8 @@
 ---
 current_phase: "B — Billing. B1 + B2 are built, merged, and live on staging (2026-08-17). Not closed: two Stripe-console configs and the human click-through."
 active_spec: "docs/superpowers/specs/2026-08-13-billing-hardening-design.md (B2, status: implemented). B1's spec (2026-07-09-billing-subscriptions-design.md) is still status: draft — close both together once the click-through passes."
-active_branch: "None. develop is 5 ahead of master (the e2e harness + the two fixes); staging runs the previous promotion."
-last_green_ci: "meta #135 on develop, 2026-09-03 (run 33805080649) — all 7 jobs green including the NEW e2e job (2m6s, 6 specs). Last deploy: #131 → master, deploy-staging green."
+active_branch: "None. TRUNK-BASED as of 2026-09-04 (ADR-0028) — `master` is the only long-lived branch; `develop` is deleted. Branch feat/… off master, PR into master."
+last_green_ci: "meta #138 → master, 2026-09-04 (run 33809825565) — all 7 jobs green including e2e (3m19s, 6 specs), then deploy-staging green. Staging is current with master."
 ---
 
 # kaleem Project State
@@ -25,35 +25,35 @@ Phase A (identity) is closed via ADR-0024, with one residual human check outstan
 
 ## ▶ Next actions, in order
 
-1. **Promote `develop → master`** to put the e2e harness and the two fixes on staging.
-   Nothing here changes runtime behaviour beyond the two small fixes, both verified.
-2. **Close both billing specs** (B1 `draft`, B2 `implemented`) — a decision, not a task.
+1. **Close both billing specs** (B1 `draft`, B2 `implemented`) — a decision, not a task.
    Everything they claim is verified on staging **except** the `past_due` renewal path,
    which needs Stripe **test clocks** rather than a click-through (`ISSUES.md`). Since
    `past_due` keeps full access by design, that is the transition which actually removes
    entitlement. Decide whether it blocks closing the specs or is tracked separately.
-3. **Extend e2e past identity** (`ISSUES.md`) — scheduling availability, family/children,
+2. **Extend e2e past identity** (`ISSUES.md`) — scheduling availability, family/children,
    account+email, the app shell. The harness exists; each area is now a small conversion
    rather than a project. Keep the `CLAUDE.md` D3 table honest as you go.
+3. **`past_due` via Stripe test clocks** — the one billing behaviour never exercised, and
+   the one that actually removes entitlement. Cannot be clicked; needs a test-clock harness.
 4. Then: Phase B's next slice, or the Phase A residual identity click-through.
 
 ## In flight
 
-- Nothing on a branch. `develop` is **5 ahead of `master`** — the e2e harness and the two
-  small fixes are merged to develop but not yet deployed (see Next actions #1).
+- **Nothing.** Everything is merged to `master` and deployed; working tree clean.
+- ⚠ **A merge to `master` is now a deploy** (ADR-0028 removed the integration branch). The
+  coverage and e2e gates are all that stand between a PR and staging.
 
-## Recently verified (2026-09-03)
+## Recently verified (2026-09-03 / 04)
 
-- **Billing verified end to end on staging.** Subscribe → hosted checkout → subscription
-  card → portal (both plans switchable) → cancel, twice: before and after the renewal-date
-  fix. kaleem and Stripe agreed exactly each time. Webhooks flowing again; the stale
-  `webhook_silence` critical incident resolved. Declined card writes nothing. Eligibility
-  403 enforced. Webhook endpoint rotated to a pinned `2026-08-26.dahlia` with
-  `DJANGO_STRIPE_API_VERSION` set explicitly, so a `pip` upgrade cannot move it.
-  Detail in `journal/2026-W36.md`.
-- **D3 coverage gates are live** (backend 97, dashboard 92/87/84; ADR-0026) and meta CI now
-  runs on `develop` PRs. The floor already earned itself: the first pass at #34 dropped the
-  repo to 96.96% and CI went red.
+- **Billing verified end to end on staging** — subscribe → checkout → portal → cancel, twice
+  (before and after the renewal-date fix); kaleem and Stripe agreed exactly each time.
+  Declined card writes nothing; eligibility 403 enforced; webhook endpoint rotated to a
+  pinned `2026-08-26.dahlia` with `DJANGO_STRIPE_API_VERSION` set explicitly. Detail in
+  `journal/2026-W36.md`.
+- **Trunk-based flow adopted** (ADR-0028): `develop` deleted after a final promotion, every
+  repo now `feat/… → PR → trunk`. Closed two `ISSUES.md` entries that each said "needs an
+  ADR". **API versioning is now enforced in CI** (ADR-0029, backend #37) — a test walks the
+  resolved URLconf and fails on any route outside `/api/v<n>/` or a closed allowlist.
 - **The e2e harness exists and blocks CI** (ADR-0027) — 6 identity flows, green in CI in
   2m6s, `deploy-staging` now depends on it. Scoped to identity and `CLAUDE.md` D3 says so
   in a table; billing is excluded by design (the hosted Stripe redirect cannot run in
