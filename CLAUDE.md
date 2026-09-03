@@ -67,19 +67,39 @@ See `STATE.md` for the current phase and active spec. At the time of this file's
 10. **D10 No refactoring sprees.** Spotted a problem while working on something else? Add it to `ISSUES.md` in 15 seconds and keep going. Do not "clean up while you're here".
 11. **D11 No heroes.** Sustainable pace. No 3-day marathons. Energy check in the weekly journal; if ≤ 2/5 for two weeks, stop and re-plan.
 
-## Git workflow (git-flow) — non-negotiable
+## Git workflow (trunk-based) — non-negotiable
 
-**Every repo uses `feat/<name>` → `dev` → PR → `master`.** See ADR-0014.
+**Every repo uses `feat/<name>` → PR → trunk. There is no `develop`/`dev` branch
+anywhere.** See ADR-0028 (which supersedes ADR-0014's branching clause).
 
-- Branch `feat/<name>` (or `fix/…`) off `dev`, work there, open a PR into `dev`.
-  After review + green CI, `dev` reaches the trunk via its own PR.
-- **Never commit directly to `dev` or the trunk.** Everything lands through a PR.
-  No direct pushes. No `--no-verify` (D5).
+- Branch `feat/<name>` (or `fix/…`, `docs/…`, `chore/…`) off the trunk, work there, open
+  a PR into the trunk. Green CI + review, then merge.
+- **Never commit directly to the trunk.** Everything lands through a PR. No direct pushes.
+  No `--no-verify` (D5).
+- **Merge commits, not squashes,** for anything carrying submodule pointers — squashing is
+  what used to drop pointer bumps silently.
+- The trunk is `main` in the submodules and `master` in the meta repo.
+- ⚠ **A merge to the meta trunk is a deploy.** `deploy-staging` runs on push to `master`,
+  and there is no integration branch any more. The coverage and e2e gates are the only
+  thing between a PR and staging — merge accordingly.
 - **The meta repo is not a working repo.** Do not do feature/code work there. The
   only things that belong in the meta repo are (1) docs — `docs/**`, ADRs, specs,
-  `STATE.md`, `ISSUES.md`, `CLAUDE.md` — and (2) submodule pointer bumps. Both still
-  go through the `feat → dev → PR → master` flow; no direct commits to the meta trunk.
-- All real feature code lives in the submodules, each with its own git-flow.
+  `STATE.md`, `ISSUES.md`, `CLAUDE.md` — (2) CI config, and (3) submodule pointer bumps.
+  All still go through `feat → PR → master`.
+- All real feature code lives in the submodules.
+
+## API versioning — non-negotiable
+
+**Every product API route lives under `/api/v1/`, and every client reaches it through a
+versioned base.** See ADR-0017 (the scheme) and ADR-0029 (the rule + its enforcement).
+
+- New module? Mount it under `config.api_router`, never straight onto `config/urls.py`.
+- Exactly three product exceptions, and the list is closed: health probes, allauth
+  (`/accounts/`), the Django admin. **A fourth needs an ADR.**
+- Clients put the version in the configured base (`VITE_API_URL` ends `/api/v1/`) and use
+  relative paths per call, so a version bump is one config change, not a sweep.
+- **CI enforces this** — `backend/tests/test_api_versioning_is_enforced.py` walks the
+  resolved URLconf and fails on anything unversioned outside the allowlist.
 
 ## The "don't do this" list
 
@@ -99,7 +119,8 @@ These are the specific patterns that produced the current messy MVP. Do not repe
 12. **Don't add a feature without a spec.** D1. Always.
 13. **Don't refactor while implementing another feature.** D10. `ISSUES.md` and keep going.
 14. **Don't code past bedtime.** D11. Sleep fixes more bugs than caffeine.
-15. **Don't commit directly to `dev` or the trunk, and don't do feature work in the meta repo.** Git-flow `feat → dev → PR → master` in every repo; meta is docs + pointer bumps only. See ADR-0014.
+15. **Don't commit directly to the trunk, and don't do feature work in the meta repo.** Trunk-based `feat → PR → trunk` in every repo, no `develop` branch; meta is docs + CI + pointer bumps only. See ADR-0028.
+16. **Don't add an API route outside `/api/v1/`.** The allowlist of unversioned paths is closed and CI enforces it. See ADR-0029.
 
 ## Where things live
 
