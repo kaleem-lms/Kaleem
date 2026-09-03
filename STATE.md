@@ -1,8 +1,8 @@
 ---
 current_phase: "B — Billing. B1 + B2 are built, merged, and live on staging (2026-08-17). Not closed: two Stripe-console configs and the human click-through."
 active_spec: "docs/superpowers/specs/2026-08-13-billing-hardening-design.md (B2, status: implemented). B1's spec (2026-07-09-billing-subscriptions-design.md) is still status: draft — close both together once the click-through passes."
-active_branch: "meta docs/state-issues-gates (this work). Submodule mains: backend fa68c0a, dashboard f23d18d — both AHEAD of the pointers recorded on develop; this branch bumps them."
-last_green_ci: "meta develop→master #126, 2026-08-17 (run 32009357958). deploy-staging succeeded in 3m10s. First green CI for any Phase B code."
+active_branch: "None. develop is 5 ahead of master (the e2e harness + the two fixes); staging runs the previous promotion."
+last_green_ci: "meta #135 on develop, 2026-09-03 (run 33805080649) — all 7 jobs green including the NEW e2e job (2m6s, 6 specs). Last deploy: #131 → master, deploy-staging green."
 ---
 
 # kaleem Project State
@@ -25,46 +25,39 @@ Phase A (identity) is closed via ADR-0024, with one residual human check outstan
 
 ## ▶ Next actions, in order
 
-1. **Close both billing specs** (B1 `draft`, B2 `implemented`). Everything they claim is now
-   verified on staging **except** the `past_due` renewal path, which needs Stripe **test
-   clocks** rather than a click-through (`ISSUES.md`) — and which, since `past_due` keeps
-   full access by design, is the transition that actually removes entitlement. Decide
-   whether that blocks closing the specs or is tracked separately.
-2. **Playwright harness** as its own D1 slice — the last wholly-unmet ADR-0021 clause, and
-   the thing that would have caught the period-end race without a human clicking.
-3. Then: Phase B's next slice, or the Phase A residual identity click-through.
+1. **Promote `develop → master`** to put the e2e harness and the two fixes on staging.
+   Nothing here changes runtime behaviour beyond the two small fixes, both verified.
+2. **Close both billing specs** (B1 `draft`, B2 `implemented`) — a decision, not a task.
+   Everything they claim is verified on staging **except** the `past_due` renewal path,
+   which needs Stripe **test clocks** rather than a click-through (`ISSUES.md`). Since
+   `past_due` keeps full access by design, that is the transition which actually removes
+   entitlement. Decide whether it blocks closing the specs or is tracked separately.
+3. **Extend e2e past identity** (`ISSUES.md`) — scheduling availability, family/children,
+   account+email, the app shell. The harness exists; each area is now a small conversion
+   rather than a project. Keep the `CLAUDE.md` D3 table honest as you go.
+4. Then: Phase B's next slice, or the Phase A residual identity click-through.
 
 ## In flight
 
-- Nothing on a branch. `develop` and `master` are level; staging is running the current code.
+- Nothing on a branch. `develop` is **5 ahead of `master`** — the e2e harness and the two
+  small fixes are merged to develop but not yet deployed (see Next actions #1).
 
 ## Recently verified (2026-09-03)
 
-- **Billing click-through PASSED twice on staging, before and after a fix.** Subscribe →
-  hosted checkout → subscription card → portal (both plans switchable) → cancel. kaleem and
-  Stripe agreed exactly afterwards. Webhooks are flowing again (first since 2026-08-13); the
-  stale `webhook_silence` critical incident is resolved.
-- **The renewal-date race is fixed and the fix is verified in production conditions.**
-  Backend #34, spec `2026-09-03-billing-period-end-race-design.md`. On the post-deploy
-  re-test the race *reproduced exactly* — `invoice.paid` arrived first at 16:08:25.348 and
-  was dropped — and the card still showed "Renews on October 3, 2026" immediately, because
-  the backfill now supplies it.
-- **Declined card verified:** `4000 0000 0000 0341` → 0 subscriptions, not entitled, no
-  incidents. Stripe confirms the first payment inline, so a bad card writes nothing at all.
-- **Webhook endpoint rotated to a pinned API version.** Old basil endpoint deleted; new
-  `we_1UBdRwCavwnriKDQ2ygx6z2V` created at `2026-08-26.dahlia`, with
-  `DJANGO_STRIPE_API_VERSION` now set explicitly on the VPS so a `pip` upgrade cannot move
-  it. Verified by a live subscription afterwards: events delivered, signature verified
-  against the new secret, renewal date rendered immediately.
-- **Eligibility enforcement verified:** a parent clicking Individual gets a server-side 403
-  and no subscription — and now real copy ("This plan isn't available for your account.")
-  instead of "please try again" (dashboard #30).
-- **Incident queue quietened** (backend #35): an orphan `invoice.paid` is `info`, not a
-  warning per subscriber, now that the backfill covers it. `invoice.payment_failed` stays a
-  warning — nothing backfills a payment failure.
+- **Billing verified end to end on staging.** Subscribe → hosted checkout → subscription
+  card → portal (both plans switchable) → cancel, twice: before and after the renewal-date
+  fix. kaleem and Stripe agreed exactly each time. Webhooks flowing again; the stale
+  `webhook_silence` critical incident resolved. Declined card writes nothing. Eligibility
+  403 enforced. Webhook endpoint rotated to a pinned `2026-08-26.dahlia` with
+  `DJANGO_STRIPE_API_VERSION` set explicitly, so a `pip` upgrade cannot move it.
+  Detail in `journal/2026-W36.md`.
 - **D3 coverage gates are live** (backend 97, dashboard 92/87/84; ADR-0026) and meta CI now
   runs on `develop` PRs. The floor already earned itself: the first pass at #34 dropped the
   repo to 96.96% and CI went red.
+- **The e2e harness exists and blocks CI** (ADR-0027) — 6 identity flows, green in CI in
+  2m6s, `deploy-staging` now depends on it. Scoped to identity and `CLAUDE.md` D3 says so
+  in a table; billing is excluded by design (the hosted Stripe redirect cannot run in
+  Playwright). Mutation-checked locally, not merely run.
 - Throwaway staging accounts, all password `KaleemStaging!2026`: `billing.clickthrough@`
   (id 7), `billing.recheck@` (id 8), `billing.failcard@` (id 9), plus the two older `*.smoke@`
   users. Clear them all on the next staging DB reset.
