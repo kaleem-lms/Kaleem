@@ -29,7 +29,15 @@ only affects what the pricing page *shows*, not what Stripe actually charges.
 | --- | --- | --- |
 | `DJANGO_STRIPE_SECRET_KEY` | local `.env`, staging `.env.production` | Stripe **test** secret key (`sk_test_…`). Never commit. |
 | `DJANGO_STRIPE_WEBHOOK_SECRET` | local `.env`, staging `.env.production` | The signing secret for the registered webhook endpoint (`whsec_…`). Never commit. |
-| `DJANGO_STRIPE_API_VERSION` | optional, anywhere | Overrides the pinned Stripe API version. Leave unset: the default is read off the installed `stripe` SDK's own outbound pin, so it moves with the dependency. Only set it to deliberately hold an older version. |
+| `DJANGO_STRIPE_API_VERSION` | **required in every environment** | The Stripe API version. **Set it explicitly** — see below. Staging is on `2026-08-26.dahlia`. |
+
+> **Always set `DJANGO_STRIPE_API_VERSION`.** This runbook used to say "leave it unset, the
+> default is read off the installed SDK". That was wrong, and it bit us: on 2026-09-03 the
+> SDK default moved from `2026-07-29.dahlia` to `2026-08-26.dahlia` **between two deploys on
+> the same day**, because `requirements/base.txt` allows `stripe>=15.5,<16.0` and the rebuild
+> picked up 15.6.1. Unset, the inbound webhook payload shape is decided by Stripe's release
+> calendar and whenever you last rebuilt — and it must match the version the webhook endpoint
+> was *created* at, which cannot be changed afterwards (§3). Pin both sides yourself.
 
 Both secrets default to `""` in `config/settings/base.py` (local/dev convenience) but are
 **required** (`env(...)`, no default) in `config/settings/production.py` — a missing
@@ -72,16 +80,18 @@ session with `payment_status="unpaid"` and the subscription `incomplete`; kaleem
 grants nothing until `async_payment_succeeded` arrives. Without them subscribed, a
 customer paying by bank debit is charged and never gets access.
 
-**Pin the endpoint's API version.** Before registering, check the account's current
-default API version (Stripe dashboard → Developers → API versions / Overview). Then set
-this endpoint's version explicitly to the value the backend pins — print it with:
+**Pin the endpoint's API version — at creation, because it cannot be changed later.**
+`WebhookEndpoint` accepts `api_version` only on *create*; the update call ignores it. Getting
+this wrong is therefore not a config edit but a full rotation: create a replacement endpoint,
+move `DJANGO_STRIPE_WEBHOOK_SECRET` on the VPS to its new signing secret, restart, then delete
+the old endpoint. Order matters — keep the old endpoint alive until the new secret is live, or
+you drop deliveries. (Both endpoints running briefly is safe: same event id, and
+`StripeEventLog` dedupes.)
 
-```bash
-python -c "import stripe; print(stripe.api_version)"
-```
+Set it to the same value as `DJANGO_STRIPE_API_VERSION` (§2) — **not** to whatever the SDK
+happens to default to today, which moves with the dependency. Staging: `2026-08-26.dahlia`.
 
-(or whatever `DJANGO_STRIPE_API_VERSION` is set to, if you have overridden it). An
-endpoint registered with *no* version inherits the account default, and Stripe changes
+An endpoint registered with *no* version inherits the account default, and Stripe changes
 that default over time. Payload shapes are versioned: `2025-03-31.basil`, for example,
 moved a subscription's `current_period_end` onto `items.data[].current_period_end` and an
 invoice's `subscription` to `parent.subscription_details.subscription`. The parser
