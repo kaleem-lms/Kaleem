@@ -2,9 +2,9 @@
 name: e2e-beyond-identity
 phase: B
 modules: [identity, scheduling, platform]
-status: approved
+status: implemented
 created: 2026-09-04
-closed: null
+closed: 2026-09-04
 ---
 
 ## Goal
@@ -69,8 +69,10 @@ same `DEBUG`-only guard as the rest of the command. It deletes nothing a human c
 
 **3. Still no session injection. Every spec logs in through the real form.**
 Unchanged from ADR-0027 and for the same reason. The cost is real — each spec pays a
-login — and the suite roughly triples in size, so CI wall-clock goes from ~3m to an
-expected ~8m. If that becomes the binding constraint the escape is a Playwright project
+login — and the suite roughly triples in size, so CI wall-clock was expected to go from
+~3m to ~8m. **Measured after the fact: 2m31s for all 20**, i.e. the estimate was wrong by
+a wide margin and the login cost is not the bottleneck. If it ever becomes the binding
+constraint the escape is a Playwright project
 dependency that logs in once and reuses a **real** `storageState` (still not a forged
 cookie). Deliberately not done now: adding an optimisation before the thing is slow is
 how the fixture stops resembling what users do.
@@ -161,3 +163,26 @@ rule applies.
   aspirationally.
 - `ISSUES.md`: the "e2e covers `identity` only" entry narrowed to what genuinely remains
   (change-password, inbox-dependent flows, billing).
+
+## Outcome
+
+All of the above shipped (backend #38, dashboard #32, meta #140). 6 flows → 20, green in
+CI in 2m31s.
+
+Decision 5 earned its keep twice over: the conversion found **two** defects rather than
+the two it anticipated, and both were logged instead of fixed.
+
+- **The mobile drawer does not restore focus when it closes.** This one was written as an
+  assertion first, failed, and was then *measured* rather than assumed flaky —
+  `document.activeElement` is `<body>` after Escape. The drawer opens from `AppShell`
+  state instead of a `Dialog.Trigger`, so Radix has no trigger to restore to. WCAG 2.4.3,
+  against a baseline ADR-0020 makes repo-wide. Fixing it reshapes `AppTopbar`'s
+  `onOpenMenu` prop contract, so it went to `ISSUES.md` (D10) and the spec says so in a
+  comment rather than asserting it.
+- Two `/family` buttons share the accessible name **"Add child"**. Exactly the class of
+  finding decision 4 predicts role-plus-name selectors would surface, and a `data-testid`
+  would have hidden.
+
+This is the argument for the harness restated: a suite that only ever confirms what unit
+tests already know is not worth its CI minutes. Both findings came from a real browser and
+neither was reachable from vitest.
