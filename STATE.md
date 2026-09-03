@@ -25,38 +25,39 @@ Phase A (identity) is closed via ADR-0024, with one residual human check outstan
 
 ## ▶ Next actions, in order
 
-1. **Decide what to do about the missing renewal date** (`ISSUES.md` → "Blocks a phase
-   close", first entry). Found by the 2026-09-03 click-through: `invoice.paid` can arrive
-   *before* `checkout.session.completed`, and it is the only event carrying the period end,
-   so a fresh subscription shows "Active" with no renewal date until the nightly reconciler
-   runs. Needs a D1 slice, not a drive-by fix (D10).
-2. **Optional remaining click-through leg: failed-card recovery** (card
-   `4000 0000 0000 0341`) — proves `past_due` mirroring and that the portal is a real way out.
-   Not yet run; needs a user without a live subscription.
+1. **Rotate the webhook endpoint to the SDK's API version** (`ISSUES.md`). Needs a human:
+   Stripe makes `api_version` create-only, so it means creating a fresh endpoint and putting
+   its new `whsec_` into `DJANGO_STRIPE_WEBHOOK_SECRET` on the VPS, then deleting the old one.
+   Not urgent — the parser handles basil and two click-throughs passed on it — but do it
+   before production.
+2. **Quieten the `unknown_subscription` incident** (`ISSUES.md`): it now fires on roughly
+   every checkout and is pure noise since the period-end fix, which devalues a queue whose
+   point is that `critical` means money is wrong.
 3. **Close both billing specs** (B1 `draft`, B2 `implemented`). Everything they claim is now
-   verified on staging except the failed-card leg.
+   verified on staging except the `past_due` renewal path, which needs Stripe test clocks
+   (`ISSUES.md`) rather than a click-through.
 4. Then: Phase B's next slice, the Phase A residual, or the Playwright harness slice.
 
 ## In flight
 
-- Nothing on a branch. `develop` is 5 ahead of `master`; a `develop → master` promotion would
-  deploy the coverage-gate + docs work (test config and docs only — no runtime change).
+- Nothing on a branch. `develop` and `master` are level; staging is running the current code.
 
 ## Recently verified (2026-09-03)
 
-- **Billing click-through PASSED on staging.** Subscribe → hosted checkout (`4242…`) →
-  subscription card → portal → cancel. kaleem and Stripe agree exactly afterwards: `active`,
-  `cancel_at_period_end=True`, period end `2026-10-03 04:18:39` on both sides. Idempotency
-  held — the webhook and the `settle:` path both ran and produced one row. **Webhooks are
-  being delivered again** (first since 2026-08-13; the `webhook_silence` critical incident,
-  `occurrences=80`, is now stale and can be resolved in Django admin).
-- **Stripe console configs verified against the API, not the console UI.** All 8 event types
-  subscribed; portal offers both plans (Individual €20 / Family €35), cancel-at-period-end,
-  card update, invoice history. Note: `billing_portal.Configuration` reports
-  `subscription_update.products = null` at every API version even when switching demonstrably
-  works — do not trust that field, test the portal.
-- **One defect found**, logged in `ISSUES.md`: the missing renewal date (see Next actions).
-- Test account on staging: `billing.clickthrough@example.com` (user id 7, verified parent).
-  Throwaway — clear it with the other smoke-test users on the next staging DB reset.
-- **D3 coverage gates are live and enforced** in CI (backend 97, dashboard 92/87/84;
-  ADR-0026), and meta CI now runs on `develop` PRs rather than only at promotion time.
+- **Billing click-through PASSED twice on staging, before and after a fix.** Subscribe →
+  hosted checkout → subscription card → portal (both plans switchable) → cancel. kaleem and
+  Stripe agreed exactly afterwards. Webhooks are flowing again (first since 2026-08-13); the
+  stale `webhook_silence` critical incident is resolved.
+- **The renewal-date race is fixed and the fix is verified in production conditions.**
+  Backend #34, spec `2026-09-03-billing-period-end-race-design.md`. On the post-deploy
+  re-test the race *reproduced exactly* — `invoice.paid` arrived first at 16:08:25.348 and
+  was dropped — and the card still showed "Renews on October 3, 2026" immediately, because
+  the backfill now supplies it.
+- **Declined card verified:** `4000 0000 0000 0341` → 0 subscriptions, not entitled, no
+  incidents. Stripe confirms the first payment inline, so a bad card writes nothing at all.
+- **D3 coverage gates are live** (backend 97, dashboard 92/87/84; ADR-0026) and meta CI now
+  runs on `develop` PRs. The floor already earned itself: the first pass at #34 dropped the
+  repo to 96.96% and CI went red.
+- Throwaway staging accounts, all password `KaleemStaging!2026`: `billing.clickthrough@`
+  (id 7), `billing.recheck@` (id 8), `billing.failcard@` (id 9), plus the two older `*.smoke@`
+  users. Clear them all on the next staging DB reset.
