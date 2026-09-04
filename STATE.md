@@ -26,9 +26,11 @@ Phase A (identity) is closed via ADR-0024, with one residual human check outstan
 
 ## ▶ Next actions, in order
 
-1. **Wire `pip-audit` + `gitleaks` into CI, and Lighthouse against staging** — the oldest
-   un-run gate in the project and the top `blocks launch` entry. Same shape as the coverage
-   and e2e gates before ADR-0026/0027: documented, never executed.
+1. 🔴 **Rotate the credentials that the first gitleaks run found in git history** — an
+   `sk_live_` Stripe key, an AWS access key + secret, the old Django `SECRET_KEY`, Postgres
+   and Flower passwords, all committed by the old MVP in `588a1e35` (2026-04-12) and still
+   in history on GitHub. This is the only item here that is an active exposure. Details and
+   the rotation list are the top entry in `ISSUES.md`.
 2. **Drawer focus restore** (`ISSUES.md`) — small, self-contained WCAG 2.4.3 fix; a good
    slice if the appetite is for shipping rather than specs.
 3. Then: the next phase's spec, or the Phase A residual identity click-through.
@@ -40,6 +42,15 @@ Phase A (identity) is closed via ADR-0024, with one residual human check outstan
   coverage and e2e gates are all that stand between a PR and staging.
 
 ## Recently verified (2026-09-03 / 04)
+
+- **Security and performance scanning runs for the first time** (ADR-0030): `gitleaks` and
+  `pip-audit` block merges in `ci.yml`'s `security` job; Lighthouse runs nightly against
+  staging with ratchet floors in `.lighthouserc.json`. All three were validated locally
+  before the PR — gitleaks green with `.gitleaksignore`, `pip-audit` clean on the
+  production dependency set, `lhci autorun` green against real staging (3 runs × 2 URLs).
+  The first run found live credentials in git history (see next actions), a stray
+  `portal-snapshot.md` Playwright dump at the repo root carrying a Stripe test-mode portal
+  secret (deleted), and four page-quality findings logged to `ISSUES.md`.
 
 - **The `past_due` → `unpaid` dunning path is exercised nightly against real Stripe**
   (backend #39, meta #145 + #146). Verified three ways: locally twice (5 passed, 2m49s and

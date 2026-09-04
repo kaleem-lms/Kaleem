@@ -1,0 +1,43 @@
+# gitleaks allowlist — one line per KNOWN, HISTORICAL finding (ADR-0030).
+#
+# Format: <commit>:<file>:<rule>:<startline>
+#
+# Everything here is already in git history and cannot be un-leaked by a scanner.
+# The remedy is ROTATION, tracked in `ISSUES.md` under "Blocks launch". Delete the
+# lines for a credential once it has been rotated and the entry is closed — an empty
+# file is the goal.
+#
+# Do NOT add a line to silence a NEW finding. A new secret in a new commit means the
+# gate worked: remove the secret, rotate it, force the commit out of the branch.
+
+# ---------------------------------------------------------------------------
+# 588a1e35 (2026-04-12) — the old MVP's `.envs/` committed wholesale. REAL, LIVE
+# credentials: an sk_live_ Stripe key, an AWS AKIA key + secret, the Django
+# SECRET_KEY, the Postgres password and Flower basic auth. Files were deleted from
+# the tree long ago; history keeps them. ALL OF THESE MUST BE ROTATED.
+# ---------------------------------------------------------------------------
+588a1e35695a56408f3a40306f19ab71acea9d48:kaleem/.envs/.production/.postgres:generic-api-key:7
+588a1e35695a56408f3a40306f19ab71acea9d48:kaleem/.envs/.production/.django:aws-access-token:24
+588a1e35695a56408f3a40306f19ab71acea9d48:kaleem/.envs/.production/.django:generic-api-key:5
+588a1e35695a56408f3a40306f19ab71acea9d48:kaleem/.envs/.production/.django:generic-api-key:25
+588a1e35695a56408f3a40306f19ab71acea9d48:kaleem/.envs/.production/.django:generic-api-key:51
+588a1e35695a56408f3a40306f19ab71acea9d48:kaleem/.envs/.production/.django:generic-api-key:57
+588a1e35695a56408f3a40306f19ab71acea9d48:kaleem/.envs/.production/.django:stripe-access-token:56
+
+# ---------------------------------------------------------------------------
+# 83ba26ba (2025-03-20) — the same MVP's local `.django` env file: a Stripe TEST
+# key and the local Django SECRET_KEY. Test-mode, but rotate with the rest.
+# ---------------------------------------------------------------------------
+83ba26bac5a59129ea3a07fd63bd7cefff8be242:kaleem/.envs/.local/.django:generic-api-key:19
+83ba26bac5a59129ea3a07fd63bd7cefff8be242:kaleem/.envs/.local/.django:stripe-access-token:18
+
+# ---------------------------------------------------------------------------
+# 3bfb0705 (2026-09-03) — `portal-snapshot.md`, a stray Playwright accessibility dump
+# committed to the meta repo root during the billing click-through. It carried a
+# Stripe TEST-mode billing-portal session secret (short-lived, long expired). The file
+# is deleted as of ADR-0030; these lines cover the commit that still holds it.
+# ---------------------------------------------------------------------------
+3bfb070559fa59e30f9e7ce8a3c8e3eb2944b99f:portal-snapshot.md:generic-api-key:57
+3bfb070559fa59e30f9e7ce8a3c8e3eb2944b99f:portal-snapshot.md:generic-api-key:59
+3bfb070559fa59e30f9e7ce8a3c8e3eb2944b99f:portal-snapshot.md:generic-api-key:73
+3bfb070559fa59e30f9e7ce8a3c8e3eb2944b99f:portal-snapshot.md:generic-api-key:82

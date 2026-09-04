@@ -278,6 +278,57 @@ jobs:
             /tmp/preview.log
           retention-days: 7
 
+  # ADR-0030. The Definition of Done has asked for a security pass since 2026-06-17
+  # and nothing ever ran one: `pip-audit`, `semgrep`, `trivy` and `gitleaks`-as-CI were
+  # all absent, so the gate was satisfied by a human saying "reviewed manually" at
+  # handoff. The first execution of this job found live credentials in this repo's
+  # history (see `.gitleaksignore`) and a stray Stripe portal secret in a committed
+  # Playwright dump. Same shape as the coverage and e2e gates before ADR-0026/0027.
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          token: ${{ secrets.SUBMODULE_TOKEN }}
+          # gitleaks git-mode scans commits; the default shallow checkout would give
+          # it exactly one to look at.
+          fetch-depth: 0
+
+      # Known historical findings are allowlisted by fingerprint in `.gitleaksignore`,
+      # one annotated line each, so a NEW secret in a NEW commit still fails here.
+      # The image is pinned: an unpinned scanner changes what "green" means without a
+      # commit.
+      - name: Gitleaks — meta repo history
+        run: |
+          docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:v8.30.1 \
+            git /repo --redact --no-banner --exit-code 1
+
+      # Directory mode covers the submodule working trees — the code the deploy is
+      # actually built from — which the history scan above cannot see. Submodule
+      # *histories* are covered only by their own pre-commit hooks (ADR-0030, known gap).
+      - name: Gitleaks — checked-out tree, submodules included
+        run: |
+          docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:v8.30.1 \
+            dir /repo --redact --no-banner --exit-code 1
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      # Production dependencies only, installed into their own venv so pip-audit's own
+      # dependency tree is not part of what is audited. A CVE in `pytest` cannot reach
+      # a user, and a gate that goes red for something harmless is a gate people learn
+      # to click past.
+      - name: Install the production dependency set
+        working-directory: backend
+        run: |
+          python -m venv /tmp/prodenv
+          /tmp/prodenv/bin/pip install --quiet -r requirements/production.txt
+          pip install --quiet pip-audit
+      - name: pip-audit
+        run: pip-audit --progress-spinner off --path /tmp/prodenv/lib/python3.13/site-packages
+
   marketing-build:
     runs-on: ubuntu-latest
     defaults:
@@ -307,7 +358,15 @@ jobs:
 
   deploy-staging:
     needs:
-      [backend-lint, backend-test, dashboard-lint, dashboard-build, e2e, marketing-build]
+      [
+        backend-lint,
+        backend-test,
+        dashboard-lint,
+        dashboard-build,
+        e2e,
+        marketing-build,
+        security,
+      ]
     if: github.ref == 'refs/heads/master' && github.event_name == 'push'
     runs-on: ubuntu-latest
     steps:
