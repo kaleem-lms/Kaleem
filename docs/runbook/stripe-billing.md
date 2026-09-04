@@ -172,8 +172,13 @@ hangs or passes while testing nothing.
    alternatives (cancel, or leave it `past_due`) make `unpaid` unreachable — and
    `unpaid` is the only status that revokes entitlement. The harness names this
    setting in its timeout message, so the failure diagnoses itself.
-2. **A recurring monthly Price in test mode**, its id stored as the
-   `STRIPE_CLOCK_PRICE_ID` repo secret, with `STRIPE_TEST_SECRET_KEY` alongside it.
+2. **The `STRIPE_SECRET_KEY` repo secret**, holding the `sk_test_…` test-mode key. The
+   workflow maps it to `DJANGO_STRIPE_SECRET_KEY`. The harness refuses to run against a
+   non-test key (it checks the `sk_test_` prefix), so a live key here fails fast rather
+   than touching real customers. The recurring monthly **Price** the harness bills is not
+   a secret — it is the committed default in `backend/tests/stripe_clock/conftest.py`.
+   Do **not** wire `STRIPE_CLOCK_PRICE_ID` in the workflow: an unset GitHub secret
+   resolves to the empty string, which overrides that default and breaks every run.
 3. **`DJANGO_STRIPE_API_VERSION` must be set to the Stripe account's current default**
    for the harness run (`2025-06-30.basil` as of 2026-09-04), not to the production pin.
    `stripe listen` renders forwarded events at the account default and offers no way to
