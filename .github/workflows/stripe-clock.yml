@@ -59,9 +59,11 @@ jobs:
       # the harness's version assertion fails permanently, not just on real drift. If
       # Stripe moves the account default, update this value (see docs/runbook/stripe-billing.md).
       DJANGO_STRIPE_API_VERSION: "2025-06-30.basil"
-      # Optional: conftest.py has a working default price id. Set from a secret only
-      # to keep the account's price id out of the repo.
-      STRIPE_CLOCK_PRICE_ID: ${{ secrets.STRIPE_CLOCK_PRICE_ID }}
+      # STRIPE_CLOCK_PRICE_ID is deliberately NOT set here. tests/stripe_clock/conftest.py
+      # already has a working default price id, and setting this env var — even wiring
+      # it to an optional secret — would override that default. An unset secret resolves
+      # to an empty string, not "absent", so os.environ.get(..., default) would return ""
+      # instead of the default and the credential guard would fail every run.
     steps:
       - uses: actions/checkout@v4
         with:
