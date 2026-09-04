@@ -2,7 +2,7 @@
 current_phase: "B — Billing. B1 + B2 built, merged, live on staging, both specs CLOSED 2026-09-04, and the `past_due` → `unpaid` dunning gate is now CLOSED too — a real Stripe renewal failure drives it end to end via the nightly test-clock harness. Phase B is closed."
 active_spec: "None."
 active_branch: "None. TRUNK-BASED as of 2026-09-04 (ADR-0028) — `master` is the only long-lived branch; `develop` is deleted. Branch feat/… off master, PR into master."
-last_green_ci: "meta #141 → master, 2026-09-04 (run 33818840835) — all 7 jobs green, deploy-staging success. Staging is current with master. (#140 before it: e2e 2m40s, 20 specs.)"
+last_green_ci: "meta #146 → master, 2026-09-04 (CI run 33839684695, all green, deploy-staging success). Separately, the `Stripe test clock` nightly is green on master (run 33839689278: 5 passed, 4m01s) — its FIRST run failed on a wrong secret name and #146 fixed it. Staging is current with master."
 ---
 
 # kaleem Project State
@@ -41,24 +41,26 @@ Phase A (identity) is closed via ADR-0024, with one residual human check outstan
 
 ## Recently verified (2026-09-03 / 04)
 
-- **e2e extended past identity, 6 flows → 20** (spec `2026-09-04-e2e-beyond-identity`,
-  backend #38 + dashboard #32 + meta #140). Every new flow is a *write*, so the suite now
-  exercises CSRF on a mutation across the ADR-0019 subdomain boundary — the original six
-  were reads plus one login. Two defects found and logged rather than fixed (D10): the
-  mobile drawer does not restore focus on close, and two "Add child" buttons share an
-  accessible name.
-- **Both billing specs closed** (meta #141). B1 was `draft` for eight weeks while its
-  contents shipped and were amended; closing it surfaced that it stated `past_due ⇒ not
-  entitled` in four places, which B2's R8 had reversed. Struck through, not deleted.
-- **Billing verified end to end on staging** — subscribe → checkout → portal → cancel, twice
-  (before and after the renewal-date fix); kaleem and Stripe agreed exactly each time.
-  Declined card writes nothing; eligibility 403 enforced; webhook endpoint rotated to a
-  pinned `2026-08-26.dahlia` with `DJANGO_STRIPE_API_VERSION` set explicitly. Detail in
-  `journal/2026-W36.md`.
-- **Trunk-based flow adopted** (ADR-0028): `develop` deleted after a final promotion, every
-  repo now `feat/… → PR → trunk`. Closed two `ISSUES.md` entries that each said "needs an
-  ADR". **API versioning is now enforced in CI** (ADR-0029, backend #37) — a test walks the
-  resolved URLconf and fails on any route outside `/api/v<n>/` or a closed allowlist.
+- **The `past_due` → `unpaid` dunning path is exercised nightly against real Stripe**
+  (backend #39, meta #145 + #146). Verified three ways: locally twice (5 passed, 2m49s and
+  4m19s), in CI on master (5 passed, 4m01s), and **mutation-checked** — breaking
+  `_apply_invoice_payment_failed` to write `ACTIVE` turns the harness red. It found three
+  real defects: the Stripe account was set to *cancel* rather than *mark unpaid* (so
+  `unpaid` was unreachable in production too, leaving that branch of `_is_paid_through` and
+  the `unique_live_subscription_per_user` unpaid clause dead); the probe tests leaked a
+  Stripe customer per run; and a workflow env var that would have made the nightly
+  permanently red. Two limitations are recorded rather than hidden — it runs at the
+  account's `basil` default not production's `dahlia` pin (`ISSUES.md`, *Blocks launch*),
+  and it seeds the local `Subscription` row so `_apply_checkout_completed` is not exercised.
+
+- **e2e extended past identity, 6 flows → 20** (meta #140); every new flow is a *write*, so
+  CSRF on mutations across the ADR-0019 boundary is now covered. Two defects logged, not
+  fixed (D10). **Both billing specs closed** (meta #141). Detail in `journal/2026-W36.md`.
+- **Billing verified end to end on staging** — subscribe → checkout → portal → cancel, twice;
+  kaleem and Stripe agreed exactly. Webhook endpoint pinned to `2026-08-26.dahlia` with
+  `DJANGO_STRIPE_API_VERSION` set explicitly — keep it that way in every new environment.
+- **Trunk-based flow adopted** (ADR-0028) and **API versioning enforced in CI** (ADR-0029,
+  backend #37) — a test walks the resolved URLconf and fails on any unversioned route.
 - Throwaway staging accounts, all password `KaleemStaging!2026`: `billing.clickthrough@`
   (id 7), `billing.recheck@` (id 8), `billing.failcard@` (id 9), plus the two older `*.smoke@`
   users. Clear them all on the next staging DB reset.

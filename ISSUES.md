@@ -130,6 +130,26 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
 
 ## Someday
 
+### Stripe dunning harness (nightly, `stripe-clock.yml`)
+
+Surfaced by the final review of the harness on 2026-09-04. None affects what the harness
+proves; all are robustness of an unattended job.
+
+- **`process.stdout.readline()` in the CLI readiness scan blocks unboundedly.** The deadline
+  is only checked between lines, so a `stripe listen` that emits nothing hangs until the
+  30-minute job cap — losing the named 60s diagnostic *and* skipping the `finally`, which
+  leaks the test clock. A reader thread or non-blocking pipe would fix it.
+- **No stale-clock sweep.** Any hard kill (the above, or the job timeout) skips both
+  `finally` blocks and leaks a clock plus its customer with no signal. A "delete clocks named
+  `kaleem-dunning-harness`" step at job start would make the leak self-healing.
+- **The delivery probe asserts only `StripeEventLog.count() > before`.** `stripe listen`
+  forwards *all* account events and the account is shared with staging, so a concurrent
+  staging event could satisfy it. Delivery and signature verification are still genuinely
+  proven; the assertion is just looser than it reads.
+- **The Stripe API key is passed on argv** (`stripe listen --api-key …`), so it is visible in
+  the runner's process table. `STRIPE_API_KEY` in the environment would be tighter. Log
+  exposure is already covered — GitHub masks the secret.
+
 ### Backend
 
 - Email security alerts dispatch via `send_email_message.delay(...)` *inside*
