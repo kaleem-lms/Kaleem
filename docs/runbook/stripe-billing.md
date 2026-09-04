@@ -161,6 +161,31 @@ silence.
 - A repeating problem shows as one row with a rising `occurrences` count. Once
   resolved, the next occurrence opens a fresh row.
 
+## Required settings for the dunning harness
+
+Two account-level settings the nightly `stripe-clock` workflow depends on and
+cannot create for itself. An environment missing either produces a harness that
+hangs or passes while testing nothing.
+
+1. **Settings → Subscriptions → "manage failed payments" must be set to
+   *mark the subscription as unpaid*** after retries are exhausted. The
+   alternatives (cancel, or leave it `past_due`) make `unpaid` unreachable — and
+   `unpaid` is the only status that revokes entitlement. The harness names this
+   setting in its timeout message, so the failure diagnoses itself.
+2. **A recurring monthly Price in test mode**, its id stored as the
+   `STRIPE_CLOCK_PRICE_ID` repo secret, with `STRIPE_TEST_SECRET_KEY` alongside it.
+3. **`DJANGO_STRIPE_API_VERSION` must be set to the Stripe account's current default**
+   for the harness run (`2025-06-30.basil` as of 2026-09-04), not to the production pin.
+   `stripe listen` renders forwarded events at the account default and offers no way to
+   forward at a specific version, so the harness has to meet Stripe where it renders.
+   The harness asserts this equality, so if Stripe moves the account default the nightly
+   goes red with the observed and expected versions named — which is the intended signal,
+   not a flake. When that happens, update this value and check the parsers still handle
+   the new shape.
+
+The harness shares the staging Stripe test account. Its objects are bound to a
+test clock and deleted on teardown, so they cannot be confused with staging data.
+
 ## 4. Local development
 
 Use the Stripe CLI to forward events to your local backend:

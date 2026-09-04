@@ -59,12 +59,24 @@ See `STATE.md` for the current phase and active spec. At the time of this file's
    | `scheduling` — availability | ✅ 3 flows | add/remove a range with a reload, end-before-start refused |
    | app shell | ✅ 5 flows | role-aware nav both ways, `aria-current`, mobile drawer, Escape |
    | scaffold routes | ❌ by design | placeholder pages with no behaviour beyond a heading |
-   | `billing` | ❌ by design | the hosted Stripe redirect cannot run in Playwright (`ISSUES.md`) |
+   | `billing` | ❌ by design | the hosted Stripe redirect cannot run in Playwright (`ISSUES.md`); the `past_due` → `unpaid` dunning path is covered instead by a separate nightly Stripe test-clock harness (below), not Playwright |
    | anything needing an inbox | ❌ | registration, password reset, child activation — CI has no mail-catcher (`ISSUES.md`) |
    | change-password | ❌ | would rotate the shared seed password mid-suite; needs its own account |
 
    Adding a user-facing feature? Add its e2e spec. Say precisely what is and isn't covered
    rather than claiming coverage the harness does not have.
+
+   **Nightly Stripe test-clock harness (not Playwright, not in the merge path).** The
+   `past_due` → `unpaid` renewal path is exercised nightly against real Stripe test-mode
+   objects (`.github/workflows/stripe-clock.yml`, spec
+   `docs/superpowers/specs/2026-09-04-stripe-test-clock-harness-design.md`). It runs on a
+   `schedule` plus `workflow_dispatch`, deliberately outside `deploy-staging`'s `needs:` —
+   test clocks are account-scoped, forked PRs cannot read secrets, and a Stripe outage must
+   not block every merge. A red run is a real failure, not noise. It does **not** prove two
+   things: it forwards events at the Stripe account's default API version (`basil`), not
+   production's pinned version (`dahlia`), so it does not prove production's exact payload
+   shape (`ISSUES.md`); and it seeds the local `Subscription` row directly rather than
+   driving kaleem's own checkout, so `_apply_checkout_completed` is not exercised by it.
 4. **D4 Module boundary enforcement** via `import-linter` in CI. Violations fail.
 5. **D5 Green CI before merge.** No `--no-verify`, no exceptions.
 6. **D6 One feature branch at a time.** No WIP sprawl.

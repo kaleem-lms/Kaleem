@@ -1,6 +1,6 @@
 ---
-current_phase: "B — Billing. B1 + B2 built, merged, live on staging, and both specs CLOSED 2026-09-04. The phase itself is not closed: the `past_due` renewal path still needs a Stripe test-clock harness."
-active_spec: "docs/superpowers/specs/2026-09-04-stripe-test-clock-harness-design.md — the `past_due` → `unpaid` Stripe test-clock harness, the sole gate on closing Phase B. Written 2026-09-04, `draft` until the implementation plan lands."
+current_phase: "B — Billing. B1 + B2 built, merged, live on staging, both specs CLOSED 2026-09-04, and the `past_due` → `unpaid` dunning gate is now CLOSED too — a real Stripe renewal failure drives it end to end via the nightly test-clock harness. Phase B is closed."
+active_spec: "None."
 active_branch: "None. TRUNK-BASED as of 2026-09-04 (ADR-0028) — `master` is the only long-lived branch; `develop` is deleted. Branch feat/… off master, PR into master."
 last_green_ci: "meta #141 → master, 2026-09-04 (run 33818840835) — all 7 jobs green, deploy-staging success. Staging is current with master. (#140 before it: e2e 2m40s, 20 specs.)"
 ---
@@ -16,27 +16,22 @@ last_green_ci: "meta #141 → master, 2026-09-04 (run 33818840835) — all 7 job
 
 ## Where we are
 
-**Phase B (billing) is on staging, works, and both its specs are closed.** What is *not*
-closed is the phase: `past_due` has never been reached via a real Stripe renewal, and
-`unpaid` — the status that actually revokes entitlement — is only reachable through it.
+**Phase B (billing) is closed.** Both specs closed 2026-09-04, and the last gate — the
+`past_due` → `unpaid` renewal path — is now exercised nightly against real Stripe via test
+clocks (`docs/superpowers/specs/2026-09-04-stripe-test-clock-harness-design.md`). It is not
+in the merge path by design; a residual gap is tracked in `ISSUES.md` (the harness runs
+against the account's `basil` default, not production's `dahlia` pin).
 
 Phase A (identity) is closed via ADR-0024, with one residual human check outstanding.
 
 ## ▶ Next actions, in order
 
-1. **`past_due` via Stripe test clocks** — the only thing between here and a Phase B close.
-   **Spec written 2026-09-04** (`2026-09-04-stripe-test-clock-harness-design.md`); the
-   implementation plan is the next step (D2). Four decisions are settled in it: runs **in
-   CI**, **nightly + `workflow_dispatch`, non-gating**, drives the cycle **all the way to
-   `unpaid`**, and sets up **via the Stripe API** rather than the un-automatable hosted
-   checkout. Two pieces of Stripe config are prerequisites — dunning set to "mark
-   subscription unpaid", and `STRIPE_SECRET_KEY` as a repo secret.
-2. **Wire `pip-audit` + `gitleaks` into CI, and Lighthouse against staging** — the oldest
+1. **Wire `pip-audit` + `gitleaks` into CI, and Lighthouse against staging** — the oldest
    un-run gate in the project and the top `blocks launch` entry. Same shape as the coverage
    and e2e gates before ADR-0026/0027: documented, never executed.
-3. **Drawer focus restore** (`ISSUES.md`) — small, self-contained WCAG 2.4.3 fix; a good
+2. **Drawer focus restore** (`ISSUES.md`) — small, self-contained WCAG 2.4.3 fix; a good
    slice if the appetite is for shipping rather than specs.
-4. Then: Phase B's next slice, or the Phase A residual identity click-through.
+3. Then: the next phase's spec, or the Phase A residual identity click-through.
 
 ## In flight
 
