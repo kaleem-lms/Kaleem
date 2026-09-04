@@ -57,7 +57,7 @@ See `STATE.md` for the current phase and active spec. At the time of this file's
    | `identity` — account/email | ✅ 3 flows | add/remove an alias, wrong-password refusal, role-conditional panels |
    | `identity` — family | ✅ 3 flows | add a child, invite code, the non-parent empty state |
    | `scheduling` — availability | ✅ 3 flows | add/remove a range with a reload, end-before-start refused |
-   | app shell | ✅ 5 flows | role-aware nav both ways, `aria-current`, mobile drawer, Escape |
+   | app shell | ✅ 5 flows | role-aware nav both ways, `aria-current`, mobile drawer, Escape + focus restore |
    | scaffold routes | ❌ by design | placeholder pages with no behaviour beyond a heading |
    | `billing` | ❌ by design | the hosted Stripe redirect cannot run in Playwright (`ISSUES.md`); the `past_due` → `unpaid` dunning path is covered instead by a separate nightly Stripe test-clock harness (below), not Playwright |
    | anything needing an inbox | ❌ | registration, password reset, child activation — CI has no mail-catcher (`ISSUES.md`) |
