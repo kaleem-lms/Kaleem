@@ -117,6 +117,11 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
     `#2A3A34`→`#5E766C` (field-boundary affordance was ~1.4:1, WCAG 1.4.11 wants 3:1 —
     `--border` card hairlines are exempt); dark `--success-foreground` `#07302A`→`#052621`
     (label was exactly on the 4.5:1 line).
+- **`TeacherProfile.availability` is a dead JSONField that duplicates
+  `scheduling.WeeklyAvailability`** and violates rule #3 (no role-specific data as JSON blobs
+  on a profile). Nothing reads it — availability has lived in `scheduling` since that module
+  shipped. Delete it with a migration; check first that no admin screen or fixture writes it.
+  (Spotted 2026-09-04 while specing Phase C0; not fixed in passing, D10.)
 - **Dashboard zod validation messages are not i18n'd** — they render English regardless of
   locale (`registerSchema`'s birthdate refine, plus zod's defaults on every form). zod runs
   outside React so `t()` cannot be called in the schema. Breaks ar parity for validation copy
