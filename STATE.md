@@ -1,6 +1,6 @@
 ---
-current_phase: "C — Scheduling, just opened. Phase B (billing) is CLOSED as of 2026-09-04, dunning gate included. Phase C is decomposed into four specs — C0 matching inputs, C1 matching, C2 booking + quota, C3 video adapter — because matching, booking and video are three subsystems and the dependency order between them is strict. Note the roadmap calls scheduling 'B2'; that label is already taken by a closed billing spec, so scheduling is Phase C here."
-active_spec: "docs/superpowers/specs/2026-09-04-phase-c0-matching-inputs-design.md — DRAFT, awaiting review. No plan, no code yet."
+current_phase: "C — Scheduling. C0 (matching inputs) is SHIPPED 2026-09-05. Phase B (billing) is CLOSED as of 2026-09-04, dunning gate included. Phase C is decomposed into four specs — C0 matching inputs, C1 matching, C2 booking + quota, C3 video adapter — because matching, booking and video are three subsystems and the dependency order between them is strict. Note the roadmap calls scheduling 'B2'; that label is already taken by a closed billing spec, so scheduling is Phase C here."
+active_spec: "None. C0 closed; C1 (matching) is next and has no spec yet."
 active_branch: "None. TRUNK-BASED as of 2026-09-04 (ADR-0028) — `master` is the only long-lived branch; `develop` is deleted. Branch feat/… off master, PR into master."
 last_green_ci: "meta #146 → master, 2026-09-04 (CI run 33839684695, all green, deploy-staging success). Separately, the `Stripe test clock` nightly is green on master (run 33839689278: 5 passed, 4m01s) — its FIRST run failed on a wrong secret name and #146 fixed it. Staging is current with master."
 ---
@@ -31,9 +31,9 @@ Phase A (identity) is closed via ADR-0024, with one residual human check outstan
    and Flower passwords, all committed by the old MVP in `588a1e35` (2026-04-12) and still
    in history on GitHub. This is the only item here that is an active exposure. Details and
    the rotation list are the top entry in `ISSUES.md`.
-2. **Review the C0 spec**, then plan (D2) and build it. C0 exists because Phase C's matcher
-   has no inputs: teachers have no gender though students state a preference, and there is
-   no subject anywhere in the schema.
+2. **Spec Phase C1 — matching** (D1). Its inputs now exist: `TeacherProfile.gender`,
+   `Subject`, and the teacher/student links. C1 needs a `scheduling → curriculum`
+   dependency the roadmap does not list, which needs its own ADR (noted in ADR-0031).
 3. Optional small slices, all in `ISSUES.md`: e2e for change-password (needs its own
    throwaway account), `WebhookEvent.stripe_customer_id` (wire it or delete it), the
    `display_amount` validation the B1 spec claims and the code does not have.
@@ -45,6 +45,14 @@ Phase A (identity) is closed via ADR-0024, with one residual human check outstan
   coverage and e2e gates are all that stand between a PR and staging.
 
 ## Recently verified (2026-09-03 / 04)
+
+- **Phase C0 shipped** (backend #41, dashboard #34, ADR-0031). A new `curriculum` module
+  owns `Subject` plus the teacher/student links; `TeacherProfile.gender` closes a gap open
+  since Phase A, where students could state a `teacher_gender_preference` that no teacher
+  could satisfy. Backend 534 passed at 97.39% with `curriculum` at 100%; dashboard 391
+  passed; e2e 20 → 24. Both new import-linter contracts were written before any code and
+  the boundary one was verified by breaking it. Two plan defects were found by executing
+  it — see the journal.
 
 - **Two `ISSUES.md` gates closed, each verified by breaking it first** (backend #40,
   marketing #5). `scheduling` now forbids direct `kaleem.identity.models` imports — the

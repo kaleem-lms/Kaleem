@@ -95,9 +95,15 @@ from kaleem.curriculum.models import Subject
 pytestmark = pytest.mark.django_db
 
 
+# CORRECTED DURING EXECUTION: these used slug "quran", which Task 2 then seeds,
+# so they collided with the seed the moment that migration landed. Use a slug the
+# seed does not create.
+FIQH = "fiqh"
+
+
 def test_subject_str_is_its_name():
-    subject = Subject.objects.create(slug="quran", name="Quran")
-    assert str(subject) == "Quran"
+    subject = Subject.objects.create(slug=FIQH, name="Fiqh")
+    assert str(subject) == "Fiqh"
 
 
 def test_subject_slug_is_unique():
@@ -1087,7 +1093,18 @@ In `seed_e2e.py`, inside the transaction after the teacher account is created:
 
 Import `from kaleem.curriculum.models import TeacherSubject` at the top.
 
-**Boundary note:** this is `identity` importing a `curriculum` model, which the new contract forbids. Do **not** do it that way. Call the service instead:
+**CORRECTED DURING EXECUTION — this whole task is impossible as written.** The note below
+said to call `curriculum.services` instead of importing its models. That is *also* forbidden:
+the `identity imports no other business modules` contract bars importing `kaleem.curriculum`
+at all, not merely its models. There is no boundary-legal way for identity's seed command to
+touch curriculum's tables.
+
+**What was done instead:** determinism moved into the e2e specs (Task 10). Each spec clears
+the set, sets exactly what it wants, and asserts the *exact* resulting state, which is
+deterministic regardless of what a previous run left behind. Verified by running the suite
+twice, the second time against a database the first run left dirty.
+
+The superseded text follows, kept so the reasoning is visible:
 
 ```python
         curriculum_services.set_teacher_subjects(teacher.id, [])

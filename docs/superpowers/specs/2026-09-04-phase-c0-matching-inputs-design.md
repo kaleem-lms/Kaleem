@@ -2,9 +2,9 @@
 name: phase-c0-matching-inputs
 phase: C
 modules: [identity, curriculum]
-status: draft
+status: shipped
 created: 2026-09-04
-closed: null
+closed: 2026-09-05
 ---
 
 ## Goal
