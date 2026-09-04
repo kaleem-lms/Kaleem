@@ -1,6 +1,6 @@
 ---
 current_phase: "B — Billing. B1 + B2 built, merged, live on staging, and both specs CLOSED 2026-09-04. The phase itself is not closed: the `past_due` renewal path still needs a Stripe test-clock harness."
-active_spec: "None. Pick the next slice. The open Phase-B gate is the `past_due` test-clock harness (`ISSUES.md`, blocks a phase close); it has no spec yet."
+active_spec: "docs/superpowers/specs/2026-09-04-stripe-test-clock-harness-design.md — the `past_due` → `unpaid` Stripe test-clock harness, the sole gate on closing Phase B. Written 2026-09-04, `draft` until the implementation plan lands."
 active_branch: "None. TRUNK-BASED as of 2026-09-04 (ADR-0028) — `master` is the only long-lived branch; `develop` is deleted. Branch feat/… off master, PR into master."
 last_green_ci: "meta #141 → master, 2026-09-04 (run 33818840835) — all 7 jobs green, deploy-staging success. Staging is current with master. (#140 before it: e2e 2m40s, 20 specs.)"
 ---
@@ -24,13 +24,13 @@ Phase A (identity) is closed via ADR-0024, with one residual human check outstan
 
 ## ▶ Next actions, in order
 
-1. **`past_due` via Stripe test clocks** — the only thing between here and a Phase B
-   close. Never exercised, and the transition that actually removes entitlement
-   (`past_due` keeps access; `unpaid` stops it). Cannot be clicked. **Needs a spec first
-   (D1), and the spec needs one decision from the human: does the harness run in CI, or
-   stay a manual runbook procedure?** It touches live Stripe test-mode config either way.
-   `ISSUES.md` scopes the gap precisely — the state machine *is* covered at the provider
-   seam; what is untested is the wiring from real Stripe to those handlers.
+1. **`past_due` via Stripe test clocks** — the only thing between here and a Phase B close.
+   **Spec written 2026-09-04** (`2026-09-04-stripe-test-clock-harness-design.md`); the
+   implementation plan is the next step (D2). Four decisions are settled in it: runs **in
+   CI**, **nightly + `workflow_dispatch`, non-gating**, drives the cycle **all the way to
+   `unpaid`**, and sets up **via the Stripe API** rather than the un-automatable hosted
+   checkout. Two pieces of Stripe config are prerequisites — dunning set to "mark
+   subscription unpaid", and `STRIPE_SECRET_KEY` as a repo secret.
 2. **Wire `pip-audit` + `gitleaks` into CI, and Lighthouse against staging** — the oldest
    un-run gate in the project and the top `blocks launch` entry. Same shape as the coverage
    and e2e gates before ADR-0026/0027: documented, never executed.
