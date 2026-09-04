@@ -99,6 +99,14 @@ which is the half of the seam a fixture payload can never test.
 `@pytest.mark.stripe_clock`, with `-m "not stripe_clock"` added to `addopts` in
 `pyproject.toml`. Consequences, all intended:
 
+> **Corrected during implementation (2026-09-04).** This spec originally placed the
+> harness in `kaleem/billing/tests/`. That package's `conftest.py` has an
+> `autouse=True` fixture swapping in `FakePaymentProvider`, so a harness placed
+> there would have run against the fake and passed while touching no Stripe at all
+> — the exact failure this slice exists to prevent. It lives in the top-level
+> `backend/tests/stripe_clock/` instead, which is also already outside coverage
+> measurement (`include = ["kaleem/**"]`).
+
 - The normal `backend-test` job is unchanged and unslowed.
 - These tests **cannot move the coverage ratchet** (ADR-0026) in either direction — they
   are not in the measured run. A network-dependent test flattering the floor would corrupt
@@ -129,6 +137,15 @@ Step 6 matters more than it looks. `ISSUES.md` carries five throwaway staging ac
 awaiting a manual DB reset; a nightly job would add 365 subscriptions a year. Deleting the
 clock is the cleanup, and it runs in a `finally`.
 
+**What this harness does not exercise.** Step 1 seeds the local `Subscription` row directly
+rather than driving it through kaleem's own checkout — because kaleem only ever creates that
+row from a `checkout.session.completed` webhook, and the hosted Checkout page is exactly
+what cannot be automated (decision 4, above). The cost: `_apply_checkout_completed` is not
+exercised by this harness. It is covered elsewhere — unit tests, and the manual staging
+checkout of 2026-09-03 — but not here. A harness that quietly proves less than it claims is
+this project's recurring failure mode, so this is stated plainly rather than left implicit:
+this harness proves the *renewal* wiring, not row creation.
+
 ## Required Stripe configuration
 
 Two settings that the harness depends on and cannot itself create. Both belong in
@@ -148,9 +165,13 @@ a second set of Prices to keep in lockstep.
 
 ## The API-version assertion
 
-`stripe listen` forwards events at the **account default** API version, which is *not*
-necessarily our pinned `DJANGO_STRIPE_API_VERSION`. Rather than paper over that, the harness
-asserts the forwarded payload's version equals the pin.
+`stripe listen` forwards events at the **account default** API version and offers no way to
+forward at an arbitrary pin — only the account default or `--latest`. So the harness cannot
+assert the forwarded payload matches our production pin (`DJANGO_STRIPE_API_VERSION`); that
+mechanism does not exist. What it does instead: it reads `api_version` off a real
+`stripe.Event` and asserts it equals the account default the harness is configured to expect
+(`DJANGO_STRIPE_API_VERSION` set to that same value for the harness run — see the runbook),
+guarding **that** value against silent movement.
 
 This is deliberately a feature, not a check on the harness. `ISSUES.md` records watching the
 SDK's default move from `2026-07-29.dahlia` to `2026-08-26.dahlia` **between two deploys on
@@ -159,6 +180,15 @@ shapes we parse — `_subscription_period_end`, `_invoice_subscription_id` — a
 basil-vs-legacy fallbacks written because of exactly this. An account-default upgrade would
 otherwise reshape our inbound payloads silently, and this assertion turns it into a red
 nightly with a name attached.
+
+**Residual gap, corrected during implementation (2026-09-04):** the account default
+(`2025-06-30.basil`, verified off three live events) and the production webhook pin
+(`2026-08-26.dahlia`) are not the same version. Both shapes parse today because of the
+fallbacks above, but this means the harness proves the dunning state machine against an
+*older* payload shape than production actually receives — it does not prove the shape
+production meets. See the `ISSUES.md` entry ("nightly dunning harness exercises
+`basil`-shaped webhook payloads, but production receives `dahlia`-shaped ones") for the full
+scope of what remains open.
 
 ## Out of scope
 

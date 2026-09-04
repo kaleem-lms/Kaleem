@@ -69,23 +69,19 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
   needing a real inbox — registration, password reset, child activation — because CI has no
   mail-catcher wired in. That is its own slice (a mailpit service plus a way to read the
   link). Note this is *not* the same as the billing exclusion below, which is permanent.
-- **The `past_due` / dunning path has never been exercised end to end.** A *declined card at
-  checkout* is verified (2026-09-03: `4000 0000 0000 0341` → 0 subscriptions, not entitled,
-  no incidents — correct). But `past_due` arises from a **renewal** failing on an already
-  active subscription, which cannot be reached by clicking: it needs Stripe **test clocks**
-  to advance the billing cycle. Since `past_due` keeps full access by design (OQ-B2-1) and
-  `unpaid` is where access stops, the transition nobody has ever observed is the one that
-  actually removes entitlement. Worth a test-clock harness before launch.
-
-  **Scoped precisely 2026-09-04 while closing the billing specs**, because "past_due is
-  untested" overstates it. *Covered by tests at the provider seam:*
-  `invoice.payment_failed → past_due`; `past_due` entitled; `unpaid` not; child inherits
-  `past_due` but not `unpaid`; an `unpaid` row blocks a second checkout. *Covered
-  manually:* a declined card **at checkout**. *Covered by nothing:* that real Stripe's
-  renewal failure emits those events, in the shape we parse, on an already-`active`
-  subscription. So the gap is the wiring between real Stripe and well-covered handlers —
-  narrower than an untested state machine, but still the only path to `unpaid`. **This is
-  now the sole gate on closing Phase B, and it needs a spec (D1).**
+- **The nightly dunning harness exercises `basil`-shaped webhook payloads, but production
+  receives `dahlia`-shaped ones.** `stripe listen` forwards events at the Stripe
+  **account default** API version and cannot be told to forward at an arbitrary pin — it
+  offers only the account default or `--latest`. This account's default is
+  `2025-06-30.basil` (verified 2026-09-04 off three live events), while the production
+  webhook endpoint `we_1UBdRwCavwnriKDQ2ygx6z2V` is pinned to `2026-08-26.dahlia`. Both
+  shapes parse today, because `_subscription_period_end` and `_invoice_subscription_id`
+  carry basil-vs-legacy fallbacks written for exactly this. But it means the harness does
+  **not** prove the payload shape production actually meets: it proves the dunning state
+  machine against the older shape. Closing this means upgrading the Stripe account's
+  default API version to match the pin — a change to shared config that also affects
+  staging billing, so it needs a deliberate decision and its own runbook step, not a
+  drive-by. Until then, the harness's guarantee is narrower than the spec claimed.
 
 - **The `scheduling` import-linter contract does not forbid `kaleem.identity.models`** —
   the same hole billing closed in B2. A direct model import there would pass CI today (D4).
