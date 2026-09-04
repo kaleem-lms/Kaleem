@@ -55,6 +55,22 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
   close" for the full list — promote the package, don't just keep the overrides.
 - **Two throwaway smoke-test users in the staging DB** (`stg.smoke@example.com`,
   `ses.smoke@example.com`). Clear via Django admin or on the next staging DB reset.
+- **The nightly dunning harness exercises `basil`-shaped webhook payloads, but production
+  receives `dahlia`-shaped ones.** `stripe listen` forwards events at the Stripe
+  **account default** API version and cannot be told to forward at an arbitrary pin — it
+  offers only the account default or `--latest`. This account's default is
+  `2025-06-30.basil` (verified 2026-09-04 off three live events), while the production
+  webhook endpoint `we_1UBdRwCavwnriKDQ2ygx6z2V` is pinned to `2026-08-26.dahlia`. Both
+  shapes parse today, because `_subscription_period_end` and `_invoice_subscription_id`
+  carry basil-vs-legacy fallbacks written for exactly this. But it means the harness does
+  **not** prove the payload shape production actually meets: it proves the dunning state
+  machine against the older shape. Closing this means upgrading the Stripe account's
+  default API version to match the pin — a change to shared config that also affects
+  staging billing, so it needs a deliberate decision and its own runbook step, not a
+  drive-by. Phase B's dunning gate is closed regardless — the state machine is genuinely
+  exercised end to end. What remains is narrower: the harness proves that machine against
+  the older payload shape, so a `dahlia`-only regression in the parsers would not be
+  caught here before real users.
 
 ## Blocks a phase close
 
@@ -69,20 +85,6 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
   needing a real inbox — registration, password reset, child activation — because CI has no
   mail-catcher wired in. That is its own slice (a mailpit service plus a way to read the
   link). Note this is *not* the same as the billing exclusion below, which is permanent.
-- **The nightly dunning harness exercises `basil`-shaped webhook payloads, but production
-  receives `dahlia`-shaped ones.** `stripe listen` forwards events at the Stripe
-  **account default** API version and cannot be told to forward at an arbitrary pin — it
-  offers only the account default or `--latest`. This account's default is
-  `2025-06-30.basil` (verified 2026-09-04 off three live events), while the production
-  webhook endpoint `we_1UBdRwCavwnriKDQ2ygx6z2V` is pinned to `2026-08-26.dahlia`. Both
-  shapes parse today, because `_subscription_period_end` and `_invoice_subscription_id`
-  carry basil-vs-legacy fallbacks written for exactly this. But it means the harness does
-  **not** prove the payload shape production actually meets: it proves the dunning state
-  machine against the older shape. Closing this means upgrading the Stripe account's
-  default API version to match the pin — a change to shared config that also affects
-  staging billing, so it needs a deliberate decision and its own runbook step, not a
-  drive-by. Until then, the harness's guarantee is narrower than the spec claimed.
-
 - **The `scheduling` import-linter contract does not forbid `kaleem.identity.models`** —
   the same hole billing closed in B2. A direct model import there would pass CI today (D4).
 - **`WebhookEvent.stripe_customer_id` is parsed but never consumed.** A subscription created
