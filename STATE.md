@@ -31,9 +31,10 @@ Phase A (identity) is closed via ADR-0024, with one residual human check outstan
    and Flower passwords, all committed by the old MVP in `588a1e35` (2026-04-12) and still
    in history on GitHub. This is the only item here that is an active exposure. Details and
    the rotation list are the top entry in `ISSUES.md`.
-2. **Drawer focus restore** (`ISSUES.md`) — small, self-contained WCAG 2.4.3 fix; a good
-   slice if the appetite is for shipping rather than specs.
-3. Then: the next phase's spec, or the Phase A residual identity click-through.
+2. The next phase's spec, or the Phase A residual identity click-through.
+3. Optional small slices, all in `ISSUES.md`: the marketing home page's missing
+   `<meta name="description">`, the `scheduling` import-linter hole, e2e for
+   change-password.
 
 ## In flight
 
@@ -42,6 +43,13 @@ Phase A (identity) is closed via ADR-0024, with one residual human check outstan
   coverage and e2e gates are all that stand between a PR and staging.
 
 ## Recently verified (2026-09-03 / 04)
+
+- **The mobile drawer restores focus to the hamburger** (dashboard #33). `AppShell` names
+  the destination in `onCloseAutoFocus`, because the drawer opens from shell state and
+  Radix has no `Dialog.Trigger` to restore to. `e2e/shell.spec.ts` now *asserts* focus
+  restore where it used to explain in a comment why it couldn't. Mutation-checked in a
+  real browser — reverting the fix turns that assertion red; the full 20-flow suite passes
+  locally against a real stack.
 
 - **Security and performance scanning runs for the first time** (ADR-0030): `gitleaks` and
   `pip-audit` block merges in `ci.yml`'s `security` job; Lighthouse runs nightly against

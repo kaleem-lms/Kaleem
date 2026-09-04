@@ -219,15 +219,6 @@ proves; all are robustness of an unattended job.
   label.
 - `WeeklyAvailabilityEditor` pill React key collides on two identical ranges in one day
   (cosmetic; the backend merges them on save).
-- **App-shell mobile drawer does not restore focus when it closes.** Measured in a real
-  browser on 2026-09-04 while writing `e2e/shell.spec.ts`: after Escape, focus is on
-  `<body>`, so a keyboard user is dropped at the top of the document every time they
-  dismiss the menu (WCAG 2.4.3, and ADR-0020 makes AA a repo-wide baseline). Cause: the
-  drawer is opened from `AppShell` state rather than a `Dialog.Trigger`, so Radix has no
-  trigger to restore to. Fix is either a `Dialog.Trigger` around the topbar's menu button —
-  which reshapes `AppTopbar`'s `onOpenMenu` prop contract — or an `onCloseAutoFocus`
-  handler focusing a ref. The e2e spec documents the gap in a comment rather than asserting
-  it. (Supersedes the older "does not trap Tab" note: the Radix migration fixed the trap.)
 - Two buttons on `/family` share the accessible name **"Add child"** — the disclosure that
   opens the form and the form's submit. A screen-reader user hears the same name for two
   different actions, and the e2e spec has to scope to the form to disambiguate. Rename the
