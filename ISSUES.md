@@ -16,14 +16,26 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
 
 ## Blocks launch
 
-- **No automated security or performance scanning runs anywhere.** `semgrep`, `gitleaks`
-  (as a CLI), `pip-audit`, `trivy` and `lhci` are all absent, so every `/handoff` gate has
-  been satisfied by "review manually" and no OWASP-Top-10 pass, dependency-CVE scan, or
-  Core-Web-Vitals budget has ever actually executed. Same shape as the coverage and e2e
-  gates before ADR-0026/0027: a documented check that does not run. `backend`'s pre-commit
-  does run a gitleaks hook, so committed secrets have *some* cover; nothing else does.
-  Wire at least `pip-audit` + `gitleaks` into CI, and Lighthouse against staging, before
-  real users. (Surfaced 2026-09-04 during handoff.)
+- 🔴 **Live credentials are in this repo's git history and must be ROTATED.** Commit
+  `588a1e35` (2026-04-12) committed the old MVP's `kaleem/.envs/` wholesale:
+  an `sk_live_…` **Stripe secret key**, an **AWS** `AKIA…` access key **and** its secret,
+  the Django `SECRET_KEY`, the Postgres password, and Flower basic-auth credentials.
+  Commit `83ba26ba` (2025-03-20) adds a Stripe **test** key. The files were deleted from
+  the tree long ago; history keeps them, and the repo is on GitHub. Rotate/revoke every
+  one of them (Stripe → roll the live key; AWS → deactivate then delete the access key
+  and audit CloudTrail for use; Postgres/Flower → change on the host). History rewriting
+  is explicitly *not* the fix and would break every recorded SHA — see ADR-0030. Delete
+  the matching lines from `.gitleaksignore` as each is rotated; an empty file is the
+  goal. (Found 2026-09-04 by the first-ever gitleaks run.)
+- **`semgrep`, `trivy` and `pnpm audit` still do not run anywhere.** ADR-0030 wired in
+  `gitleaks` + `pip-audit` (blocking) and Lighthouse (nightly), so the OWASP-Top-10 SAST
+  pass, the container-image CVE scan, and the JS dependency audit are what remains of the
+  original "nothing scans anything" entry. Each needs its own triage budget — a SAST tool
+  adopted with 200 findings gets muted within a week.
+- **Submodule git *histories* are unscanned for secrets.** The `security` job scans the
+  meta history plus the checked-out tree (submodules included); a secret committed and
+  then removed inside `backend`/`dashboard`/`marketing` is caught only by that repo's
+  pre-commit hook, on a machine that has pre-commit installed. (ADR-0030, stated gap.)
 - **Production environment does not exist.** Staging only. Prod hosts (`app.` / `api.` /
   apex + `www`), the `www` redirect, and a prod VPS are all deferred per ADR-0019.
 - **First production deploy must start from an empty DB.** `migrate` orders `identity`
@@ -53,6 +65,10 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
   `@kaleem/tokens` package still ships the failing values.** Anything else consuming the
   package (marketing) inherits them. See the token-promotion entry under "Blocks a phase
   close" for the full list — promote the package, don't just keep the overrides.
+- **The marketing home page has no `<meta name="description">`** — Lighthouse SEO 91 on
+  `staging.kaleem.academy`, and the one failing audit is the one that decides what a
+  search result says about kaleem. Cheap to fix, and it should be fixed before the site
+  is indexed. (Found 2026-09-04 by the first Lighthouse run, ADR-0030.)
 - **Two throwaway smoke-test users in the staging DB** (`stg.smoke@example.com`,
   `ses.smoke@example.com`). Clear via Django admin or on the next staging DB reset.
 - **The nightly dunning harness exercises `basil`-shaped webhook payloads, but production
@@ -129,6 +145,24 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
 - Dunning UX beyond mirroring `past_due` (retry/notice flow) is deferred.
 
 ## Someday
+
+### Lighthouse findings on staging (nightly, `lighthouse.yml`)
+
+Measured 2026-09-04 by the first run (ADR-0030). The floors in `.lighthouserc.json` sit
+just below these, so none of them is red today — each is what stops a category reaching
+100.
+
+- **`app-staging` login page: colour contrast fails** (a11y 96). Same root cause as the
+  `@kaleem/tokens` contrast entry under "Blocks launch" — fix there, not here.
+- **`app-staging`: browser errors logged to the console, and `robots.txt` is invalid**
+  (best-practices 78, SEO 82). The dashboard has no `robots.txt` at all, which for an
+  authenticated app is arguably fine but currently reads as a failure rather than a
+  decision.
+- **Both sites: `deprecations` fails** (best-practices). Neither the source of the
+  deprecated API nor whether it is ours or a dependency's has been checked yet — read
+  the uploaded report.
+- **`app-staging`: missing source maps for large first-party JS.** Deliberate or not, it
+  has never been decided; it also makes Sentry stack traces unreadable.
 
 ### Stripe dunning harness (nightly, `stripe-clock.yml`)
 

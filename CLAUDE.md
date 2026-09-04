@@ -77,6 +77,21 @@ See `STATE.md` for the current phase and active spec. At the time of this file's
    production's pinned version (`dahlia`), so it does not prove production's exact payload
    shape (`ISSUES.md`); and it seeds the local `Subscription` row directly rather than
    driving kaleem's own checkout, so `_apply_checkout_completed` is not exercised by it.
+   **Security and performance scanning: running as of 2026-09-04 (ADR-0030).** Two of
+   the three are merge gates, one is nightly:
+
+   | Scanner | Scope | Where | Blocks merge |
+   | --- | --- | --- | --- |
+   | `gitleaks` v8.30.1 | meta history + the whole checked-out tree (submodules included) | `ci.yml` `security` | ✅ |
+   | `pip-audit` | `backend/requirements/production.txt` only | `ci.yml` `security` | ✅ |
+   | Lighthouse | staging: marketing home + dashboard login page | `lighthouse.yml`, nightly | ❌ by design |
+   | `semgrep` / `trivy` / `pnpm audit` | — | nowhere yet (`ISSUES.md`) | ❌ |
+
+   Known historical leaks are allowlisted **by fingerprint** in `.gitleaksignore`, one
+   annotated line each; never add a line to silence a new finding. Lighthouse thresholds
+   in `.lighthouserc.json` are ratchet floors in the ADR-0026 sense — **lowering one
+   needs an ADR.** Submodule git *histories* are not scanned by CI.
+
 4. **D4 Module boundary enforcement** via `import-linter` in CI. Violations fail.
 5. **D5 Green CI before merge.** No `--no-verify`, no exceptions.
 6. **D6 One feature branch at a time.** No WIP sprawl.
