@@ -65,10 +65,6 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
   `@kaleem/tokens` package still ships the failing values.** Anything else consuming the
   package (marketing) inherits them. See the token-promotion entry under "Blocks a phase
   close" for the full list — promote the package, don't just keep the overrides.
-- **The marketing home page has no `<meta name="description">`** — Lighthouse SEO 91 on
-  `staging.kaleem.academy`, and the one failing audit is the one that decides what a
-  search result says about kaleem. Cheap to fix, and it should be fixed before the site
-  is indexed. (Found 2026-09-04 by the first Lighthouse run, ADR-0030.)
 - **Two throwaway smoke-test users in the staging DB** (`stg.smoke@example.com`,
   `ses.smoke@example.com`). Clear via Django admin or on the next staging DB reset.
 - **The nightly dunning harness exercises `basil`-shaped webhook payloads, but production
@@ -101,8 +97,6 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
   needing a real inbox — registration, password reset, child activation — because CI has no
   mail-catcher wired in. That is its own slice (a mailpit service plus a way to read the
   link). Note this is *not* the same as the billing exclusion below, which is permanent.
-- **The `scheduling` import-linter contract does not forbid `kaleem.identity.models`** —
-  the same hole billing closed in B2. A direct model import there would pass CI today (D4).
 - **`WebhookEvent.stripe_customer_id` is parsed but never consumed.** A subscription created
   directly in the Stripe dashboard (no checkout, no metadata) is invisible to us and its
   events are logged `unknown_subscription` and dropped. B2's nightly reconciler covers the
@@ -152,6 +146,15 @@ Measured 2026-09-04 by the first run (ADR-0030). The floors in `.lighthouserc.js
 just below these, so none of them is red today — each is what stops a category reaching
 100.
 
+- **Marketing SEO should now measure higher than its floor.** The home page's missing
+  `<meta name="description">` is fixed (marketing #5), so the next nightly re-measures
+  SEO on `staging.kaleem.academy`. Raise the `.lighthouserc.json` SEO floor to the new
+  measured value once it has run — a ratchet left below the real number stops ratcheting.
+- **Marketing has no type-check in CI**, so `interface Props` in its Astro components
+  enforces nothing: `astro build` does not type-check and `marketing-build` runs only the
+  build. Measured 2026-09-04 — deleting a required prop built clean. `Layout.astro`'s
+  `description` guard is therefore a runtime throw, which is a workaround for the missing
+  check, not a substitute for it. Add `astro check` to the job and the throw can go.
 - **`app-staging` login page: colour contrast fails** (a11y 96). Same root cause as the
   `@kaleem/tokens` contrast entry under "Blocks launch" — fix there, not here.
 - **`app-staging`: browser errors logged to the console, and `robots.txt` is invalid**

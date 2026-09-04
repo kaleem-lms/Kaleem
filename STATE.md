@@ -31,10 +31,12 @@ Phase A (identity) is closed via ADR-0024, with one residual human check outstan
    and Flower passwords, all committed by the old MVP in `588a1e35` (2026-04-12) and still
    in history on GitHub. This is the only item here that is an active exposure. Details and
    the rotation list are the top entry in `ISSUES.md`.
-2. The next phase's spec, or the Phase A residual identity click-through.
-3. Optional small slices, all in `ISSUES.md`: the marketing home page's missing
-   `<meta name="description">`, the `scheduling` import-linter hole, e2e for
-   change-password.
+2. **Choose the next phase and write its spec** (D1) — this is the decision that unblocks
+   everything else, and it is a scope call, not a code one. Or the Phase A residual
+   identity click-through.
+3. Optional small slices, all in `ISSUES.md`: e2e for change-password (needs its own
+   throwaway account), `WebhookEvent.stripe_customer_id` (wire it or delete it), the
+   `display_amount` validation the B1 spec claims and the code does not have.
 
 ## In flight
 
@@ -43,6 +45,13 @@ Phase A (identity) is closed via ADR-0024, with one residual human check outstan
   coverage and e2e gates are all that stand between a PR and staging.
 
 ## Recently verified (2026-09-03 / 04)
+
+- **Two `ISSUES.md` gates closed, each verified by breaking it first** (backend #40,
+  marketing #5). `scheduling` now forbids direct `kaleem.identity.models` imports — the
+  hole was real, a probe import passed all five contracts before the fix. The marketing
+  home page has a `<meta name="description">`; its `interface Props` turned out to enforce
+  nothing (marketing has no type-check in CI, now logged), so the guard is a runtime throw
+  the build surfaces.
 
 - **The mobile drawer restores focus to the hamburger** (dashboard #33). `AppShell` names
   the destination in `onCloseAutoFocus`, because the drawer opens from shell state and
