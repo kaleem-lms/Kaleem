@@ -74,7 +74,7 @@ conditional on `status` rather than on a nullable `ended_at`.
 **There is no `pending` or `failed` state, and that is deliberate.** The row is written only
 **after** the provider call succeeds, inside the same transaction, so a provider outage leaves
 no room at all rather than a half-created one the next join has to reason about. A failed
-attempt is a log line and a 503, not a row — nothing reads a `failed` room, and a status
+attempt is a log line and a 502, not a row — nothing reads a `failed` room, and a status
 nothing reads is a state to maintain for free.
 
 `on_delete=CASCADE` on `session`: a room has no meaning apart from its lesson, and `Session`
@@ -105,8 +105,9 @@ end_room(room: ProviderRoom) -> None
 than a mock: it mints deterministic room ids and signed, expiring join URLs. That is what lets
 this slice have genuine e2e coverage with no external service in existence.
 
-Provider failures raise `platform.exceptions.ExternalServiceError` and map to a typed 503 —
-never a bare `Exception` stringified into the response body (rule #8).
+Provider failures raise `platform.exceptions.ExternalServiceError`, which `platform.drf` maps
+to **502**, not 503 — kaleem is acting as a gateway to a dependency that failed, and 503 would
+claim kaleem itself is down. Never a bare `Exception` stringified into the body (rule #8).
 
 ## Authorization
 
@@ -117,19 +118,22 @@ A join is granted only when **all** hold:
 
 | Check | Failure |
 | --- | --- |
-| Caller is the session's own assigned student or teacher | 403 `not_a_participant` |
-| Session `status` is `SCHEDULED` | 409 `session_not_scheduled` |
-| Now is within the join window | 403 `too_early` / `too_late`, each with the window bound |
+| Caller is the session's own assigned student or teacher | 403 `PermissionDeniedError` |
+| Session `status` is `SCHEDULED` | 409 `ConflictError` |
+| Now is within the join window | 409 `ConflictError`, message naming the bound |
 
 **The window is 10 minutes before `starts_at` until 15 minutes after the session ends.** Both
 numbers are chosen, not derived: early enough that a punctual teacher can open the room first,
 late enough that a lesson running over is not cut off. They are constants in one place.
 
-`too_early` is a distinct code from `not_a_participant` on purpose — the client renders a
-countdown, and a single opaque 403 would make a legitimate early arrival look like a
-permission failure.
+**The client does not distinguish the two 409s, and must not try.** `kaleem.platform.drf`
+returns `{"detail": message}` with no machine-readable code field, so the only thing a client
+can branch on is the status. That is why **`can_join_at` exists**: the countdown is driven by
+that field, and the button is only enabled once it has passed, so a well-behaved client never
+provokes the window 409 at all. The 409 is a server-side backstop against a stale tab or a
+hand-made request, not a control-flow signal.
 
-**A parent calling `join` gets `not_a_participant`**, the same as any other non-participant.
+**A parent calling `join` gets the same 403 as any other non-participant.**
 Decision 3; it is asserted by a test named for it so a future change has to delete the
 assertion deliberately.
 
@@ -158,7 +162,7 @@ Extends C2's session list rather than adding a route.
 
 - **Join button** on each upcoming session row: disabled with a live countdown until
   `can_join_at`, then enabled.
-- Distinct copy for each failure — outside the window, session cancelled, provider unavailable.
+- Distinct copy per status — 403, 409, and 502 each say something different.
   A generic "something went wrong" on a lesson that is about to start is a support ticket.
 - Teachers and students see the same control; **a parent sees none**, and no empty
   slot where one was.
@@ -182,7 +186,7 @@ dashboard 93 / 89.5 / 86 — and rise if this slice lifts them.
 - Concurrent joins produce **one** room, asserted under a real transaction, not by mocking.
 - Non-participant, **parent**, cancelled session, `too_early`, `too_late` — each its own test
   and its own error code.
-- A provider raising maps to 503 and leaves **no** `active` room behind.
+- A provider raising maps to 502 and leaves **no** room row behind at all.
 - The partial unique index refuses a second active room at the database level.
 - Deleting a user cascades their rooms, and deleting a matched student with sessions still
   succeeds — the C2 regression test extended to the new table.
