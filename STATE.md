@@ -2,7 +2,7 @@
 current_phase: "C — Scheduling. C0 (matching inputs) is SHIPPED 2026-09-05. Phase B (billing) is CLOSED as of 2026-09-04, dunning gate included. Phase C is decomposed into four specs — C0 matching inputs, C1 matching, C2 booking + quota, C3 video adapter — because matching, booking and video are three subsystems and the dependency order between them is strict. Note the roadmap calls scheduling 'B2'; that label is already taken by a closed billing spec, so scheduling is Phase C here."
 active_spec: "None. C0 closed; C1 (matching) is next and has no spec yet."
 active_branch: "None. TRUNK-BASED as of 2026-09-04 (ADR-0028) — `master` is the only long-lived branch; `develop` is deleted. Branch feat/… off master, PR into master."
-last_green_ci: "meta #146 → master, 2026-09-04 (CI run 33839684695, all green, deploy-staging success). Separately, the `Stripe test clock` nightly is green on master (run 33839689278: 5 passed, 4m01s) — its FIRST run failed on a wrong secret name and #146 fixed it. Staging is current with master."
+last_green_ci: "meta #154 → master, 2026-09-05 (all 8 checks green, deploy-staging success). Staging is current with master at 87c90d5. The `Stripe test clock` nightly was last green on 2026-09-04 (run 33839689278: 5 passed, 4m01s)."
 ---
 
 # kaleem Project State
@@ -26,14 +26,12 @@ Phase A (identity) is closed via ADR-0024, with one residual human check outstan
 
 ## ▶ Next actions, in order
 
-1. 🔴 **Rotate the credentials that the first gitleaks run found in git history** — an
-   `sk_live_` Stripe key, an AWS access key + secret, the old Django `SECRET_KEY`, Postgres
-   and Flower passwords, all committed by the old MVP in `588a1e35` (2026-04-12) and still
-   in history on GitHub. This is the only item here that is an active exposure. Details and
-   the rotation list are the top entry in `ISSUES.md`.
-2. **Spec Phase C1 — matching** (D1). Its inputs now exist: `TeacherProfile.gender`,
+1. **Spec Phase C1 — matching** (D1). Its inputs now exist: `TeacherProfile.gender`,
    `Subject`, and the teacher/student links. C1 needs a `scheduling → curriculum`
    dependency the roadmap does not list, which needs its own ADR (noted in ADR-0031).
+2. **Make a teacher on staging via Django admin** and click through the subject and
+   teaching-profile panels. That is the one piece of C0's D9 that automation could not
+   cover — see the note below.
 3. Optional small slices, all in `ISSUES.md`: e2e for change-password (needs its own
    throwaway account), `WebhookEvent.stripe_customer_id` (wire it or delete it), the
    `display_amount` validation the B1 spec claims and the code does not have.
@@ -44,7 +42,17 @@ Phase A (identity) is closed via ADR-0024, with one residual human check outstan
 - ⚠ **A merge to `master` is now a deploy** (ADR-0028 removed the integration branch). The
   coverage and e2e gates are all that stand between a PR and staging.
 
-## Recently verified (2026-09-03 / 04)
+## Recently verified (2026-09-03 → 05)
+
+- **The leaked credentials are ROTATED** (2026-09-05) — the `sk_live_` Stripe key, the AWS
+  access key and secret, the Django `SECRET_KEY`, and the Postgres and Flower passwords from
+  `588a1e35`. This was the only active exposure on the list and it is closed.
+
+  Their `.gitleaksignore` fingerprints **stay**, and that is a deliberate reversal:
+  ADR-0030 said to delete a line once rotated, but rotation makes a credential *dead*, not
+  *absent* — the strings are still in history, so deleting the lines would make gitleaks
+  report them again and turn CI permanently red. **ADR-0032** amends that clause; the file
+  is a rotation record now.
 
 - **Phase C0 shipped** (backend #41, dashboard #34, ADR-0031). A new `curriculum` module
   owns `Subject` plus the teacher/student links; `TeacherProfile.gender` closes a gap open
@@ -73,7 +81,8 @@ Phase A (identity) is closed via ADR-0024, with one residual human check outstan
   staging with ratchet floors in `.lighthouserc.json`. All three were validated locally
   before the PR — gitleaks green with `.gitleaksignore`, `pip-audit` clean on the
   production dependency set, `lhci autorun` green against real staging (3 runs × 2 URLs).
-  The first run found live credentials in git history (see next actions), a stray
+  The first run found live credentials in git history — **rotated 2026-09-05**, see the
+  entry below — a stray
   `portal-snapshot.md` Playwright dump at the repo root carrying a Stripe test-mode portal
   secret (deleted), and four page-quality findings logged to `ISSUES.md`.
 

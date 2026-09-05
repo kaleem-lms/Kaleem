@@ -48,8 +48,11 @@ Standing the gate up immediately found things:
    annotated line each — not by disabling the rule and not by rewriting history.** A
    rewrite would break every submodule pointer and every SHA quoted across
    `docs/`, and would not un-leak anything: rotation is the remedy, and the
-   fingerprints keep the exposure legible rather than silently suppressed. Removing a
-   line is how a rotated credential gets recorded as dealt with.
+   fingerprints keep the exposure legible rather than silently suppressed. ~~Removing a
+   line is how a rotated credential gets recorded as dealt with.~~ **AMENDED BY ADR-0032
+   (2026-09-05): a rotated credential KEEPS its fingerprint and is re-annotated instead.
+   Removing the line would make gitleaks report the still-in-history string again and turn
+   CI permanently red — rotation makes a credential dead, not absent.**
 
 3. **`pip-audit` blocks merges, and audits `requirements/production.txt` only.** It
    installs the production set into a clean environment and audits what is actually
