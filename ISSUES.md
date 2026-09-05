@@ -197,8 +197,6 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
 - **`docs/runbook/deploy.md` still calls the deploy script `scripts/deploy.sh`.** The
   actual file in the `infra` submodule is `scripts/ship.sh`; the doc's command examples
   are stale and will fail if copy-pasted.
-- **`mypy` reports one pre-existing error** — `config/settings/local.py:61`, "Value of type
-  'object' is not indexable". CI does not run mypy, so it is invisible in the merge path.
 - **The C3a e2e is time-bombed on seed age.** `seed_e2e_matching` puts the joinable session at
   `now`, and its window closes 75 minutes later. A suite run long after seeding would find the
   button still enabled but the POST returning 409. Fine in CI, which seeds immediately.
