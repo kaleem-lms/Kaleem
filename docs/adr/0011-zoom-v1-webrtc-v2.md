@@ -1,7 +1,7 @@
 ---
 number: "0011"
 title: Zoom for v1 video, custom WebRTC for v2
-status: accepted
+status: superseded by ADR-0034
 date: 2026-04-12
 ---
 

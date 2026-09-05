@@ -1,8 +1,8 @@
 ---
-current_phase: "C — Scheduling. C0 (matching inputs) SHIPPED 2026-09-05; C1 (matching) SHIPPED 2026-09-05. C2 (booking + quota) is IN REVIEW 2026-09-05 (backend#43, dashboard#36, meta PR open). Phase B (billing) is CLOSED as of 2026-09-04, dunning gate included. Phase C is decomposed into four specs — C0 matching inputs, C1 matching, C2 booking + quota, C3 video adapter — because matching, booking and video are three subsystems and the dependency order between them is strict. Note the roadmap calls scheduling 'B2'; that label is already taken by a closed billing spec, so scheduling is Phase C here."
-active_spec: "docs/superpowers/specs/2026-09-05-phase-c2-booking-quota-design.md — C2. Spec + plan merged; all 15 plan tasks implemented and reviewed; three PRs open awaiting merge."
-active_branch: "feat/phase-c2-booking-quota in backend, dashboard and meta. TRUNK-BASED as of 2026-09-04 (ADR-0028) — `master` is the only long-lived branch; `develop` is deleted. Branch feat/… off master, PR into master."
-last_green_ci: "meta #157 → master, 2026-09-05 (all 8 checks green, deploy-staging SUCCESS — not skipped). Staging is current with master at 76a8553; both new scheduling routes answer 403 rather than 404 there, so they are really deployed. The `Stripe test clock` nightly was last green on 2026-09-04 (run 33839689278: 5 passed, 4m01s)."
+current_phase: "C — Scheduling. C0 (matching inputs) SHIPPED 2026-09-05; C1 (matching) SHIPPED 2026-09-05. C2 (booking + quota) SHIPPED 2026-09-05 (backend#43, dashboard#36, meta#162). C3 is decomposed further into C3a-C3e (ADR-0034); C3a (video room + provider seam) is the active spec. Phase B (billing) is CLOSED as of 2026-09-04, dunning gate included. Phase C is decomposed because matching, booking and video are separate subsystems in a strict dependency order: C0 matching inputs, C1 matching, C2 booking + quota, then video as C3a rooms, C3b signaling, C3c STUN/TURN, C3d call client, C3e browser hardening. Note the roadmap calls scheduling 'B2'; that label is already taken by a closed billing spec, so scheduling is Phase C here."
+active_spec: "docs/superpowers/specs/2026-09-05-phase-c3a-video-room-design.md — C3a (video room + provider seam). Spec written, awaiting review; no plan yet."
+active_branch: "docs/phase-c3a-video-room-spec in meta only; submodules are on main and clean. TRUNK-BASED as of 2026-09-04 (ADR-0028) — `master` is the only long-lived branch; `develop` is deleted. Branch feat/… off master, PR into master."
+last_green_ci: "meta #162 → master, 2026-09-05 (all 8 checks green, deploy-staging SUCCESS). Staging is current with master at 491deda; every C2 route (`scheduling/quota/`, `sessions/`, `slot-options/`, `slots/`) answers 403 rather than 404 there, so they are really deployed. Note routes are mounted per-module — `/api/v1/scheduling/...`, not `/api/v1/...`. The `Stripe test clock` nightly was last green on 2026-09-04 (run 33839689278: 5 passed, 4m01s)."
 ---
 
 # kaleem Project State
@@ -26,24 +26,31 @@ Phase A (identity) is closed via ADR-0024, with one residual human check outstan
 
 ## ▶ Next actions, in order
 
-1. **Merge C2.** Three PRs in order: backend#43, dashboard#36, then the meta PR. ⚠ The meta merge
-   IS a staging deploy.
-2. **Click through C2 on staging** once deployed, and make a teacher there — still the outstanding
-   manual gap from C0 and C1.
-3. **Then C3 — the video adapter** (D1: no spec yet). C2's `Session` is the row a room attaches to.
-4. From `ISSUES.md`, read the new C2 block's **Blocks launch** entry before touching billing: the
-   quota cycle is keyed by an exact `current_period_end`, and a mid-cycle rewrite would hand out a
-   second allowance.
+1. **Review the C3a spec** (`docs/superpowers/specs/2026-09-05-phase-c3a-video-room-design.md`)
+   and **ADR-0034**, which supersedes ADR-0011: kaleem builds its own 1-on-1 WebRTC service,
+   there is no Zoom, and **group sessions are deferred out of v1**.
+2. **Write the C3a implementation plan** (D2), then execute it.
+3. **Click through C2 on staging**, and make a teacher there — still the outstanding manual gap
+   from C0 and C1.
+4. From `ISSUES.md`, read the C2 block's **Blocks launch** entry before touching billing: the
+   quota cycle is keyed by an exact `current_period_end`, and a mid-cycle rewrite would hand out
+   a second allowance.
+
+⚠ **C3b will need ASGI/Channels, which production does not serve today** (gunicorn WSGI;
+`config/asgi.py` exists but nothing serves it), and **C3c's TURN server is mandatory, not
+optional** — roughly one connection in six cannot go peer-to-peer. Both are called out in
+ADR-0034; the ASGI change gets its own ADR when C3b is specced.
 
 ## In flight
 
-- **C2 (booking + quota), in review.** Both submodule branches pushed and green locally; three PRs
-  open. Nothing merged yet.
+- **C3a (video room + provider seam), spec written.** No plan, no code. Rooms are rows created
+  lazily on first join, guarded by participant + window authorization, behind a
+  `FakeVideoProvider` so the slice ships with real e2e coverage and no external service.
 - ⚠ **A merge to `master` is a deploy** (ADR-0028).
 
 ## Recently verified (2026-09-03 → 05)
 
-- **Phase C2 (booking + quota) implemented, reviewed, awaiting merge** (backend#43, dashboard#36).
+- **Phase C2 (booking + quota) SHIPPED** (backend#43, dashboard#36, meta#162).
   Weekly slots, a daily idempotent generator bounded by `sessions_per_cycle`, and cancellation with
   a 24-hour refund rule. Backend 710 at 97.58% (floor 97.2 → 97.3); dashboard 512 at
   93.5/90.27/86.68/93.5 (floors → 93/89.5/86/93); **e2e 27 → 30**, mutation-checked. Full account:
