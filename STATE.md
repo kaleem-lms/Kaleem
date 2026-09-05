@@ -1,8 +1,8 @@
 ---
-current_phase: "C — Scheduling. C0 (matching inputs) SHIPPED 2026-09-05; C1 (matching) SHIPPED 2026-09-05. C2 (booking + quota) SHIPPED 2026-09-05 (backend#43, dashboard#36, meta#162). C3 is decomposed further into C3a-C3e (ADR-0034); C3a (video room + provider seam) is IN REVIEW 2026-09-05 (backend#44, dashboard#37, meta PR open). Phase B (billing) is CLOSED as of 2026-09-04, dunning gate included. Phase C is decomposed because matching, booking and video are separate subsystems in a strict dependency order: C0 matching inputs, C1 matching, C2 booking + quota, then video as C3a rooms, C3b signaling, C3c STUN/TURN, C3d call client, C3e browser hardening. Note the roadmap calls scheduling 'B2'; that label is already taken by a closed billing spec, so scheduling is Phase C here."
-active_spec: "docs/superpowers/specs/2026-09-05-phase-c3a-video-room-design.md — C3a. Spec + plan merged; all 14 plan tasks implemented and reviewed; three PRs open awaiting merge."
-active_branch: "feat/phase-c3a-video-room in backend, dashboard and meta. TRUNK-BASED as of 2026-09-04 (ADR-0028) — `master` is the only long-lived branch; `develop` is deleted. Branch feat/… off master, PR into master."
-last_green_ci: "meta #163 → master, 2026-09-05 (docs only). Before that meta #162 → master, 2026-09-05 (all 8 checks green, deploy-staging SUCCESS). Staging is current with master at 491deda; every C2 route (`scheduling/quota/`, `sessions/`, `slot-options/`, `slots/`) answers 403 rather than 404 there, so they are really deployed. Note routes are mounted per-module — `/api/v1/scheduling/...`, not `/api/v1/...`. The `Stripe test clock` nightly was last green on 2026-09-04 (run 33839689278: 5 passed, 4m01s)."
+current_phase: "C — Scheduling. C0 (matching inputs) SHIPPED 2026-09-05; C1 (matching) SHIPPED 2026-09-05. C2 (booking + quota) SHIPPED 2026-09-05 (backend#43, dashboard#36, meta#162). C3 is decomposed further into C3a-C3e (ADR-0034); C3a (video room + provider seam) SHIPPED 2026-09-05 (backend#44, dashboard#37, meta#164). C3b (signaling) is the active spec. Phase B (billing) is CLOSED as of 2026-09-04, dunning gate included. Phase C is decomposed because matching, booking and video are separate subsystems in a strict dependency order: C0 matching inputs, C1 matching, C2 booking + quota, then video as C3a rooms, C3b signaling, C3c STUN/TURN, C3d call client, C3e browser hardening. Note the roadmap calls scheduling 'B2'; that label is already taken by a closed billing spec, so scheduling is Phase C here."
+active_spec: "docs/superpowers/specs/2026-09-06-phase-c3b-signaling-design.md — C3b (signaling). Spec + ADR-0035 written, awaiting review; no plan yet."
+active_branch: "docs/phase-c3b-signaling in meta only; submodules are on main and clean. TRUNK-BASED as of 2026-09-04 (ADR-0028) — `master` is the only long-lived branch; `develop` is deleted. Branch feat/… off master, PR into master."
+last_green_ci: "meta #164 → master, 2026-09-05 (all 8 checks green, deploy-staging SUCCESS). Staging is current with master at abe148f; `POST /api/v1/scheduling/sessions/1/join/` answers 403 rather than 404 there, so C3a is really deployed. Note routes are mounted per-module — `/api/v1/scheduling/...`, not `/api/v1/...`. The `Stripe test clock` nightly was last green on 2026-09-04 (run 33839689278: 5 passed, 4m01s)."
 ---
 
 # kaleem Project State
@@ -26,34 +26,41 @@ Phase A (identity) is closed via ADR-0024, with one residual human check outstan
 
 ## ▶ Next actions, in order
 
-1. **Merge C3a.** Three PRs in order: backend#44, dashboard#37, then the meta PR. ⚠ The meta merge
-   IS a staging deploy.
-2. **Click through C3a on staging** once deployed, and make a teacher there — still the outstanding
-   manual gap from C0, C1 and C2.
-3. **Then C3b — signaling.** It needs **ASGI/Channels, which production does not serve today**
-   (`config/asgi.py` exists; gunicorn WSGI runs). That process-model change gets **its own ADR**
-   before any code (ADR-0034 says so).
+1. **Review the C3b spec** (`docs/superpowers/specs/2026-09-06-phase-c3b-signaling-design.md`)
+   and **ADR-0035**, which takes escape hatch **E5** — signaling becomes its own deployable
+   service. E5 is "not pre-approved… requires a full ADR with evidence"; the evidence here is
+   architectural, not observed, and the ADR says so rather than dressing it up.
+2. **Write the C3b implementation plan** (D2), then execute it.
+3. **Click through C3a on staging**, and make a teacher there — still the outstanding manual gap
+   from C0, C1, C2 and now C3a.
 4. **C3c's TURN server is mandatory, not optional** — roughly one connection in six cannot go
-   peer-to-peer and fails outright without a relay. `coturn` in `infra`, with HMAC-derived
-   ephemeral credentials.
+   peer-to-peer and fails outright without a relay.
 5. From `ISSUES.md`, the C2 **Blocks launch** entry still stands: the quota cycle is keyed by an
    exact `current_period_end`, and a mid-cycle rewrite would hand out a second allowance.
 
+⚠ **C3b closes one of C3a's two Blocks-launch entries as a precondition**: a separate service
+cannot ask the database whether a grant is genuine, so the token becomes HMAC-signed and
+verified. The other (GRANT_TTL unrelated to the window) still stands.
+
 ## In flight
 
-- **C3a (video room + provider seam), in review.** Both submodule branches pushed and green
-  locally; three PRs open. Nothing merged yet.
+- **C3b (signaling), spec + ADR-0035 written.** No plan, no code. A separate Python ASGI service
+  sharing the backend image, no Django import, authenticated by a signed capability token.
 - ⚠ **A merge to `master` is a deploy** (ADR-0028).
 
 ## Recently verified (2026-09-03 → 05)
 
-- **Phase C3a (video room + provider seam) implemented, reviewed, awaiting merge** (backend#44,
-  dashboard#37). A `Room` row per live session, participant + window authorization, and a
+- **Phase C3a (video room + provider seam) SHIPPED** (backend#44, dashboard#37, meta#164). A `Room` row per live session, participant + window authorization, and a
   `VideoProvider` seam with a `FakeVideoProvider` default. **It contains no video** — the join URL
   points at a host that does not resolve; signaling, TURN and the call client are C3b-C3e.
-  Backend 753 at 97.61% (floor 97.3 → 97.6); dashboard 543 at 93.63/90.48/86.69/93.63 (floors →
+  Backend 753 at 97.61% (floor 97.3 → 97.6 — see the warning below); dashboard 543 at 93.63/90.48/86.69/93.63 (floors →
   93.5/90/86.5/93.5); **e2e 30 → 33**. Verified in a real browser as a student in English, a
   student in Arabic with RTL, and a teacher.
+
+  ⚠ **Measure backend coverage with `pytest --cov=kaleem`, never a bare `pytest --cov`.** The
+  bare form falls back to the `include` filter and omits files no test imports, reading ~0.55
+  higher. C3a set the floor to 98.1 from a bare reading and turned CI red at 97.61% with all 753
+  tests passing. The `pyproject.toml` comment now says so beside the `precision = 1` warning.
 
   ⚠ **Three defects were caught by review or by the manual walk, not by the suites:** the row lock
   was untested (the "one room per session" test made three *sequential* calls and passed with
