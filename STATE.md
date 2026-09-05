@@ -51,7 +51,7 @@ Phase A (identity) is closed via ADR-0024, with one residual human check outstan
   dashboard#37). A `Room` row per live session, participant + window authorization, and a
   `VideoProvider` seam with a `FakeVideoProvider` default. **It contains no video** — the join URL
   points at a host that does not resolve; signaling, TURN and the call client are C3b-C3e.
-  Backend 753 at 98.16% (floor 97.3 → 98.1); dashboard 543 at 93.63/90.48/86.69/93.63 (floors →
+  Backend 753 at 97.61% (floor 97.3 → 97.6); dashboard 543 at 93.63/90.48/86.69/93.63 (floors →
   93.5/90/86.5/93.5); **e2e 30 → 33**. Verified in a real browser as a student in English, a
   student in Arabic with RTL, and a teacher.
 

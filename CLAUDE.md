@@ -37,7 +37,7 @@ See `STATE.md` for the current phase and active spec. At the time of this file's
 
    | Repo | Floor (line/branch) | Where it lives | Enforced |
    | --- | --- | --- | --- |
-   | `backend` | 98.1 | `pyproject.toml` `[tool.coverage.report]` | ✅ |
+   | `backend` | 97.6 | `pyproject.toml` `[tool.coverage.report]` | ✅ |
    | `dashboard` | 93.5 lines / 90 branches / 86.5 functions | `vitest.config.ts` | ✅ |
    | `marketing` | — | no test suite exists yet | ❌ |
 
