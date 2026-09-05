@@ -60,7 +60,7 @@ scheduling.Session                           (new)
     status          SCHEDULED | COMPLETED | CANCELLED
     cancelled_by    FK AUTH_USER_MODEL, null=True
     cancelled_at    DateTimeField, null=True
-    cycle_start     DateTimeField                 # the billing period this counts against
+    cycle_end       DateTimeField                 # the billing period this counts against
     consumes_quota  BooleanField default True
     created_at
     unique (assignment, starts_at)
@@ -97,11 +97,16 @@ ambiguous. Ending a slot and claiming another is the supported path.
 B1 already defines it that way, so there is no pool to allocate across siblings and C2 inherits
 the answer rather than inventing one.
 
-Consumed this cycle = sessions for that student where `cycle_start` is the current period and
-`consumes_quota` is true, in any status. Remaining = `sessions_per_cycle` − consumed.
+Consumed this cycle = sessions for that student where `cycle_end` is the current period's end
+and `consumes_quota` is true, in any status. Remaining = `sessions_per_cycle` − consumed.
 
-`billing` gains one service — `get_session_allowance(user) -> (limit, cycle_start, cycle_end)` —
-reading the plan and the live subscription's period bounds. It belongs in `billing` because the
+**The cycle is keyed by its END, not a start-and-end pair, and that is deliberate.** `Subscription`
+mirrors `current_period_end` from the provider and has no `current_period_start`; keying on the
+start would mean adding a field, mirroring it, and backfilling every existing row — a billing
+migration in service of a scheduling counter. The end alone identifies a cycle uniquely, and it is
+also the only bound generation needs: it fills forward from today to the period end. So `billing`
+gains one service — `get_session_allowance(user) -> (limit, cycle_end)` — reading the plan's
+`sessions_per_cycle` and the live subscription's `current_period_end`. It belongs in `billing` because the
 plan and the period are billing's data; `scheduling` asking for them is the same direction as the
 entitlement call it already makes. **No new module dependency and no ADR:** `scheduling → billing`
 is already open (ADR-0033), through `billing.services` only.
@@ -184,8 +189,8 @@ Raise them if this slice lifts coverage.
   is simply not used when it does not — asserted both ways, because the second is the surprising
   one and the one a support question will be about.
 - A teacher cancellation refunds at any notice, including ten minutes before.
-- Usage is counted per cycle: sessions from the previous period do not reduce this period's
-  remaining.
+- Usage is counted per cycle: sessions carrying a previous period's `cycle_end` do not reduce
+  this period's remaining.
 - A Family plan gives each child their own allowance rather than a shared pool.
 
 **Generation**
