@@ -136,6 +136,61 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
 
 ## Someday
 
+### Phase C1 (matching) — deferred findings
+
+Logged 2026-09-05 from C1's task reviews and its final whole-branch review. None blocks the
+phase; each was reviewed and consciously deferred rather than missed.
+
+**Worth doing sooner than the rest:**
+
+- **The accept race's lock is unproven by any test.** `accept_offer` takes `select_for_update`
+  and re-checks eligibility inside the transaction, but both race tests run sequentially inside
+  pytest-django's per-test transaction — they exercise the status guard and the partial-unique
+  index, not the lock. Deleting `select_for_update()` would turn nothing red. Proving it needs a
+  `TransactionTestCase` with two threads.
+- **`/account` overflows horizontally in Arabic** — `scrollWidth` 1162 vs `innerWidth` 1018
+  (144px); clean at 1003/1018 in English. Traced to the "Preferred teacher gender" radio group's
+  visually-hidden inputs using a physical `left:-159px` instead of a logical inset. This is a
+  WCAG 1.4.10 Reflow (AA) failure on a page C1 adds a card to. Belongs to identity/curriculum.
+- **N+1 in the teacher inbox.** `list_offers_for` calls `_student_preference`, `get_user` and
+  `overlap_minutes` per candidate row, and `overlap_minutes` → `to_utc_intervals` →
+  `get_availability` re-queries *the teacher's own availability on every row*. Fine at 3 open
+  requests, not at 300. Hoist the teacher's intervals; batch the student reads.
+- **`is_eligible` and `list_offers_for` assemble the same three filters separately.** They agree
+  today, and no test asserts that they do. A fourth hard filter (OQ-C1-1's capacity cap is the
+  named candidate) added to only one of them is silently exploitable in one direction or
+  silently broken in the other. Extract the predicate over pre-fetched context.
+
+**The rest:**
+
+- **Withdrawing a subject interest never closes the open match request.** Nothing writes
+  `MatchRequest.Status.CANCELLED`, yet the enum member exists and `MyMatchRequestsView`
+  `.exclude()`s it as though something did. A student who un-ticks Quran stays broadcast for it.
+  Ruled out of C1 scope (the spec's cancellation story is OQ-C1-2: staff act in Django admin).
+- **A rematched student can see "Your teacher:" with a blank name.** After staff end an
+  assignment, the old `MATCHED` request survives while the name is joined only from *ACTIVE*
+  assignments.
+- **The `unique_active_assignment` backstop would surface as a 500,** not the 409 the same
+  situation produces one line earlier in `accept_offer`.
+- **A teacher who declined an offer can still accept it** by posting the id — "declined" is a
+  visibility fact, not a domain rule, and nothing says so.
+- **`_today()` uses `timezone.localdate()`,** correct only because `TIME_ZONE` is `"UTC"`; the
+  overlap engine is UTC-instant-based and does not consult Django's zone.
+- **`MatchOfferAcceptView` rebuilds the assignment projection by hand** rather than reusing
+  `list_assignments_for`'s shape — a second place to keep in sync.
+- **The reconciler's per-read cost grows with students who never subscribe** — an unentitled
+  student's pair is never taken and never open, so it costs a `get_user` + `is_entitled_to` on
+  every inbox and `/account` load, forever.
+- **Zod schemas in the dashboard are defined but never `.parse()`d** anywhere — a repo-wide
+  pattern, so the runtime-validation value of using zod is currently unrealised.
+- **`SubjectsCard`'s whole-card loading gate exists partly for the e2e harness's benefit**, and
+  introduces a layout shift (loading and empty both render nothing, then the card appears).
+  `dirtyRef` also never clears on a net-zero edit.
+- **Arabic copy wants a native-speaker pass** — `نحن نبحث لك عن معلم` is grammatical but less
+  idiomatic than `نحن نبحث عن معلم لك`.
+- **Pre-existing pytest warnings**: 7 in `scheduling`, 155 backend-wide. Test output should be
+  pristine.
+
 ### Lighthouse findings on staging (nightly, `lighthouse.yml`)
 
 Measured 2026-09-04 by the first run (ADR-0030). The floors in `.lighthouserc.json` sit
