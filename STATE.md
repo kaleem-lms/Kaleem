@@ -1,8 +1,8 @@
 ---
-current_phase: "C — Scheduling. C0 (matching inputs) SHIPPED 2026-09-05; C1 (matching) is IN REVIEW 2026-09-05 (backend#42, dashboard#35, meta PR open). Phase B (billing) is CLOSED as of 2026-09-04, dunning gate included. Phase C is decomposed into four specs — C0 matching inputs, C1 matching, C2 booking + quota, C3 video adapter — because matching, booking and video are three subsystems and the dependency order between them is strict. Note the roadmap calls scheduling 'B2'; that label is already taken by a closed billing spec, so scheduling is Phase C here."
-active_spec: "docs/superpowers/specs/2026-09-05-phase-c1-matching-design.md — C1 (matching). Spec + plan + ADR-0033 merged; all 14 plan tasks implemented and reviewed; three PRs open awaiting merge."
-active_branch: "feat/phase-c1-matching in backend, dashboard and meta. TRUNK-BASED as of 2026-09-04 (ADR-0028) — `master` is the only long-lived branch; `develop` is deleted. Branch feat/… off master, PR into master."
-last_green_ci: "meta #154 → master, 2026-09-05 (all 8 checks green, deploy-staging success). Staging is current with master at 87c90d5. The `Stripe test clock` nightly was last green on 2026-09-04 (run 33839689278: 5 passed, 4m01s)."
+current_phase: "C — Scheduling. C0 (matching inputs) SHIPPED 2026-09-05; C1 (matching) is SHIPPED 2026-09-05 (backend#42, dashboard#35, meta#157; deploy-staging success). Phase B (billing) is CLOSED as of 2026-09-04, dunning gate included. Phase C is decomposed into four specs — C0 matching inputs, C1 matching, C2 booking + quota, C3 video adapter — because matching, booking and video are three subsystems and the dependency order between them is strict. Note the roadmap calls scheduling 'B2'; that label is already taken by a closed billing spec, so scheduling is Phase C here."
+active_spec: "None. C1 closed 2026-09-05; C2 (booking + quota) is next and has no spec yet."
+active_branch: "None. TRUNK-BASED as of 2026-09-04 (ADR-0028) — `master` is the only long-lived branch; `develop` is deleted. Branch feat/… off master, PR into master."
+last_green_ci: "meta #157 → master, 2026-09-05 (all 8 checks green, deploy-staging SUCCESS — not skipped). Staging is current with master at 76a8553; both new scheduling routes answer 403 rather than 404 there, so they are really deployed. The `Stripe test clock` nightly was last green on 2026-09-04 (run 33839689278: 5 passed, 4m01s)."
 ---
 
 # kaleem Project State
@@ -26,11 +26,7 @@ Phase A (identity) is closed via ADR-0024, with one residual human check outstan
 
 ## ▶ Next actions, in order
 
-1. **Merge C1.** Three PRs, in this order: backend#42, dashboard#35, then the meta PR (pointer
-   bumps + the `seed_e2e_matching` line in `ci.yml`). ⚠ The meta merge IS a staging deploy, and
-   the e2e job fails without that CI line — so the pointer bumps and the CI change must land in
-   the same meta PR.
-2. **Click through C1 on staging** once deployed. The local browser pass is done (see below);
+1. **Click through C1 on staging.** The local browser pass is done (see below);
    staging still has no teacher account, which is the same gap C0 left open.
 3. **Then C2 — booking + quota** (D1: it has no spec yet). C1's `TeacherAssignment` is the row
    C2 books sessions against.
@@ -39,15 +35,13 @@ Phase A (identity) is closed via ADR-0024, with one residual human check outstan
 
 ## In flight
 
-- **C1 (matching), in review.** Backend and dashboard branches pushed and green locally;
-  three PRs open. Nothing merged yet.
+- **Nothing.** C1 is merged and deployed; all three working trees clean.
 - ⚠ **A merge to `master` is a deploy** (ADR-0028). The coverage and e2e gates are all that
   stand between a PR and staging.
 
 ## Recently verified (2026-09-03 → 05)
 
-- **Phase C1 (matching) implemented, reviewed, awaiting merge** (backend#42, dashboard#35,
-  ADR-0033). Backend 608 passed at 97.29% (floor 97 → 97.2); dashboard 427 at
+- **Phase C1 (matching) SHIPPED** (backend#42, dashboard#35, meta#157, ADR-0033). Backend 608 passed at 97.29% (floor 97 → 97.2); dashboard 427 at
   92.79/88.99/85.35/92.79 (floors → 92.5/88.5/85/92.5); **e2e 24 → 27**, mutation-checked;
   `lint-imports` 10 kept / 0 broken with both new contracts verified by breaking them.
   Verified in a real browser in English and Arabic. Full account: `journal/2026-W36.md`.
