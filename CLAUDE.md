@@ -37,8 +37,8 @@ See `STATE.md` for the current phase and active spec. At the time of this file's
 
    | Repo | Floor (line/branch) | Where it lives | Enforced |
    | --- | --- | --- | --- |
-   | `backend` | 97.2 | `pyproject.toml` `[tool.coverage.report]` | ✅ |
-   | `dashboard` | 92.5 lines / 88.5 branches / 85 functions | `vitest.config.ts` | ✅ |
+   | `backend` | 97.3 | `pyproject.toml` `[tool.coverage.report]` | ✅ |
+   | `dashboard` | 93 lines / 89.5 branches / 86 functions | `vitest.config.ts` | ✅ |
    | `marketing` | — | no test suite exists yet | ❌ |
 
    100% line+branch remains the target; exclusions are per-line and justified, never
@@ -59,6 +59,7 @@ See `STATE.md` for the current phase and active spec. At the time of this file's
    | `scheduling` — availability | ✅ 3 flows | add/remove a range with a reload, end-before-start refused |
    | `curriculum` — subjects | ✅ 4 flows | teacher subjects, student interests, teacher gender, the parent empty state |
    | `scheduling` — matching | ✅ 3 flows | the student's searching state, a teacher accepting, and the offer gone after a reload |
+   | `scheduling` — booking | ✅ 3 flows | generated sessions + quota, a refund visible after a reload, the teacher's view |
    | app shell | ✅ 5 flows | role-aware nav both ways, `aria-current`, mobile drawer, Escape + focus restore |
    | scaffold routes | ❌ by design | placeholder pages with no behaviour beyond a heading |
    | `billing` | ❌ by design | the hosted Stripe redirect cannot run in Playwright (`ISSUES.md`); the `past_due` → `unpaid` dunning path is covered instead by a separate nightly Stripe test-clock harness (below), not Playwright |

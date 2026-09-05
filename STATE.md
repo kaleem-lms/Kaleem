@@ -1,7 +1,7 @@
 ---
-current_phase: "C — Scheduling. C0 (matching inputs) SHIPPED 2026-09-05; C1 (matching) is SHIPPED 2026-09-05 (backend#42, dashboard#35, meta#157; deploy-staging success). Phase B (billing) is CLOSED as of 2026-09-04, dunning gate included. Phase C is decomposed into four specs — C0 matching inputs, C1 matching, C2 booking + quota, C3 video adapter — because matching, booking and video are three subsystems and the dependency order between them is strict. Note the roadmap calls scheduling 'B2'; that label is already taken by a closed billing spec, so scheduling is Phase C here."
-active_spec: "None. C1 closed 2026-09-05; C2 (booking + quota) is next and has no spec yet."
-active_branch: "None. TRUNK-BASED as of 2026-09-04 (ADR-0028) — `master` is the only long-lived branch; `develop` is deleted. Branch feat/… off master, PR into master."
+current_phase: "C — Scheduling. C0 (matching inputs) SHIPPED 2026-09-05; C1 (matching) SHIPPED 2026-09-05. C2 (booking + quota) is IN REVIEW 2026-09-05 (backend#43, dashboard#36, meta PR open). Phase B (billing) is CLOSED as of 2026-09-04, dunning gate included. Phase C is decomposed into four specs — C0 matching inputs, C1 matching, C2 booking + quota, C3 video adapter — because matching, booking and video are three subsystems and the dependency order between them is strict. Note the roadmap calls scheduling 'B2'; that label is already taken by a closed billing spec, so scheduling is Phase C here."
+active_spec: "docs/superpowers/specs/2026-09-05-phase-c2-booking-quota-design.md — C2. Spec + plan merged; all 15 plan tasks implemented and reviewed; three PRs open awaiting merge."
+active_branch: "feat/phase-c2-booking-quota in backend, dashboard and meta. TRUNK-BASED as of 2026-09-04 (ADR-0028) — `master` is the only long-lived branch; `develop` is deleted. Branch feat/… off master, PR into master."
 last_green_ci: "meta #157 → master, 2026-09-05 (all 8 checks green, deploy-staging SUCCESS — not skipped). Staging is current with master at 76a8553; both new scheduling routes answer 403 rather than 404 there, so they are really deployed. The `Stripe test clock` nightly was last green on 2026-09-04 (run 33839689278: 5 passed, 4m01s)."
 ---
 
@@ -26,20 +26,35 @@ Phase A (identity) is closed via ADR-0024, with one residual human check outstan
 
 ## ▶ Next actions, in order
 
-1. **Click through C1 on staging.** The local browser pass is done (see below);
-   staging still has no teacher account, which is the same gap C0 left open.
-3. **Then C2 — booking + quota** (D1: it has no spec yet). C1's `TeacherAssignment` is the row
-   C2 books sessions against.
-4. Optional, from `ISSUES.md`'s new C1 block: the accept race's lock is unproven by any test,
-   and `/account` fails WCAG Reflow in Arabic.
+1. **Merge C2.** Three PRs in order: backend#43, dashboard#36, then the meta PR. ⚠ The meta merge
+   IS a staging deploy.
+2. **Click through C2 on staging** once deployed, and make a teacher there — still the outstanding
+   manual gap from C0 and C1.
+3. **Then C3 — the video adapter** (D1: no spec yet). C2's `Session` is the row a room attaches to.
+4. From `ISSUES.md`, read the new C2 block's **Blocks launch** entry before touching billing: the
+   quota cycle is keyed by an exact `current_period_end`, and a mid-cycle rewrite would hand out a
+   second allowance.
 
 ## In flight
 
-- **Nothing.** C1 is merged and deployed; all three working trees clean.
-- ⚠ **A merge to `master` is a deploy** (ADR-0028). The coverage and e2e gates are all that
-  stand between a PR and staging.
+- **C2 (booking + quota), in review.** Both submodule branches pushed and green locally; three PRs
+  open. Nothing merged yet.
+- ⚠ **A merge to `master` is a deploy** (ADR-0028).
 
 ## Recently verified (2026-09-03 → 05)
+
+- **Phase C2 (booking + quota) implemented, reviewed, awaiting merge** (backend#43, dashboard#36).
+  Weekly slots, a daily idempotent generator bounded by `sessions_per_cycle`, and cancellation with
+  a 24-hour refund rule. Backend 710 at 97.58% (floor 97.2 → 97.3); dashboard 512 at
+  93.5/90.27/86.68/93.5 (floors → 93/89.5/86/93); **e2e 27 → 30**, mutation-checked. Full account:
+  `journal/2026-W36.md`.
+
+- ⚠ **C2 fixed a shipped C1 bug: account deletion was broken in production.** Deleting any matched
+  student raised `ProtectedError` — `TeacherAssignment.source_request` was `PROTECT`, and Django's
+  collector evaluates `PROTECT` per cascade branch without noticing the protecting row is itself
+  being deleted. Both that field and the new `Session.slot` are now `RESTRICT`. **The GDPR erasure
+  work under "Blocks launch" would have hit this wall.**
+
 
 - **Phase C1 (matching) SHIPPED** (backend#42, dashboard#35, meta#157, ADR-0033). Backend 608 passed at 97.29% (floor 97 → 97.2); dashboard 427 at
   92.79/88.99/85.35/92.79 (floors → 92.5/88.5/85/92.5); **e2e 24 → 27**, mutation-checked;
