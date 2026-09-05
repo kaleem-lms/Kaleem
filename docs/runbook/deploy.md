@@ -47,6 +47,36 @@ mkdir -p /opt/kaleem/{traefik,scripts}
 docker compose -f docker-compose.production.yml up -d traefik postgres redis
 ```
 
+### `.env.production` is hand-managed, and a missing variable rolls the deploy back
+
+There is no `.env.production` in git. It is created by hand on this VPS and
+edited by hand thereafter, so **a variable added to
+`infra/.env.production.example` does not reach the server until someone copies
+it across**. `ship.sh` health-gates the new colour and rolls back *all* of it
+— including a perfectly healthy Django — if any one service fails to come up,
+so a forgotten variable presents as "the whole deploy failed" rather than as
+"one feature is off".
+
+Before deploying a change that adds an environment variable, diff the two:
+
+```bash
+# On the VPS. Lists variable names present in the template but not in the
+# live file — the ones that will take the next deploy down.
+comm -23 \
+  <(grep -oP '^[A-Z_]+(?==)' /opt/kaleem/.env.production.example | sort) \
+  <(grep -oP '^[A-Z_]+(?==)' /opt/kaleem/.env.production | sort)
+```
+
+Variables added in Phase C3b (signaling / WebRTC) — all four are required, see
+`docs/runbook/signaling.md`:
+
+| Variable | Read by | Missing means |
+| --- | --- | --- |
+| `WS_DOMAIN` | `docker-compose.production.yml` | signaling routers get `Host(``)`, never routable; health check fails; **deploy rolls back** |
+| `DJANGO_SIGNALING_SECRET` | both `django-*` and `signaling-*` | signaling's health check 503s; **deploy rolls back** |
+| `DJANGO_SIGNALING_URL` | `django-*` | `SignalingProvider` refuses to construct (`ImproperlyConfigured`) |
+| `DJANGO_VIDEO_PROVIDER` | `django-*` | falls back to `FakeVideoProvider` — deploy succeeds, signaling is healthy, and **no lesson can reach it** |
+
 ## Checking deploy status
 
 ```bash
