@@ -1,7 +1,7 @@
 ---
-current_phase: "C — Scheduling. C0 (matching inputs) is SHIPPED 2026-09-05. Phase B (billing) is CLOSED as of 2026-09-04, dunning gate included. Phase C is decomposed into four specs — C0 matching inputs, C1 matching, C2 booking + quota, C3 video adapter — because matching, booking and video are three subsystems and the dependency order between them is strict. Note the roadmap calls scheduling 'B2'; that label is already taken by a closed billing spec, so scheduling is Phase C here."
-active_spec: "None. C0 closed; C1 (matching) is next and has no spec yet."
-active_branch: "None. TRUNK-BASED as of 2026-09-04 (ADR-0028) — `master` is the only long-lived branch; `develop` is deleted. Branch feat/… off master, PR into master."
+current_phase: "C — Scheduling. C0 (matching inputs) SHIPPED 2026-09-05; C1 (matching) is IN REVIEW 2026-09-05 (backend#42, dashboard#35, meta PR open). Phase B (billing) is CLOSED as of 2026-09-04, dunning gate included. Phase C is decomposed into four specs — C0 matching inputs, C1 matching, C2 booking + quota, C3 video adapter — because matching, booking and video are three subsystems and the dependency order between them is strict. Note the roadmap calls scheduling 'B2'; that label is already taken by a closed billing spec, so scheduling is Phase C here."
+active_spec: "docs/superpowers/specs/2026-09-05-phase-c1-matching-design.md — C1 (matching). Spec + plan + ADR-0033 merged; all 14 plan tasks implemented and reviewed; three PRs open awaiting merge."
+active_branch: "feat/phase-c1-matching in backend, dashboard and meta. TRUNK-BASED as of 2026-09-04 (ADR-0028) — `master` is the only long-lived branch; `develop` is deleted. Branch feat/… off master, PR into master."
 last_green_ci: "meta #154 → master, 2026-09-05 (all 8 checks green, deploy-staging success). Staging is current with master at 87c90d5. The `Stripe test clock` nightly was last green on 2026-09-04 (run 33839689278: 5 passed, 4m01s)."
 ---
 
@@ -26,23 +26,36 @@ Phase A (identity) is closed via ADR-0024, with one residual human check outstan
 
 ## ▶ Next actions, in order
 
-1. **Spec Phase C1 — matching** (D1). Its inputs now exist: `TeacherProfile.gender`,
-   `Subject`, and the teacher/student links. C1 needs a `scheduling → curriculum`
-   dependency the roadmap does not list, which needs its own ADR (noted in ADR-0031).
-2. **Make a teacher on staging via Django admin** and click through the subject and
-   teaching-profile panels. That is the one piece of C0's D9 that automation could not
-   cover — see the note below.
-3. Optional small slices, all in `ISSUES.md`: e2e for change-password (needs its own
-   throwaway account), `WebhookEvent.stripe_customer_id` (wire it or delete it), the
-   `display_amount` validation the B1 spec claims and the code does not have.
+1. **Merge C1.** Three PRs, in this order: backend#42, dashboard#35, then the meta PR (pointer
+   bumps + the `seed_e2e_matching` line in `ci.yml`). ⚠ The meta merge IS a staging deploy, and
+   the e2e job fails without that CI line — so the pointer bumps and the CI change must land in
+   the same meta PR.
+2. **Click through C1 on staging** once deployed. The local browser pass is done (see below);
+   staging still has no teacher account, which is the same gap C0 left open.
+3. **Then C2 — booking + quota** (D1: it has no spec yet). C1's `TeacherAssignment` is the row
+   C2 books sessions against.
+4. Optional, from `ISSUES.md`'s new C1 block: the accept race's lock is unproven by any test,
+   and `/account` fails WCAG Reflow in Arabic.
 
 ## In flight
 
-- **Nothing.** Everything is merged to `master` and deployed; working tree clean.
-- ⚠ **A merge to `master` is now a deploy** (ADR-0028 removed the integration branch). The
-  coverage and e2e gates are all that stand between a PR and staging.
+- **C1 (matching), in review.** Backend and dashboard branches pushed and green locally;
+  three PRs open. Nothing merged yet.
+- ⚠ **A merge to `master` is a deploy** (ADR-0028). The coverage and e2e gates are all that
+  stand between a PR and staging.
 
 ## Recently verified (2026-09-03 → 05)
+
+- **Phase C1 (matching) implemented, reviewed, awaiting merge** (backend#42, dashboard#35,
+  ADR-0033). Backend 608 passed at 97.29% (floor 97 → 97.2); dashboard 427 at
+  92.79/88.99/85.35/92.79 (floors → 92.5/88.5/85/92.5); **e2e 24 → 27**, mutation-checked;
+  `lint-imports` 10 kept / 0 broken with both new contracts verified by breaking them.
+  Verified in a real browser in English and Arabic. Full account: `journal/2026-W36.md`.
+
+  ⚠ **`precision = 1` is load-bearing in `pyproject.toml`.** coverage.py rounds the total to
+  `precision` decimals before comparing it to `fail_under`, so a fractional floor with the
+  default precision of 0 compares 97.28% as `97` and fails. The floor raise alone would have
+  turned CI red. Do not drop that line when next raising the floor.
 
 - **The leaked credentials are ROTATED** (2026-09-05) — the `sk_live_` Stripe key, the AWS
   access key and secret, the Django `SECRET_KEY`, and the Postgres and Flower passwords from
