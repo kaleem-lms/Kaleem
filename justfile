@@ -69,10 +69,15 @@ stop:
 test: test-backend test-frontend check-boundaries
 
 # Backend tests (in container)
+# The --cov flags MUST match ci.yml exactly. `signaling/**` is inside the
+# coverage `include` in pyproject.toml, so omitting `--cov=signaling` here
+# measured a different set of files than the ratchet floor was set from and
+# `just test` failed at ~97.61 against a 97.7 floor -- on every machine, for
+# a reason nothing pointed at. Adding a measured package? Add it in both places.
 test-backend:
     HOST_UID=$(id -u) HOST_GID=$(id -g) docker compose -f docker-compose.local.yml run --rm \
       -e DATABASE_URL=postgres://kaleem:kaleem@postgres:5432/kaleem \
-      django pytest -v --cov=kaleem --cov-report=term-missing
+      django pytest -v --cov=kaleem --cov=signaling --cov-report=term-missing
 
 # Frontend type check (in container)
 test-frontend:
@@ -80,7 +85,7 @@ test-frontend:
 
 # Escape hatch: run backend tests on the host (uses local .venv)
 test-backend-host:
-    cd backend && DATABASE_URL=postgres://kaleem:kaleem@localhost:5432/kaleem pytest -v --cov=kaleem --cov-report=term-missing
+    cd backend && DATABASE_URL=postgres://kaleem:kaleem@localhost:5432/kaleem pytest -v --cov=kaleem --cov=signaling --cov-report=term-missing
 
 # ─── Linting ──────────────────────────────────────────────────
 

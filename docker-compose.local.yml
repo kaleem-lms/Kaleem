@@ -42,6 +42,12 @@ services:
       # (which are correct for host tooling: pytest, `just migrate`).
       - DATABASE_URL=postgres://kaleem:kaleem@postgres:5432/kaleem
       - CELERY_BROKER_URL=redis://redis:6379/0
+      # The API MINTS room tokens; the `signaling` service below VERIFIES
+      # them. The two halves must hold byte-for-byte the same secret or every
+      # join fails auth with a correct-looking token. Kept identical here so
+      # that switching DJANGO_VIDEO_PROVIDER to SignalingProvider locally
+      # actually works instead of failing for a reason nobody would guess.
+      - DJANGO_SIGNALING_SECRET=local-dev-signaling-secret
     depends_on:
       postgres:
         condition: service_healthy
@@ -60,15 +66,22 @@ services:
       context: ./backend
       target: dev
       args: *uidgid
-    command: uvicorn signaling.app:app --host 0.0.0.0 --port 9000 --reload
+    # --log-config is NOT optional. Without it uvicorn logs every handshake
+    # path INCLUDING its query string, and the query string is the room
+    # capability token -- a replayable grant to a child's lesson, sitting in
+    # `docker logs` for its full life. See signaling/logconf.py.
+    command: >
+      uvicorn signaling.app:app --host 0.0.0.0 --port 9000 --reload
+      --log-config signaling/logconf.json
     volumes:
       - ./backend:/app
     ports:
       - "9000:9000"
     environment:
       # Local-only value. Production reads the real one from .env.production,
-      # and it MUST match the API container's or every join fails auth with a
-      # correct-looking token.
+      # and it MUST match the API container's (the `django` service above sets
+      # the identical literal) or every join fails auth with a correct-looking
+      # token. Change one, change both.
       - DJANGO_SIGNALING_SECRET=local-dev-signaling-secret
     labels:
       - traefik.enable=true
