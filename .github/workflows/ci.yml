@@ -87,7 +87,12 @@ jobs:
       # identically on a developer's machine and on this runner. It is a ratchet
       # floor set to the measured value, not the 100% target — see ADR-0026.
       - name: Run tests with coverage
-        run: pytest --cov=kaleem --cov-report=term-missing -v
+        # --cov=kaleem --cov=signaling: signaling is a separate service in the
+        # same repo (ADR-0035) and must be inside the coverage gate, not beside
+        # it. Never a bare `--cov`: it falls back to the `include` filter and
+        # omits files no test imports, reading ~0.55 high -- which set a false
+        # floor once already (see pyproject.toml).
+        run: pytest --cov=kaleem --cov=signaling --cov-report=term-missing -v
 
   dashboard-lint:
     runs-on: ubuntu-latest
