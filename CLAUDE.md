@@ -89,9 +89,12 @@ See `STATE.md` for the current phase and active spec. At the time of this file's
    | `semgrep` / `trivy` / `pnpm audit` | — | nowhere yet (`ISSUES.md`) | ❌ |
 
    Known historical leaks are allowlisted **by fingerprint** in `.gitleaksignore`, one
-   annotated line each; never add a line to silence a new finding. Lighthouse thresholds
-   in `.lighthouserc.json` are ratchet floors in the ADR-0026 sense — **lowering one
-   needs an ADR.** Submodule git *histories* are not scanned by CI.
+   annotated line each; never add a line to silence a new finding. Those credentials were
+   **rotated 2026-09-05**, and the lines **stay** — rotation kills a credential but cannot
+   remove it from history, so deleting them turns CI red (ADR-0032 amends ADR-0030).
+
+   Lighthouse thresholds in `.lighthouserc.json` are ratchet floors in the ADR-0026
+   sense — **lowering one needs an ADR.** Submodule git *histories* are not scanned by CI.
 
 4. **D4 Module boundary enforcement** via `import-linter` in CI. Violations fail.
 5. **D5 Green CI before merge.** No `--no-verify`, no exceptions.

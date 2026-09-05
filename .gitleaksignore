@@ -3,18 +3,27 @@
 # Format: <commit>:<file>:<rule>:<startline>
 #
 # Everything here is already in git history and cannot be un-leaked by a scanner.
-# The remedy is ROTATION, tracked in `ISSUES.md` under "Blocks launch". Delete the
-# lines for a credential once it has been rotated and the entry is closed — an empty
-# file is the goal.
+# The remedy is ROTATION — and rotation is DONE (2026-09-05).
+#
+# These lines STAY. Do not delete them. Rotation makes a credential dead, not absent:
+# the strings are still in history and still on GitHub, so gitleaks would report them
+# again on the next run and CI would be red forever. Emptying this file is only
+# possible by rewriting history, which ADR-0030 rejects. See ADR-0032, which amends
+# ADR-0030's "removing a line is how a rotated credential gets recorded" clause.
+#
+# This file is a ROTATION RECORD, not a to-do list. Every block below must say what
+# leaked, when, and when it was rotated. A block whose rotation cannot be confirmed
+# should be treated as an open exposure again.
 #
 # Do NOT add a line to silence a NEW finding. A new secret in a new commit means the
 # gate worked: remove the secret, rotate it, force the commit out of the branch.
 
 # ---------------------------------------------------------------------------
-# 588a1e35 (2026-04-12) — the old MVP's `.envs/` committed wholesale. REAL, LIVE
-# credentials: an sk_live_ Stripe key, an AWS AKIA key + secret, the Django
-# SECRET_KEY, the Postgres password and Flower basic auth. Files were deleted from
-# the tree long ago; history keeps them. ALL OF THESE MUST BE ROTATED.
+# 588a1e35 (2026-04-12) — the old MVP's `.envs/` committed wholesale: an sk_live_
+# Stripe key, an AWS AKIA key + secret, the Django SECRET_KEY, the Postgres password
+# and Flower basic auth. Files were deleted from the tree long ago; history keeps them.
+# ROTATED 2026-09-05 — every value below is dead. The fingerprints remain because the
+# text does.
 # ---------------------------------------------------------------------------
 588a1e35695a56408f3a40306f19ab71acea9d48:kaleem/.envs/.production/.postgres:generic-api-key:7
 588a1e35695a56408f3a40306f19ab71acea9d48:kaleem/.envs/.production/.django:aws-access-token:24
@@ -26,7 +35,7 @@
 
 # ---------------------------------------------------------------------------
 # 83ba26ba (2025-03-20) — the same MVP's local `.django` env file: a Stripe TEST
-# key and the local Django SECRET_KEY. Test-mode, but rotate with the rest.
+# key and the local Django SECRET_KEY. Test-mode. ROTATED 2026-09-05 with the rest.
 # ---------------------------------------------------------------------------
 83ba26bac5a59129ea3a07fd63bd7cefff8be242:kaleem/.envs/.local/.django:generic-api-key:19
 83ba26bac5a59129ea3a07fd63bd7cefff8be242:kaleem/.envs/.local/.django:stripe-access-token:18
@@ -35,7 +44,8 @@
 # 3bfb0705 (2026-09-03) — `portal-snapshot.md`, a stray Playwright accessibility dump
 # committed to the meta repo root during the billing click-through. It carried a
 # Stripe TEST-mode billing-portal session secret (short-lived, long expired). The file
-# is deleted as of ADR-0030; these lines cover the commit that still holds it.
+# is deleted as of ADR-0030; these lines cover the commit that still holds it. The
+# session secret was short-lived and expired long before rotation day; nothing to do.
 # ---------------------------------------------------------------------------
 3bfb070559fa59e30f9e7ce8a3c8e3eb2944b99f:portal-snapshot.md:generic-api-key:57
 3bfb070559fa59e30f9e7ce8a3c8e3eb2944b99f:portal-snapshot.md:generic-api-key:59

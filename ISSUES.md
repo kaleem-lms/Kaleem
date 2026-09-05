@@ -16,17 +16,6 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
 
 ## Blocks launch
 
-- 🔴 **Live credentials are in this repo's git history and must be ROTATED.** Commit
-  `588a1e35` (2026-04-12) committed the old MVP's `kaleem/.envs/` wholesale:
-  an `sk_live_…` **Stripe secret key**, an **AWS** `AKIA…` access key **and** its secret,
-  the Django `SECRET_KEY`, the Postgres password, and Flower basic-auth credentials.
-  Commit `83ba26ba` (2025-03-20) adds a Stripe **test** key. The files were deleted from
-  the tree long ago; history keeps them, and the repo is on GitHub. Rotate/revoke every
-  one of them (Stripe → roll the live key; AWS → deactivate then delete the access key
-  and audit CloudTrail for use; Postgres/Flower → change on the host). History rewriting
-  is explicitly *not* the fix and would break every recorded SHA — see ADR-0030. Delete
-  the matching lines from `.gitleaksignore` as each is rotated; an empty file is the
-  goal. (Found 2026-09-04 by the first-ever gitleaks run.)
 - **`semgrep`, `trivy` and `pnpm audit` still do not run anywhere.** ADR-0030 wired in
   `gitleaks` + `pip-audit` (blocking) and Lighthouse (nightly), so the OWASP-Top-10 SAST
   pass, the container-image CVE scan, and the JS dependency audit are what remains of the
@@ -273,6 +262,13 @@ proves; all are robustness of an unattended job.
   code defect. Re-verified twice on a clean tree: green. If it reappears on a loaded CI runner
   or a busy dev box, suspect resources (or cap `poolOptions.threads.maxThreads`) before
   suspecting the tests.
+- **`.gitleaksignore` is not empty, and must not be emptied.** The credentials it
+  fingerprints were rotated 2026-09-05, but rotation makes a credential *dead*, not
+  *absent* — the strings are still in git history, so deleting the lines makes gitleaks
+  report them again and turns CI red on every branch. ADR-0030 said to remove a line once
+  rotated; **ADR-0032 amends that**. The file is a rotation record now. Only a history
+  rewrite could empty it legitimately, and that is rejected.
+
 - **The Stripe API version is now pinned explicitly, and it must stay that way.**
   `DJANGO_STRIPE_API_VERSION=2026-08-26.dahlia` is set on staging, and the webhook endpoint
   `we_1UBdRwCavwnriKDQ2ygx6z2V` was created at that same version (2026-09-03). Do the same in
