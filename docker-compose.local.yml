@@ -53,6 +53,29 @@ services:
       - traefik.http.routers.api.entrypoints=web
       - traefik.http.services.api.loadbalancer.server.port=8000
 
+  # Signaling — its own service, same image, different command (ADR-0035).
+  # No postgres, no redis: it has no database and no ORM by design.
+  signaling:
+    build:
+      context: ./backend
+      target: dev
+      args: *uidgid
+    command: uvicorn signaling.app:app --host 0.0.0.0 --port 9000 --reload
+    volumes:
+      - ./backend:/app
+    ports:
+      - "9000:9000"
+    environment:
+      # Local-only value. Production reads the real one from .env.production,
+      # and it MUST match the API container's or every join fails auth with a
+      # correct-looking token.
+      - DJANGO_SIGNALING_SECRET=local-dev-signaling-secret
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.signaling.rule=Host(`ws.kaleem.localhost`)
+      - traefik.http.routers.signaling.entrypoints=web
+      - traefik.http.services.signaling.loadbalancer.server.port=9000
+
   postgres:
     image: postgres:18-alpine
     volumes:
