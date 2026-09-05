@@ -97,6 +97,16 @@ Phase A (identity) is closed via ADR-0024, with one residual human check outstan
   `DJANGO_STRIPE_API_VERSION` set explicitly — keep it that way in every new environment.
 - **Trunk-based flow adopted** (ADR-0028) and **API versioning enforced in CI** (ADR-0029,
   backend #37) — a test walks the resolved URLconf and fails on any unversioned route.
+- ⚠ **C0's staging click-through is partial, and this is the reason.** Verified live:
+  the routes are deployed, the data migration ran (`GET /api/v1/curriculum/subjects/`
+  returns Quran/Tafsir/Arabic), role gating holds (the teacher endpoint 403s a parent),
+  and a parent sees neither subject panel. **Not** verified live: the teacher and
+  student panels rendering and saving. Staging has no teacher account, and a child
+  created to get a student profile cannot log in because its email is unverified and
+  CI/staging have no mail-catcher (`ISSUES.md`). Both panels are covered by unit tests
+  and by 4 e2e flows against a real stack, so this is a gap in *manual* D9 coverage
+  only — close it by making a teacher on staging via Django admin.
+
 - Throwaway staging accounts, all password `KaleemStaging!2026`: `billing.clickthrough@`
   (id 7), `billing.recheck@` (id 8), `billing.failcard@` (id 9), plus the two older `*.smoke@`
   users. Clear them all on the next staging DB reset.
