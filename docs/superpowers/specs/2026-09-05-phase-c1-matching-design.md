@@ -108,6 +108,12 @@ Capability.BOOK_SESSION)`), has a `StudentSubjectInterest` in that subject, has 
 `TeacherAssignment` for it, and has no `OPEN` request for it already. It is idempotent by
 construction — the partial-unique index is the backstop.
 
+**It gates on the existing `BOOK_SESSION` capability rather than adding a `MATCH` one.** Every
+capability today resolves to the same subscription check, so a second name would be a
+distinction the code cannot make; and being matched to a teacher you cannot book is not a state
+worth building. If matching and booking ever diverge in entitlement, adding the capability is
+one enum member.
+
 It runs lazily at the top of the two read endpoints (the teacher inbox and the student's own
 status) and is exposed as a management command for staff. **No event bus and no Celery beat**:
 both are real machinery, and neither is needed to make a reconciler correct on a roster this
@@ -144,7 +150,9 @@ display name, not their email.
   states, the last of which is reachable in normal use, not an edge case: a request can be
   claimed between render and click, so a 409 must read as *"another teacher took this"*, not as
   a failure. Role-aware nav entry; this replaces a scaffold route.
-- **Student / parent panel** on the existing account or dashboard surface: per subject, either
+- **Student / parent panel** on the existing `/account` page, following C0's precedent: these
+  are role-conditional profile-adjacent panels and that page already renders exactly that
+  shape. Per subject, either
   "we're looking for a teacher" or the assigned teacher's name. With no expiry, the pending
   state can persist for days — the copy must be honest about that rather than implying
   imminence.
