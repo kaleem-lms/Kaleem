@@ -1,8 +1,8 @@
 ---
-current_phase: "C — Scheduling. C0 (matching inputs) SHIPPED 2026-09-05; C1 (matching) SHIPPED 2026-09-05. C2 (booking + quota) SHIPPED 2026-09-05 (backend#43, dashboard#36, meta#162). C3 is decomposed further into C3a-C3e (ADR-0034); C3a (video room + provider seam) is the active spec. Phase B (billing) is CLOSED as of 2026-09-04, dunning gate included. Phase C is decomposed because matching, booking and video are separate subsystems in a strict dependency order: C0 matching inputs, C1 matching, C2 booking + quota, then video as C3a rooms, C3b signaling, C3c STUN/TURN, C3d call client, C3e browser hardening. Note the roadmap calls scheduling 'B2'; that label is already taken by a closed billing spec, so scheduling is Phase C here."
-active_spec: "docs/superpowers/specs/2026-09-05-phase-c3a-video-room-design.md — C3a (video room + provider seam). Spec written, awaiting review; no plan yet."
-active_branch: "docs/phase-c3a-video-room-spec in meta only; submodules are on main and clean. TRUNK-BASED as of 2026-09-04 (ADR-0028) — `master` is the only long-lived branch; `develop` is deleted. Branch feat/… off master, PR into master."
-last_green_ci: "meta #162 → master, 2026-09-05 (all 8 checks green, deploy-staging SUCCESS). Staging is current with master at 491deda; every C2 route (`scheduling/quota/`, `sessions/`, `slot-options/`, `slots/`) answers 403 rather than 404 there, so they are really deployed. Note routes are mounted per-module — `/api/v1/scheduling/...`, not `/api/v1/...`. The `Stripe test clock` nightly was last green on 2026-09-04 (run 33839689278: 5 passed, 4m01s)."
+current_phase: "C — Scheduling. C0 (matching inputs) SHIPPED 2026-09-05; C1 (matching) SHIPPED 2026-09-05. C2 (booking + quota) SHIPPED 2026-09-05 (backend#43, dashboard#36, meta#162). C3 is decomposed further into C3a-C3e (ADR-0034); C3a (video room + provider seam) is IN REVIEW 2026-09-05 (backend#44, dashboard#37, meta PR open). Phase B (billing) is CLOSED as of 2026-09-04, dunning gate included. Phase C is decomposed because matching, booking and video are separate subsystems in a strict dependency order: C0 matching inputs, C1 matching, C2 booking + quota, then video as C3a rooms, C3b signaling, C3c STUN/TURN, C3d call client, C3e browser hardening. Note the roadmap calls scheduling 'B2'; that label is already taken by a closed billing spec, so scheduling is Phase C here."
+active_spec: "docs/superpowers/specs/2026-09-05-phase-c3a-video-room-design.md — C3a. Spec + plan merged; all 14 plan tasks implemented and reviewed; three PRs open awaiting merge."
+active_branch: "feat/phase-c3a-video-room in backend, dashboard and meta. TRUNK-BASED as of 2026-09-04 (ADR-0028) — `master` is the only long-lived branch; `develop` is deleted. Branch feat/… off master, PR into master."
+last_green_ci: "meta #163 → master, 2026-09-05 (docs only). Before that meta #162 → master, 2026-09-05 (all 8 checks green, deploy-staging SUCCESS). Staging is current with master at 491deda; every C2 route (`scheduling/quota/`, `sessions/`, `slot-options/`, `slots/`) answers 403 rather than 404 there, so they are really deployed. Note routes are mounted per-module — `/api/v1/scheduling/...`, not `/api/v1/...`. The `Stripe test clock` nightly was last green on 2026-09-04 (run 33839689278: 5 passed, 4m01s)."
 ---
 
 # kaleem Project State
@@ -26,29 +26,41 @@ Phase A (identity) is closed via ADR-0024, with one residual human check outstan
 
 ## ▶ Next actions, in order
 
-1. **Review the C3a spec** (`docs/superpowers/specs/2026-09-05-phase-c3a-video-room-design.md`)
-   and **ADR-0034**, which supersedes ADR-0011: kaleem builds its own 1-on-1 WebRTC service,
-   there is no Zoom, and **group sessions are deferred out of v1**.
-2. **Write the C3a implementation plan** (D2), then execute it.
-3. **Click through C2 on staging**, and make a teacher there — still the outstanding manual gap
-   from C0 and C1.
-4. From `ISSUES.md`, read the C2 block's **Blocks launch** entry before touching billing: the
-   quota cycle is keyed by an exact `current_period_end`, and a mid-cycle rewrite would hand out
-   a second allowance.
-
-⚠ **C3b will need ASGI/Channels, which production does not serve today** (gunicorn WSGI;
-`config/asgi.py` exists but nothing serves it), and **C3c's TURN server is mandatory, not
-optional** — roughly one connection in six cannot go peer-to-peer. Both are called out in
-ADR-0034; the ASGI change gets its own ADR when C3b is specced.
+1. **Merge C3a.** Three PRs in order: backend#44, dashboard#37, then the meta PR. ⚠ The meta merge
+   IS a staging deploy.
+2. **Click through C3a on staging** once deployed, and make a teacher there — still the outstanding
+   manual gap from C0, C1 and C2.
+3. **Then C3b — signaling.** It needs **ASGI/Channels, which production does not serve today**
+   (`config/asgi.py` exists; gunicorn WSGI runs). That process-model change gets **its own ADR**
+   before any code (ADR-0034 says so).
+4. **C3c's TURN server is mandatory, not optional** — roughly one connection in six cannot go
+   peer-to-peer and fails outright without a relay. `coturn` in `infra`, with HMAC-derived
+   ephemeral credentials.
+5. From `ISSUES.md`, the C2 **Blocks launch** entry still stands: the quota cycle is keyed by an
+   exact `current_period_end`, and a mid-cycle rewrite would hand out a second allowance.
 
 ## In flight
 
-- **C3a (video room + provider seam), spec written.** No plan, no code. Rooms are rows created
-  lazily on first join, guarded by participant + window authorization, behind a
-  `FakeVideoProvider` so the slice ships with real e2e coverage and no external service.
+- **C3a (video room + provider seam), in review.** Both submodule branches pushed and green
+  locally; three PRs open. Nothing merged yet.
 - ⚠ **A merge to `master` is a deploy** (ADR-0028).
 
 ## Recently verified (2026-09-03 → 05)
+
+- **Phase C3a (video room + provider seam) implemented, reviewed, awaiting merge** (backend#44,
+  dashboard#37). A `Room` row per live session, participant + window authorization, and a
+  `VideoProvider` seam with a `FakeVideoProvider` default. **It contains no video** — the join URL
+  points at a host that does not resolve; signaling, TURN and the call client are C3b-C3e.
+  Backend 753 at 98.16% (floor 97.3 → 98.1); dashboard 543 at 93.63/90.48/86.69/93.63 (floors →
+  93.5/90/86.5/93.5); **e2e 30 → 33**. Verified in a real browser as a student in English, a
+  student in Arabic with RTL, and a teacher.
+
+  ⚠ **Three defects were caught by review or by the manual walk, not by the suites:** the row lock
+  was untested (the "one room per session" test made three *sequential* calls and passed with
+  `select_for_update` deleted); the lock also covered the `curriculum.Subject` row, so one join
+  would have blocked every join of that subject once a real provider does I/O; and a teacher who
+  is also a parent would have seen no Join button at all. Full account: `journal/2026-W36.md`.
+
 
 - **Phase C2 (booking + quota) SHIPPED** (backend#43, dashboard#36, meta#162).
   Weekly slots, a daily idempotent generator bounded by `sessions_per_cycle`, and cancellation with

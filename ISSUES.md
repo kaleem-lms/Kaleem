@@ -16,6 +16,19 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
 
 ## Blocks launch
 
+- **A video join grant is never validated, expired, or revoked (C3a).** `JoinGrant.expires_at`
+  is a field nothing reads: no endpoint redeems a grant, nothing revokes one when a session is
+  cancelled, and `FakeVideoProvider`'s token is an unsigned, unkeyed truncated SHA-256 — trivially
+  forgeable. This is harmless today because **the URL points at nothing**, and it becomes a real
+  authorization hole the moment C3b puts a service behind it. C3b must not treat "a grant exists"
+  as "this person may enter"; the redemption path is where the check has to live.
+- **`GRANT_TTL` is unrelated to both the join window and the lesson length (C3a).** A flat 30
+  minutes: a grant minted the moment the window opens dies 40 minutes before a 60-minute lesson
+  ends, and one minted at the window's close outlives the window by 30. Nothing enforces expiry
+  yet, so there is no present-day failure — but C3b consumes this contract, and both halves are
+  wrong in opposite directions. Clamp to the window close with a floor covering the remaining
+  lesson.
+
 - **`semgrep`, `trivy` and `pnpm audit` still do not run anywhere.** ADR-0030 wired in
   `gitleaks` + `pip-audit` (blocking) and Lighthouse (nightly), so the OWASP-Top-10 SAST
   pass, the container-image CVE scan, and the JS dependency audit are what remains of the
@@ -77,6 +90,25 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
 
 ## Blocks a phase close
 
+- **Nothing ever ends a video room (C3a).** `end_room` is on the provider `Protocol` and
+  implemented by the fake, but has no caller. Cancelling or completing a session leaves its
+  `Room` ACTIVE forever, and `Room.Status.ENDED` has no production path at all — it is reachable
+  only from a test. Harmless while a room is a string; a real provider leaks a provisioned room
+  per lesson, which is a cost and a security surface. C3b or C3d.
+- **`Room.provider` is stored but never read (C3a).** The field exists so a room created under
+  one adapter stays readable after the setting changes, but `join_session` mints the URL with the
+  *currently configured* provider regardless, and there is no registry mapping the stored short
+  name back to a class. Flip `DJANGO_VIDEO_PROVIDER` with an ACTIVE room row and the new provider
+  is asked for a URL to the old provider's room. Either add the routing or delete the field's
+  promise.
+- **The join endpoint has no throttle (C3a).** `SessionJoinView` carries only `IsAuthenticated`,
+  while the project already has scoped-throttle infrastructure (`DEFAULT_THROTTLE_RATES`). A
+  participant can mint unlimited grants. Add a scope before a real provider makes each mint an
+  upstream API call.
+- **The C3a e2e does not cover "a parent sees no Join control".** The spec lists it; it shipped
+  covered at API level (403 against a real `ParentStudent` row) and at component level only.
+  `seed_e2e` creates no parent↔student link, so the flow would be vacuous without seed work.
+
 - **e2e now covers every shipped user-facing area; what remains is listed below.** The
   2026-09-04 conversion took the suite from 6 flows to 20 — availability, family, account
   and email, and the app shell all have specs, and the `CLAUDE.md` D3 table names them.
@@ -135,6 +167,27 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
 - Dunning UX beyond mirroring `past_due` (retry/notice flow) is deferred.
 
 ## Someday
+
+- **`mypy` reports one pre-existing error** — `config/settings/local.py:61`, "Value of type
+  'object' is not indexable". CI does not run mypy, so it is invisible in the merge path.
+- **The C3a e2e is time-bombed on seed age.** `seed_e2e_matching` puts the joinable session at
+  `now`, and its window closes 75 minutes later. A suite run long after seeding would find the
+  button still enabled but the POST returning 409. Fine in CI, which seeds immediately.
+- **`availability.spec.ts` failed once in local e2e (2026-09-05), then passed on a clean re-run.**
+  The failing run overlapped a manual browser session signed in as `e2e.teacher` against the same
+  database, which is the likely cause rather than a defect in the spec — but it is unproven, and a
+  shared-account suite has no isolation to fall back on. Watch for it in CI.
+- **The transactional-test reseed fixture is a hand-maintained mirror of two data migrations.**
+  `reseed_after_transactional_flush` restores the rows that a `transaction=True` test truncates.
+  It has a loud tripwire on the subject count, but a *third* data migration would need adding by
+  hand and nothing in CI enforces that.
+- **`RoomAdmin` blocks adding but not deleting.** `readonly_fields` makes the change form inert
+  and `has_add_permission` returns False, but staff can still delete rooms, and no test covers
+  the read-only intent.
+- **The 409 copy on a closed room says "not open yet".** `isOutsideJoinWindowError` maps every
+  409 to the not-yet-open message, so leaving the schedule open past a lesson's end and clicking
+  Join tells the user the room has not opened when it has closed. The client knows `starts_at`
+  and `duration_minutes` and could pick the right copy without a machine-readable error code.
 
 ### Phase C2 (booking + quota) — deferred findings
 
