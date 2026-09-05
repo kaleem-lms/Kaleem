@@ -2,9 +2,9 @@
 name: phase-c3a-video-room
 phase: C
 modules: [scheduling, identity]
-status: draft
+status: shipped
 created: 2026-09-05
-closed: null
+closed: 2026-09-05
 ---
 
 ## Goal
