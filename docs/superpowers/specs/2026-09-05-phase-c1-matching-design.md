@@ -92,9 +92,15 @@ A teacher is **eligible** for an `OPEN` request when all three hold:
 
 Failing any one of these means the teacher never sees the request.
 
-**Rank** orders the inbox and nothing else: overlap minutes descending, tie-broken by fewest
-`ACTIVE` assignments. It does not gate eligibility and it does not decide who wins — with
+**Rank** orders the inbox and nothing else: overlap minutes descending, tie-broken by oldest
+request first. It does not gate eligibility and it does not decide who wins — with
 first-to-accept, whoever accepts first wins regardless of rank.
+
+Note what rank is *not*. An earlier draft tie-broke on the teacher's active-assignment count,
+which is incoherent here: an inbox ranks **requests for one teacher**, so that teacher's own
+load is constant down the whole list and the tie-break could never fire. Load is a property of
+a teacher, and the only sound use for it is a capacity cap — which is OQ-C1-1, not a ranking
+input. Longest-waiting-first is the tie-break that actually means something to the student.
 
 ## The trigger, without inverting a dependency
 
@@ -195,8 +201,8 @@ coverage.
 - The undeclared-gender rule, both ways: excluded when the student stated a preference,
   eligible when they did not.
 - Overlap is computed in UTC across a timezone difference, not on naive local times.
-- Rank orders by overlap minutes, then by fewest active assignments — asserted as an order, not
-  as a score value.
+- Rank orders by overlap minutes, then by oldest request — asserted as an order, not as a score
+  value.
 
 **Backend — the race and the invariants**
 - Two teachers accepting the same request: exactly one assignment exists, the loser gets a
