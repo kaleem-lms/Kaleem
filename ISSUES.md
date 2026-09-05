@@ -65,8 +65,10 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
   `@kaleem/tokens` package still ships the failing values.** Anything else consuming the
   package (marketing) inherits them. See the token-promotion entry under "Blocks a phase
   close" for the full list — promote the package, don't just keep the overrides.
-- **Two throwaway smoke-test users in the staging DB** (`stg.smoke@example.com`,
-  `ses.smoke@example.com`). Clear via Django admin or on the next staging DB reset.
+- **Throwaway users in the staging DB.** `stg.smoke@example.com`, `ses.smoke@example.com`,
+  and `c0.subjects.check@example.com` (a child of `billing.clickthrough@`, created
+  2026-09-05 while verifying C0 and left unverified — it cannot log in). Clear via
+  Django admin or on the next staging DB reset.
 - **The nightly dunning harness exercises `basil`-shaped webhook payloads, but production
   receives `dahlia`-shaped ones.** `stripe listen` forwards events at the Stripe
   **account default** API version and cannot be told to forward at an arbitrary pin — it
