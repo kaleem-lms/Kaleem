@@ -136,6 +136,63 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
 
 ## Someday
 
+### Phase C2 (booking + quota) — deferred findings
+
+Logged 2026-09-05 from C2's task reviews, its browser pass and its final whole-branch review.
+None blocks the phase; each was reviewed and consciously deferred.
+
+**Blocks launch — read this one before touching billing:**
+
+- **`Session.cycle_end` is matched by exact `DateTimeField` equality, so a mid-cycle rewrite of
+  `current_period_end` would silently zero a student's usage.** `_consumed` filters
+  `cycle_end=cycle_end`. Four billing paths write `current_period_end`
+  (`_apply_subscription_updated` ×2, `cancel_subscription`, `_reconcile_one`). If any stores a
+  value differing by even one second *within a cycle a student is already inside*, every session
+  already generated stops counting, `used` drops to 0, and the next nightly run generates up to a
+  full second allowance — eight lessons on a four-lesson plan. A renewal producing a new period
+  end is correct and desired; the dangerous case is a **mid-cycle plan change with proration**,
+  which C2 does not ship. **The test that would settle it:** mutate a live subscription's
+  `current_period_end` mid-cycle and assert generation still cannot exceed the limit. It would
+  fail today. Fix by keying the cycle on a tolerance or a derived id rather than an exact instant.
+
+**The C2 scoping cluster — one root cause, three symptoms:**
+
+- `claim_slot(actor, weekday, start_time)` carries **no parameter naming the student or the
+  subject**. Consequently: a student with two subjects cannot book at all (refused loudly rather
+  than guessing which subject a lesson belongs to); a **parent cannot claim or end** a weekly time
+  or see a quota counter; and `GET /slots/` had to be narrowed to students. Adding that parameter
+  is the single fix for all three.
+
+**The rest:**
+
+- **A future `end_assignment` will strand an ACTIVE slot.** Generation filters on an ACTIVE
+  assignment, so an ended one stops generating — but its slot stays ACTIVE and keeps the teacher's
+  time blocked by `unique_active_teacher_slot` forever. Unreachable today (nothing writes
+  `TeacherAssignment.Status.ENDED`); a trap for whoever adds that path.
+- **The concurrent-claim 409 is reasoned, not tested.** The delivered test is sequential; the lock
+  argument is sound, but nothing would catch `select_for_update` being removed. Same shape as C1's
+  untested accept race — both want a `TransactionTestCase` with two threads.
+- **A Family plan's per-child allowance holds by construction but has no two-sibling test.**
+- **Dialog styling is now inconsistent within one feature.** `ClaimSlotCard` uses
+  `w-full max-w-sm`; `SessionList` and billing's `CancelSubscriptionDialog` still use
+  `w-[min(90vw,24rem)]` with transform centring. Unify all three. Related: **no `overlay`/scrim
+  token exists**, so `bg-black/40` is hardcoded in several dialogs.
+- **`claim_slot` duplicates `slot_options`' fitting and conflict computation** rather than reusing
+  it — fewer queries, two places to keep in step.
+- **`isNoActiveSlotError` is byte-identical to `isNoEntitlementError`**, justified by semantic
+  distinctness; they could silently diverge if either endpoint's status changes.
+- **`NotFoundError("Recurring slot", request.user.id)`** echoes the *user* id where a slot id is
+  implied, and it reaches a user-visible 404 body.
+- **The multi-subject 400 detail renders the server's raw English string**, unlocalised — matching
+  the existing claim-mutation pattern. Wants an i18n pass.
+- **Feature naming diverges across repos:** the backend puts booking inside `scheduling`; the
+  dashboard adds `features/booking/` beside an existing `features/scheduling/`.
+- Smaller: a teacher-and-parent sees their own name echoed on rows they teach; the seed prints
+  "Opened 2 request(s)" though one is immediately accepted; a tautological fixture assertion; e2e
+  name assertions use `.first()`; the inside-24h cancellation copy is unit-tested but never
+  verified in a browser; sequenced queries show two consecutive spinners.
+
+
 ### Phase C1 (matching) — deferred findings
 
 Logged 2026-09-05 from C1's task reviews and its final whole-branch review. None blocks the
