@@ -475,3 +475,20 @@ proves; all are robustness of an unattended job.
   Note `api_version` is **create-only** on a webhook endpoint — changing it means creating a
   new endpoint and rotating `DJANGO_STRIPE_WEBHOOK_SECRET`. Cheap to get right up front,
   annoying afterwards.
+
+- **A teacher-only account page always fires a forbidden request for student subjects.**
+  `SubjectsCard` calls `useTeacherSubjects()` and `useStudentSubjects()` unconditionally —
+  hooks cannot be conditional, and `audience` only picks which result is *rendered*. So a
+  user with no `student` profile still issues `GET curriculum/me/student-subjects/`, gets a
+  403, and logs a console error on every visit to `/account`. Confirmed on staging
+  2026-09-06 with a teacher-only account. Harmless — the server refuses correctly, which is
+  the point — but it is a wasted round trip on every load and a red herring for anyone
+  debugging a real 403. Fix is `enabled:` on the two queries, keyed off the audience.
+
+- **A user with no full name is greeted "Assalamu alaikum," and gets a blank account menu.**
+  The home heading interpolates an empty `full_name` and leaves the comma stranded, and the
+  header's account-menu trigger renders no visible text at all (its `aria-label` is intact,
+  so this is visual, not an a11y failure). Registration does not require a name and nothing
+  backfills one, so this is the default state for every account created through the API or
+  the admin, not an edge case. Confirmed on staging 2026-09-06. Wants a fallback — the
+  local-part of the email, or a nameless greeting — decided once and used in both places.
