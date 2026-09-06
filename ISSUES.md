@@ -141,6 +141,21 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
 
 ## Blocks a phase close
 
+- **`ws-green-staging` has no TLS certificate until green is the active colour (C3c).** Traefik
+  issues via Let's Encrypt's HTTP challenge when a router first appears, so the *inactive*
+  colour's WebSocket hostname does not resolve to a valid certificate. Verified 2026-09-06 with
+  blue active: `ws-blue-staging` answers `{"status":"healthy"}`, `ws-green-staging` fails TLS
+  verification. The first deploy that flips to green therefore has a window where its signaling
+  host is unusable until ACME completes — which, combined with `Room.signaling_url` pinning, means
+  joins to a freshly-pinned green room could fail during it. Pre-issue both certificates, or add
+  an ACME warm-up step to the deploy.
+- **A coturn config-only change does not restart the running relay (C3c).** `ship.sh` runs
+  `docker compose up -d ... coturn`; the config arrives by `scp` as a bind-mounted file, so the
+  service definition is unchanged and Compose leaves the container running with the OLD config.
+  Hit for real on 2026-09-06: the `log-file=stdout` fix reached the VPS but did nothing until
+  coturn was restarted by hand. Either add an explicit `restart coturn` to the deploy when the
+  config changes, or hash the config into the service definition so Compose notices.
+
 - **Sentry may capture a capability token and TURN credential as stack-frame locals (C3c).**
   `backend/config/settings/base.py` calls `sentry_sdk.init()` without
   `include_local_variables=False`. The default `EventScrubber` scrubs frame variables by NAME,
