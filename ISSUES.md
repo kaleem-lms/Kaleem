@@ -524,6 +524,9 @@ proves; all are robustness of an unattended job.
   per call.
 - The cancel dialog's `bg-black/40` overlay is a non-token colour, carried over from
   `RemoveEmailDialog`. Fix both call sites in a token audit.
+- The room route (C3d) has two `<h1>`s at once during the Lobby state: its own `sr-only`
+  "Lesson room" plus `Lobby.tsx`'s visible "Get ready for your lesson". Demote `Lobby`'s to
+  `<h2>` once something touches that file again.
 
 ---
 
