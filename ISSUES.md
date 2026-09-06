@@ -141,14 +141,16 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
 
 ## Blocks a phase close
 
-- **`ws-green-staging` has no TLS certificate until green is the active colour (C3c).** Traefik
-  issues via Let's Encrypt's HTTP challenge when a router first appears, so the *inactive*
-  colour's WebSocket hostname does not resolve to a valid certificate. Verified 2026-09-06 with
-  blue active: `ws-blue-staging` answers `{"status":"healthy"}`, `ws-green-staging` fails TLS
-  verification. The first deploy that flips to green therefore has a window where its signaling
-  host is unusable until ACME completes — which, combined with `Room.signaling_url` pinning, means
-  joins to a freshly-pinned green room could fail during it. Pre-issue both certificates, or add
-  an ACME warm-up step to the deploy.
+- **The inactive colour's WebSocket hostname has no TLS certificate (C3c) — smaller than first
+  thought.** Traefik issues via Let's Encrypt's HTTP challenge when a router first appears, so
+  while blue was active `ws-green-staging` failed TLS verification and `ws-blue-staging` answered
+  healthy. **The predicted outage on switching colours did not materialise:** the 2026-09-06
+  colour flip to green was checked immediately afterwards and `ws-green-staging` already served
+  `{"status":"healthy"}` over a valid certificate, with the handshake refusing a bad token 4401 as
+  designed. ACME completed inside the deploy's own window. Left open because it is unproven under
+  a slower ACME or a rate-limited issuance, and because the first flip to a *never-before-active*
+  colour is the risky case — but do not plan work around an outage that has not been observed.
+
 - **A coturn config-only change does not restart the running relay (C3c).** `ship.sh` runs
   `docker compose up -d ... coturn`; the config arrives by `scp` as a bind-mounted file, so the
   service definition is unchanged and Compose leaves the container running with the OLD config.
