@@ -217,6 +217,25 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
 
 ## Someday
 
+- **Signaling reads only the first `Sec-WebSocket-Protocol` header line (C3c).**
+  `signaling/app.py` uses `headers.get(...)`, which returns the first occurrence. A client that
+  sends the offer as two repeated header lines — semantically equivalent to one comma-joined line
+  under RFC 7230 — would have its token silently dropped and be refused. It fails **closed**, so
+  this is not an auth bypass, and it is unreachable today: browsers and Starlette's `TestClient`
+  both comma-join. Worth a `getlist()` or at least a one-line comment recording the assumption
+  before any non-browser client exists.
+- **A reversed subprotocol offer is treated as no offer (C3c).** `[token, kaleem.signaling.v1]`
+  fails the `offered[0] != SUBPROTOCOL` check, so the refusal selects no subprotocol and the
+  browser sees a generic handshake error instead of close code 4401. Theoretical — kaleem's own
+  provider documents and constructs the fixed `[SUBPROTOCOL, token]` order.
+- **`stuns:` URLs would be given a TURN credential (C3c).** `providers/turn.py` splits STUN from
+  TURN with `startswith("stun:")`, so a `stuns:` entry falls into the TURN bucket and is handed a
+  credential it does not need. Unreachable today: `DJANGO_TURN_URLS` has no `stuns:` entry and
+  C3c ships no TLS listener at all. Fix it together with the `turns:` work above.
+- **`.env.production.example` has a stale comment referring to `WS_DOMAIN` (C3c).** The variable
+  was retired and replaced by `WS_BLUE_DOMAIN`/`WS_GREEN_DOMAIN`, but one comment still reads
+  "WS_DOMAIN, above, is …" and now points at nothing. One-line fix.
+
 - **`mypy` is red on `config/settings/local.py:61` and nothing notices.** `LOGGING["handlers"]["console"]["formatter"] = "verbose"` — mypy types `LOGGING` as `object`, so the subscript errors. Pre-existing (present at HEAD before Phase C3b's fix wave), and harmless only because **mypy runs in neither `ci.yml` nor pre-commit nor `just lint`** — it is a manual command. Either fix the annotation and put mypy in the merge path, or stop calling it a gate.
 
 - **`docs/runbook/deploy.md` still calls the deploy script `scripts/deploy.sh`.** The
