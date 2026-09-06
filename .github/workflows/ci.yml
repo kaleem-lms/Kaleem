@@ -449,7 +449,12 @@ jobs:
           host: ${{ secrets.STAGING_HOST }}
           username: ${{ secrets.STAGING_USER }}
           key: ${{ secrets.STAGING_SSH_KEY }}
-          source: "infra/docker-compose.production.yml,infra/scripts/ship.sh,infra/traefik/traefik.yml"
+          # coturn/turnserver.conf is NOT optional here. The compose file bind-mounts
+          # it; if the file is absent on the VPS, Docker silently creates an empty
+          # DIRECTORY at that path and mounts it, so coturn starts with none of its
+          # hardening — no deny-list, no quotas — which is an unfenced relay reachable
+          # on raw UDP: an SSRF pivot into the private network and a DDoS amplifier.
+          source: "infra/docker-compose.production.yml,infra/scripts/ship.sh,infra/traefik/traefik.yml,infra/coturn/turnserver.conf"
           target: /opt/kaleem
           strip_components: 1
           # /opt/kaleem already holds hand-provisioned copies; replace them with

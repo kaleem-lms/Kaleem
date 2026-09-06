@@ -16,42 +16,69 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
 
 ## Blocks launch
 
-- **A deploy drops every live call, and the colour overlap can split a room in two (C3b).**
-  `scripts/ship.sh` step 8 stops the old signaling container with `stop --timeout 30`;
-  room membership is an in-process dict, so every call in progress dies with it — the 30s
-  is a SIGTERM grace period, not a drain, and nothing waits for rooms to empty. Worse,
-  `signaling-blue` and `signaling-green` both claim `Host(${WS_DOMAIN})`, so between step 5
-  and step 8 Traefik spreads one hostname across both colours: a teacher can land on one
-  and their student on the other, each alone in a one-peer room, with **no `peer-joined`,
-  no error and no close code** — every health check green, nothing logged. Two fix options,
-  both C3c/C3d, neither to be attempted as a side change: (a) **colour-pinned WS host** —
-  each colour gets its own hostname and the `join_url` hands the client the pinned one, so
-  a room cannot straddle; (b) **a real drain** — stop routing new joins to the old colour,
-  wait for its rooms to empty, then stop it. (a) fixes only the split; (b) fixes both, but
-  needs a join-routing switch that does not exist yet. Documented meanwhile in
-  `docs/runbook/signaling.md` with the interim rule: **deploy between lessons**.
-- **The capability token still travels in a URL query string (C3b).** Redacting it in
-  uvicorn (`signaling/logconf.py`) and dropping `RequestPath` from Traefik's access log
-  closes the two leaks we know about, but a query string is the wrong place for a
-  credential on principle: it lands in any future proxy, CDN, browser history or
-  `Referer` we add, and each new hop is a new leak to find. Traefik has no per-router
-  access-log config and ignores `redact` for core fields, so the gateway now logs **no**
-  request path for **any** route — a real observability cost paid for one endpoint's
-  mistake. The fix is to carry the token in the `Sec-WebSocket-Protocol` header instead;
-  that is a dashboard change as well as a backend one, so it belongs to C3c.
+- **A deploy drops every live call (C3b).** `scripts/ship.sh` step 8 stops the old signaling
+  container with `stop --timeout 30`; room membership is an in-process dict, so every call in
+  progress dies with it — the 30s is a SIGTERM grace period, not a drain, and nothing waits for
+  rooms to empty. The fix is a **real drain**: stop routing new joins to the old colour, wait for
+  its rooms to empty, then stop it. That needs a join-routing switch which does not exist yet, so
+  it is not to be attempted as a side change. Interim rule, in `docs/runbook/signaling.md`:
+  **deploy between lessons.**
 
-- **A video join grant is never validated, expired, or revoked (C3a).** `JoinGrant.expires_at`
-  is a field nothing reads: no endpoint redeems a grant, nothing revokes one when a session is
-  cancelled, and `FakeVideoProvider`'s token is an unsigned, unkeyed truncated SHA-256 — trivially
-  forgeable. This is harmless today because **the URL points at nothing**, and it becomes a real
-  authorization hole the moment C3b puts a service behind it. C3b must not treat "a grant exists"
-  as "this person may enter"; the redemption path is where the check has to live.
-- **`GRANT_TTL` is unrelated to both the join window and the lesson length (C3a).** A flat 30
-  minutes: a grant minted the moment the window opens dies 40 minutes before a 60-minute lesson
-  ends, and one minted at the window's close outlives the window by 30. Nothing enforces expiry
-  yet, so there is no present-day failure — but C3b consumes this contract, and both halves are
-  wrong in opposite directions. Clamp to the window close with a floor covering the remaining
-  lesson.
+  *(The second half of this entry — the colour overlap splitting one room across two processes —
+  was **fixed in C3c**. Per-colour hostnames alone were not enough, because `django-blue` and
+  `django-green` both claim `Host(${API_DOMAIN})` too and could serve two participants their
+  grants from different colours; `Room.signaling_url` pins the room itself. Recorded because the
+  "fix (a) is sufficient" belief was wrong and is worth not re-deriving.)*
+
+- **Traefik logs no request path for any route, and C3c did NOT make it safe to restore.**
+  The token itself is fixed — since C3c it rides `Sec-WebSocket-Protocol`, not a query string.
+  But the plan to then restore Traefik's dropped `RequestPath` field **does not survive contact
+  with the URLconf and is withdrawn.** `config/urls.py` includes `allauth.urls`, which serves
+  `/accounts/confirm-email/<key>/` and `/accounts/password/reset/key/<uidb36>-<key>/` — single-use
+  **account-takeover** credentials in the **path**, not the query string. Removing the signaling
+  token changed nothing about whether `RequestPath` is safe to log, and Traefik still has no
+  per-router access-log config and no partial-field redaction.
+  The remedy is therefore not a Traefik rollback: **give dashboard and marketing path-level
+  logging from their own container access logs**, the same compensating control Django already
+  has through gunicorn. Until that lands, those two surfaces have no path-level visibility at the
+  gateway.
+
+- **The gunicorn access log captures account-takeover credentials, and the compose comment
+  claiming otherwise is wrong (C3b, spotted in C3c's final review).**
+  `infra/docker-compose.production.yml`'s django-blue/django-green comment used to assert "safe
+  to log in full: no capability token ever appears in an API URL." That is true of the video
+  signaling token, but the entry directly above establishes the opposite for `allauth.urls`:
+  `/accounts/confirm-email/<key>/` and the password-reset key are single-use account-takeover
+  credentials carried **in the path**, and those requests go through Django, so
+  `gunicorn --access-logfile -` records them in full. Pre-existing since C3b; C3c nominated that
+  same compensating control as the model for dashboard and marketing to copy (the bullet above),
+  which is what surfaced the contradiction. The compose comment has been corrected to say so; the
+  underlying leak is not fixed here.
+
+- **No `turns:` TLS listener, so a TLS-443-only egress filter still blocks the relay (C3c).**
+  coturn listens on `3478` UDP and TCP only. Traefik owns 443 on the staging box, and a `turns:`
+  listener on 5349 would need a certificate delivered to a container Traefik does not front, so
+  C3c shipped without one (spec decision 3). Media is DTLS-SRTP end to end regardless and the
+  credentials are ephemeral and single-user — what is missing is *reachability* for users behind
+  a filter that permits only TLS on 443. Closing it needs a second IP or a dedicated TURN host.
+- **The TURN DNS record publishes the origin IP (C3c).** `turn-staging.kaleem.academy` must be
+  Cloudflare **DNS-only (grey cloud)** — Cloudflare cannot proxy UDP, and a proxied record breaks
+  every allocation with no error a client can interpret. The consequence is that the origin IP,
+  which the proxied records hide, is now published. Accepted for staging; revisit before
+  production.
+- **The coturn shared secret is visible in `docker inspect` and the host process list (C3c).**
+  It is passed as `--static-auth-secret=` on coturn's command line because **coturn performs no
+  variable expansion in its config file** — a `${VAR}` there is taken literally, which would have
+  made the secret a publicly guessable constant and the relay an open proxy. The command-line
+  form is the fix; the exposure is the accepted cost, and it sits inside an existing trust
+  boundary (the same value is already in `.env.production` on that box, and docker socket access
+  there is already root-equivalent). See `docs/runbook/turn.md`.
+- **`pyproject.toml`'s `precision = 1` comment describes a rounding rule coverage.py does not
+  appear to follow.** The comment says the fail-under check rounds the measured total to
+  `precision` decimals before comparing it to `fail_under`. Measured empirically 2026-09-06: a
+  total of 97.76%, which the report *displays* as `97.8%`, still failed a `fail_under = 97.8`
+  gate. The backend floor therefore stayed at 97.7 through C3c rather than ratcheting. The
+  comment will mislead the next person raising the floor — establish the real rule and rewrite it.
 
 - **`semgrep`, `trivy` and `pnpm audit` still do not run anywhere.** ADR-0030 wired in
   `gitleaks` + `pip-audit` (blocking) and Lighthouse (nightly), so the OWASP-Top-10 SAST
@@ -113,6 +140,25 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
   caught here before real users.
 
 ## Blocks a phase close
+
+- **Sentry may capture a capability token and TURN credential as stack-frame locals (C3c).**
+  `backend/config/settings/base.py` calls `sentry_sdk.init()` without
+  `include_local_variables=False`. The default `EventScrubber` scrubs frame variables by NAME,
+  and `secret`/`token` are on its denylist, but `credential`, `servers` (a tuple of `IceServer`
+  whose `repr` carries the credential) and `grant` are not. Any 500 raised after those locals are
+  bound ships them to Sentry in full. Only live once `SENTRY_DSN` is set (currently empty in
+  `.env.production.example`). One-line fix (`include_local_variables=False`), logged rather than
+  applied in this phase.
+
+- **There is no `docs/architecture/scheduling.md`, and D9 asks for one every phase.** `identity`,
+  `billing` and `curriculum` each have an architecture doc; `scheduling` — now the largest module
+  in the codebase, spanning C0 matching inputs, C1 matching, C2 booking + quota, C3a rooms, C3b
+  signaling and C3c TURN — has none. Each of those phases quietly skipped the "arch doc updated"
+  line of the Definition of Done. Writing it is a phase-sized piece of work in its own right and
+  must not be bolted onto whichever phase notices next: a doc covering only the latest slice
+  would misrepresent the module more than its absence does. The operational half is covered by
+  `docs/runbook/signaling.md` and `docs/runbook/turn.md`; what is missing is the module's own
+  structure, boundaries and data model.
 
 - **Nothing ever ends a video room (C3a).** `end_room` is on the provider `Protocol` and
   implemented by the fake, but has no caller. Cancelling or completing a session leaves its
@@ -191,6 +237,25 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
 - Dunning UX beyond mirroring `past_due` (retry/notice flow) is deferred.
 
 ## Someday
+
+- **Signaling reads only the first `Sec-WebSocket-Protocol` header line (C3c).**
+  `signaling/app.py` uses `headers.get(...)`, which returns the first occurrence. A client that
+  sends the offer as two repeated header lines — semantically equivalent to one comma-joined line
+  under RFC 7230 — would have its token silently dropped and be refused. It fails **closed**, so
+  this is not an auth bypass, and it is unreachable today: browsers and Starlette's `TestClient`
+  both comma-join. Worth a `getlist()` or at least a one-line comment recording the assumption
+  before any non-browser client exists.
+- **A reversed subprotocol offer is treated as no offer (C3c).** `[token, kaleem.signaling.v1]`
+  fails the `offered[0] != SUBPROTOCOL` check, so the refusal selects no subprotocol and the
+  browser sees a generic handshake error instead of close code 4401. Theoretical — kaleem's own
+  provider documents and constructs the fixed `[SUBPROTOCOL, token]` order.
+- **`stuns:` URLs would be given a TURN credential (C3c).** `providers/turn.py` splits STUN from
+  TURN with `startswith("stun:")`, so a `stuns:` entry falls into the TURN bucket and is handed a
+  credential it does not need. Unreachable today: `DJANGO_TURN_URLS` has no `stuns:` entry and
+  C3c ships no TLS listener at all. Fix it together with the `turns:` work above.
+- **`.env.production.example` has a stale comment referring to `WS_DOMAIN` (C3c).** The variable
+  was retired and replaced by `WS_BLUE_DOMAIN`/`WS_GREEN_DOMAIN`, but one comment still reads
+  "WS_DOMAIN, above, is …" and now points at nothing. One-line fix.
 
 - **`mypy` is red on `config/settings/local.py:61` and nothing notices.** `LOGGING["handlers"]["console"]["formatter"] = "verbose"` — mypy types `LOGGING` as `object`, so the subscript errors. Pre-existing (present at HEAD before Phase C3b's fix wave), and harmless only because **mypy runs in neither `ci.yml` nor pre-commit nor `just lint`** — it is a manual command. Either fix the annotation and put mypy in the merge path, or stop calling it a gate.
 
