@@ -1,8 +1,8 @@
 ---
-current_phase: "C — Scheduling. C0 (matching inputs) SHIPPED 2026-09-05; C1 (matching) SHIPPED 2026-09-05. C2 (booking + quota) SHIPPED 2026-09-05 (backend#43, dashboard#36, meta#162). C3 is decomposed further into C3a-C3e (ADR-0034); C3a (video room + provider seam) SHIPPED 2026-09-05 (backend#44, dashboard#37, meta#164). C3b (signaling) is IN REVIEW 2026-09-06 (backend, infra and meta PRs open). Phase B (billing) is CLOSED as of 2026-09-04, dunning gate included. Phase C is decomposed because matching, booking and video are separate subsystems in a strict dependency order: C0 matching inputs, C1 matching, C2 booking + quota, then video as C3a rooms, C3b signaling, C3c STUN/TURN, C3d call client, C3e browser hardening. Note the roadmap calls scheduling 'B2'; that label is already taken by a closed billing spec, so scheduling is Phase C here."
-active_spec: "docs/superpowers/specs/2026-09-06-phase-c3b-signaling-design.md — C3b. Spec + plan merged; all 11 plan tasks implemented and reviewed; three PRs open awaiting merge. ⚠ MERGING NEEDS A VPS EDIT FIRST — see next actions."
-active_branch: "feat/phase-c3b-signaling in backend, infra and meta. TRUNK-BASED as of 2026-09-04 (ADR-0028) — `master` is the only long-lived branch; `develop` is deleted. Branch feat/… off master, PR into master."
-last_green_ci: "meta #165 → master, 2026-09-06 (docs only). Before that meta #164 → master, 2026-09-05 (all 8 checks green, deploy-staging SUCCESS). Staging is current with master at abe148f; `POST /api/v1/scheduling/sessions/1/join/` answers 403 rather than 404 there, so C3a is really deployed. Note routes are mounted per-module — `/api/v1/scheduling/...`, not `/api/v1/...`. The `Stripe test clock` nightly was last green on 2026-09-04 (run 33839689278: 5 passed, 4m01s)."
+current_phase: "C — Scheduling. C0 (matching inputs) SHIPPED 2026-09-05; C1 (matching) SHIPPED 2026-09-05. C2 (booking + quota) SHIPPED 2026-09-05 (backend#43, dashboard#36, meta#162). C3 is decomposed further into C3a-C3e (ADR-0034); C3a (video room + provider seam) SHIPPED 2026-09-05 (backend#44, dashboard#37, meta#164). C3b (signaling) SHIPPED 2026-09-06 (backend#45, infra#6, meta#166) and is live on staging. Phase B (billing) is CLOSED as of 2026-09-04, dunning gate included. Phase C is decomposed because matching, booking and video are separate subsystems in a strict dependency order: C0 matching inputs, C1 matching, C2 booking + quota, then video as C3a rooms, C3b signaling, C3c STUN/TURN, C3d call client, C3e browser hardening. Note the roadmap calls scheduling 'B2'; that label is already taken by a closed billing spec, so scheduling is Phase C here."
+active_spec: "none — C3b closed 2026-09-06. Next is C3c (STUN/TURN), which has no spec yet."
+active_branch: "none; backend, infra and meta are all on their trunks and clean. TRUNK-BASED as of 2026-09-04 (ADR-0028) — `master` is the only long-lived branch; `develop` is deleted. Branch feat/… off master, PR into master."
+last_green_ci: "meta #166 → master, 2026-09-06 (all 8 checks green, deploy-staging SUCCESS). `https://ws-staging.kaleem.academy/health/live/` returns {\"status\":\"healthy\"} with a valid certificate, so the signaling secret is present and usable there — though nothing proves it MATCHES the API's. Before that meta #164 → master, 2026-09-05 (all 8 checks green, deploy-staging SUCCESS). Staging is current with master at abe148f; `POST /api/v1/scheduling/sessions/1/join/` answers 403 rather than 404 there, so C3a is really deployed. Note routes are mounted per-module — `/api/v1/scheduling/...`, not `/api/v1/...`. The `Stripe test clock` nightly was last green on 2026-09-04 (run 33839689278: 5 passed, 4m01s)."
 ---
 
 # kaleem Project State
@@ -26,33 +26,28 @@ Phase A (identity) is closed via ADR-0024, with one residual human check outstan
 
 ## ▶ Next actions, in order
 
-1. ⚠ **BEFORE merging C3b, edit `.env.production` on the VPS.** It is hand-managed and needs
-   `WS_DOMAIN`, `DJANGO_SIGNALING_SECRET`, `DJANGO_SIGNALING_URL` and `DJANGO_VIDEO_PROVIDER`
-   (see `infra/.env.production.example`, which now carries all four as placeholders). **The
-   secret must be IDENTICAL to the API container's** or every join fails authentication with a
-   correct-looking token. `WS_DOMAIN` also needs a DNS record so Traefik can obtain a
-   certificate. Without these the deploy's signaling health check 503s and `ship.sh` rolls back
-   the whole new colour, including a healthy Django.
-2. **Merge C3b**: backend → infra → meta. ⚠ The meta merge IS a staging deploy.
-3. **Then C3c — STUN/TURN.** Mandatory, not optional: roughly one connection in six cannot go
-   peer-to-peer and fails outright without a relay. `coturn` in `infra` with HMAC-derived
-   ephemeral credentials.
-4. **C3c should also move the token out of the URL query string** into `Sec-WebSocket-Protocol`.
-   That is the real fix for the gateway-logging problem C3b worked around by dropping Traefik's
-   `RequestPath` globally — see `ISSUES.md` under Blocks launch.
-5. **Click through C3a on staging**, and make a teacher there — still the outstanding manual gap
-   from C0, C1, C2 and C3a.
+1. **C3c — STUN/TURN. Not optional.** Roughly one connection in six cannot go peer-to-peer and
+   fails outright without a relay, so no amount of client work in C3d produces a reliable call
+   until this lands. `coturn` in `infra`, with HMAC-derived ephemeral credentials — a static TURN
+   password is a resource anyone can steal.
+2. **C3c should also move the signaling token out of the URL query string** into
+   `Sec-WebSocket-Protocol`. That is the real fix for the gateway-logging problem C3b worked
+   around by dropping Traefik's `RequestPath` globally — dashboard and marketing currently have
+   no path-level visibility at the gateway. See `ISSUES.md` under Blocks launch.
+3. **Make a teacher on staging via Django admin.** Still outstanding from C0, C1, C2, C3a and
+   now C3b — every phase's manual click-through has been partial for want of one.
+4. **Then C3d — the call client**, which is the first phase that can produce a working call.
+5. From `ISSUES.md`, the C2 **Blocks launch** entry still stands: the quota cycle is keyed by an
+   exact `current_period_end`, and a mid-cycle rewrite would hand out a second allowance.
 
 ## In flight
 
-- **C3b (signaling), in review.** Three branches pushed; nothing merged. A separate Python ASGI
-  service from the same image, no Django import, authenticated by an HMAC capability token.
-  **No call can connect yet** — no browser client (C3d) and no TURN (C3c).
-- ⚠ **A merge to `master` is a deploy** (ADR-0028), and this one needs the VPS edit above first.
+- **Nothing.** C3b closed; C3c has no spec yet.
+- ⚠ **A merge to `master` is a deploy** (ADR-0028).
 
 ## Recently verified (2026-09-03 → 06)
 
-- **Phase C3b (signaling) implemented, reviewed, awaiting merge.** Escape hatch E5 (ADR-0035).
+- **Phase C3b (signaling) SHIPPED** (backend#45, infra#6, meta#166), live on staging. Escape hatch E5 (ADR-0035).
   Backend 852 at 97.78% (floor 97.6 → 97.7); `lint-imports` 11 kept / 0 broken with the new
   contract **verified by breaking it in both directions**; e2e stays at 33 by design.
   Walked by hand over real sockets: presence both ways, relay both ways, departure, and every
