@@ -94,9 +94,14 @@ Nothing else in the backend changes.
 | Action | Mechanism | Renegotiates? |
 | --- | --- | --- |
 | Mute mic / camera off | `track.enabled = false` | No — connection stays warm, effect is instant |
-| Switch device | `sender.replaceTrack()` | No — same track kind |
+| Switch device | lobby only, before any peer connection exists | N/A — see below |
 | ICE failure | `restartIce()` on the teacher, bounded | Yes, and only here |
 | Peer reconnects | `peer-joined` → teacher re-offers | Yes, via the existing rule |
+
+**Device switching is a lobby-only action in C3d.** The pickers live before the peer connection
+exists, so `sender.replaceTrack()` is never reached — an earlier draft of this table listed it,
+which would have had the plan build a path nothing calls. In-call device switching needs an
+in-call settings surface, and that is a later phase, not a line item here.
 
 So normal use renegotiates on reconnect and nowhere else.
 
