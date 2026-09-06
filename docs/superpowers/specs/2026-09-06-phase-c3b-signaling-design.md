@@ -2,9 +2,9 @@
 name: phase-c3b-signaling
 phase: C
 modules: [scheduling, signaling]
-status: draft
+status: shipped
 created: 2026-09-06
-closed: null
+closed: 2026-09-06
 ---
 
 ## Goal

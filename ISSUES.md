@@ -16,6 +16,30 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
 
 ## Blocks launch
 
+- **A deploy drops every live call, and the colour overlap can split a room in two (C3b).**
+  `scripts/ship.sh` step 8 stops the old signaling container with `stop --timeout 30`;
+  room membership is an in-process dict, so every call in progress dies with it — the 30s
+  is a SIGTERM grace period, not a drain, and nothing waits for rooms to empty. Worse,
+  `signaling-blue` and `signaling-green` both claim `Host(${WS_DOMAIN})`, so between step 5
+  and step 8 Traefik spreads one hostname across both colours: a teacher can land on one
+  and their student on the other, each alone in a one-peer room, with **no `peer-joined`,
+  no error and no close code** — every health check green, nothing logged. Two fix options,
+  both C3c/C3d, neither to be attempted as a side change: (a) **colour-pinned WS host** —
+  each colour gets its own hostname and the `join_url` hands the client the pinned one, so
+  a room cannot straddle; (b) **a real drain** — stop routing new joins to the old colour,
+  wait for its rooms to empty, then stop it. (a) fixes only the split; (b) fixes both, but
+  needs a join-routing switch that does not exist yet. Documented meanwhile in
+  `docs/runbook/signaling.md` with the interim rule: **deploy between lessons**.
+- **The capability token still travels in a URL query string (C3b).** Redacting it in
+  uvicorn (`signaling/logconf.py`) and dropping `RequestPath` from Traefik's access log
+  closes the two leaks we know about, but a query string is the wrong place for a
+  credential on principle: it lands in any future proxy, CDN, browser history or
+  `Referer` we add, and each new hop is a new leak to find. Traefik has no per-router
+  access-log config and ignores `redact` for core fields, so the gateway now logs **no**
+  request path for **any** route — a real observability cost paid for one endpoint's
+  mistake. The fix is to carry the token in the `Sec-WebSocket-Protocol` header instead;
+  that is a dashboard change as well as a backend one, so it belongs to C3c.
+
 - **A video join grant is never validated, expired, or revoked (C3a).** `JoinGrant.expires_at`
   is a field nothing reads: no endpoint redeems a grant, nothing revokes one when a session is
   cancelled, and `FakeVideoProvider`'s token is an unsigned, unkeyed truncated SHA-256 — trivially
@@ -168,8 +192,11 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
 
 ## Someday
 
-- **`mypy` reports one pre-existing error** — `config/settings/local.py:61`, "Value of type
-  'object' is not indexable". CI does not run mypy, so it is invisible in the merge path.
+- **`mypy` is red on `config/settings/local.py:61` and nothing notices.** `LOGGING["handlers"]["console"]["formatter"] = "verbose"` — mypy types `LOGGING` as `object`, so the subscript errors. Pre-existing (present at HEAD before Phase C3b's fix wave), and harmless only because **mypy runs in neither `ci.yml` nor pre-commit nor `just lint`** — it is a manual command. Either fix the annotation and put mypy in the merge path, or stop calling it a gate.
+
+- **`docs/runbook/deploy.md` still calls the deploy script `scripts/deploy.sh`.** The
+  actual file in the `infra` submodule is `scripts/ship.sh`; the doc's command examples
+  are stale and will fail if copy-pasted.
 - **The C3a e2e is time-bombed on seed age.** `seed_e2e_matching` puts the joinable session at
   `now`, and its window closes 75 minutes later. A suite run long after seeding would find the
   button still enabled but the POST returning 409. Fine in CI, which seeds immediately.
