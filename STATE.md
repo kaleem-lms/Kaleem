@@ -1,8 +1,8 @@
 ---
 current_phase: "C — Scheduling. C0 (matching inputs) SHIPPED 2026-09-05; C1 (matching) SHIPPED 2026-09-05. C2 (booking + quota) SHIPPED 2026-09-05 (backend#43, dashboard#36, meta#162). C3 is decomposed further into C3a-C3e (ADR-0034); C3a (video room + provider seam) SHIPPED 2026-09-05 (backend#44, dashboard#37, meta#164). C3b (signaling) SHIPPED 2026-09-06 (backend#45, infra#6, meta#166) and is live on staging. Phase B (billing) is CLOSED as of 2026-09-04, dunning gate included. Phase C is decomposed because matching, booking and video are separate subsystems in a strict dependency order: C0 matching inputs, C1 matching, C2 booking + quota, then video as C3a rooms, C3b signaling, C3c STUN/TURN, C3d call client, C3e browser hardening. Note the roadmap calls scheduling 'B2'; that label is already taken by a closed billing spec, so scheduling is Phase C here."
-active_spec: "docs/superpowers/specs/2026-09-06-phase-c3c-turn-design.md — C3c (STUN/TURN + three hardening items). Code complete and reviewed on all three submodule branches; NOT merged and NOT deployed. Blocked on VPS/DNS/firewall work only a human can do — see In flight."
-active_branch: "backend `feat/phase-c3c-turn` (PR #46), infra `feat/phase-c3c-turn` (PR #7), dashboard `feat/phase-c3c-ice-schema`, meta `feat/phase-c3c-turn` — all open, none merged. TRUNK-BASED as of 2026-09-04 (ADR-0028) — `master` is the only long-lived branch; `develop` is deleted. Branch feat/… off master, PR into master."
-last_green_ci: "meta #166 → master, 2026-09-06 (all 8 checks green, deploy-staging SUCCESS). `https://ws-staging.kaleem.academy/health/live/` returns {\"status\":\"healthy\"} with a valid certificate, so the signaling secret is present and usable there — though nothing proves it MATCHES the API's. Before that meta #164 → master, 2026-09-05 (all 8 checks green, deploy-staging SUCCESS). Staging is current with master at abe148f; `POST /api/v1/scheduling/sessions/1/join/` answers 403 rather than 404 there, so C3a is really deployed. Note routes are mounted per-module — `/api/v1/scheduling/...`, not `/api/v1/...`. The `Stripe test clock` nightly was last green on 2026-09-04 (run 33839689278: 5 passed, 4m01s)."
+active_spec: "none — C3c (STUN/TURN) SHIPPED and verified live on staging 2026-09-06. Next is C3d (the call client), which has no spec yet and is the first phase that can produce a working call."
+active_branch: "none; backend, dashboard, infra and meta are all on their trunks. NOTE infra `main` is one commit ahead of the deployed pointer (the `log-file=stdout` fix, applied to staging by hand) — bump it with the next meta PR. TRUNK-BASED as of 2026-09-04 (ADR-0028) — `master` is the only long-lived branch; `develop` is deleted. Branch feat/… off master, PR into master."
+last_green_ci: "meta #169 → master, 2026-09-06 (all 8 checks green; deploy-staging SUCCESS on the second attempt — the first failed loudly at `Sync infra config to staging` because a hand-created root-owned `/opt/kaleem/coturn` blocked the `deploy` user\'s tar, fixed with a chown). Staging is on **blue** at 43d6dea. Verified live: `https://ws-blue-staging.kaleem.academy/health/live/` returns healthy; a relay-only RTCPeerConnection pair connects through coturn (2.3 KB each way); the Sec-WebSocket-Protocol handshake accepts a valid token and refuses three bad cases with 4401. Both mutation-checked. ⚠ `ws-green-staging` has NO certificate until green is active (ISSUES). The `Stripe test clock` nightly was last green 2026-09-04."
 ---
 
 # kaleem Project State
@@ -26,47 +26,52 @@ Phase A (identity) is closed via ADR-0024, with one residual human check outstan
 
 ## ▶ Next actions, in order
 
-1. **Land C3c — it is code-complete and reviewed, but blocked on VPS work only you can do.**
-   In order: (a) create the `turn-staging.kaleem.academy` A record, **DNS-only / grey cloud** —
-   Cloudflare cannot proxy UDP and a proxied record breaks every allocation with no interpretable
-   error; **(a2) also create `ws-blue-staging.kaleem.academy` and
-   `ws-green-staging.kaleem.academy` A records and let Let's Encrypt issue certificates for
-   both — `WS_DOMAIN` is retired, so the old `ws-staging.kaleem.academy` record no longer serves
-   anything, and nothing else creates these two.** `WS_BLUE_DOMAIN` and `WS_GREEN_DOMAIN` must
-   point at two DIFFERENT hostnames — nothing validates that, and pointing both at one hostname to
-   save a record silently restores the exact straddle this phase removes; (b) open `3478/udp`,
-   `3478/tcp` and `49152-49999/udp` at the provider firewall; (c) add `DJANGO_TURN_SECRET`,
-   `TURN_REALM`, `DJANGO_TURN_URLS`, `WS_BLUE_DOMAIN` and `WS_GREEN_DOMAIN` to the hand-managed
-   `.env.production`, and **remove `WS_DOMAIN` and `DJANGO_SIGNALING_URL`** (the latter is now set
-   per colour in compose). Full steps: `docs/runbook/turn.md`, `docs/runbook/signaling.md`.
-   ⚠ **Do (a)-(c) BEFORE merging.** `SignalingProvider` now fails closed without the TURN
-   settings. An unset `WS_*_DOMAIN` does **not** produce a failed health check and a `ship.sh`
-   rollback as earlier notes here claimed — `ship.sh`'s signaling health check is
-   container-local (`docker exec ... curl http://localhost:9000/health/live/`) and cannot see a
-   dead Traefik router. `docker-compose.production.yml` now guards both variables with Compose's
-   `${VAR:?message}` syntax instead, so the deploy **aborts** on an unset value rather than
-   shipping a green deploy with a dead router.
-2. **Then merge, then verify live** — the one gate C3c cannot pass on its own. `turnutils_uclient`
-   against staging, plus a throwaway two-`RTCPeerConnection` page with
-   `iceTransportPolicy: "relay"`. **Mutation-check both** by breaking the secret. Nothing in any
-   suite proves a UDP packet traverses coturn, and C3b's only Critical hid in exactly that gap.
-3. **Then C3d — the call client**, the first phase that can produce a working call.
-4. From `ISSUES.md`, the C2 **Blocks launch** entry still stands: the quota cycle is keyed by an
-   exact `current_period_end`, and a mid-cycle rewrite would hand out a second allowance.
+1. **C3d — the call client.** The first phase that can produce a working call. Everything under
+   it now exists and is proven live: rooms (C3a), an authenticated signaling relay (C3b), and a
+   TURN relay with ephemeral credentials (C3c). C3d is `RTCPeerConnection`, the video grid and
+   the controls, driven by `join_url` + `token` + `ice_servers` off the join grant.
+2. **Bump the infra pointer** — `infra/main` carries the `log-file=stdout` fix, which was applied
+   to staging by hand but is not in the deployed SHA.
+3. From `ISSUES.md`, two C3c operational entries want closing before they bite: `ws-green-staging`
+   has no certificate until green is active, and a coturn config-only change does not restart the
+   running relay.
+4. Still standing from C2 under **Blocks launch**: the quota cycle is keyed by an exact
+   `current_period_end`, and a mid-cycle rewrite would hand out a second allowance.
 
 ## In flight
 
-- **C3c, code-complete on four branches, none merged.** backend PR #46, infra PR #7, dashboard
-  `feat/phase-c3c-ice-schema`, meta `feat/phase-c3c-turn`. Backend 881 at 97.76% (floor stays
-  97.7 — see below); dashboard 545, floors ratcheted to 93.6/90.4/86.6/93.6; e2e unchanged at 33
-  by design. Every task reviewed; two Criticals found and fixed before merge.
-- ⚠ **A merge to `master` is a deploy** (ADR-0028). Do the VPS work first.
-- ⚠ **The backend coverage floor did NOT move this phase.** 97.76% measured, but `fail_under =
-  97.8` fails despite the report *displaying* `97.8%` — so `pyproject.toml`'s `precision = 1`
-  comment describes a rounding rule coverage.py does not follow. Logged in `ISSUES.md`; do not
-  re-derive it.
+- **Nothing.** C3c shipped and was verified live on 2026-09-06.
+- ⚠ **A merge to `master` is a deploy** (ADR-0028).
+- ⚠ **Deploy between lessons.** A deploy still drops every call in progress — the drain is
+  unbuilt, and it is the last surviving half of the split-room issue (`ISSUES.md`).
 
 ## Recently verified (2026-09-03 → 06)
+
+- **Phase C3c (STUN/TURN) SHIPPED and verified live** (backend#46, infra#7/#8/#9, dashboard#38,
+  meta#169). A self-hosted `coturn` relay with HMAC ephemeral credentials delivered as
+  `ice_servers` on the join grant; the capability token moved out of the URL query string into
+  `Sec-WebSocket-Protocol`; a room pinned to one deploy colour; `GRANT_TTL` deleted in favour of
+  the join window's close. Backend 881 at 97.76%; dashboard 545, floors → 93.6/90.4/86.6/93.6;
+  e2e unchanged at 33 by design.
+
+  **The relay genuinely relays** — first media path ever to traverse kaleem's infrastructure.
+  Mutation-checked in both directions.
+
+  ⚠ **The backend coverage floor did NOT move: it stays 97.7.** 97.76% measured, but
+  `fail_under = 97.8` FAILS even though the report displays "97.8%". `pyproject.toml`'s
+  `precision = 1` comment describes a rounding rule coverage.py does not follow. Logged.
+
+  ⚠ **Five Criticals were found and fixed, none by a test or a review.** Three lived in the plan
+  and docs: coturn takes `${VAR}` in its config file *literally* (an open relay); compose
+  supplying `wss://${WS_BLUE_DOMAIN}` made an unset variable expand to the truthy string `wss://`,
+  defeating the app's own fail-closed guard and persisting a broken pin; and four documents
+  asserted a `ship.sh` rollback that does not exist, because its signaling health check is
+  container-local and cannot see a dead Traefik router. Two more surfaced only at deploy time:
+  `coturn` was absent from `ship.sh`'s explicit shared-services list (so the relay would never
+  have started), and CI did not sync `turnserver.conf` (so the bind mount would have become an
+  empty directory and unfenced the relay). **Every one lived in the gap between a config file and
+  the process that consumes it — the gap nothing in this repo tests.** Full account:
+  `journal/2026-W36.md`.
 
 - **Phase C3b (signaling) SHIPPED** (backend#45, infra#6, meta#166), live on staging. Escape hatch E5 (ADR-0035).
   Backend 852 at 97.78% (floor 97.6 → 97.7); `lint-imports` 11 kept / 0 broken with the new
