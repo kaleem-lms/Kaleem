@@ -43,10 +43,41 @@ and edited by hand thereafter.
 
 ⚠ **`WS_DOMAIN` is retired as of C3c.** A single hostname shared by both
 colours is exactly what allowed one room to split across two processes. If a
-VPS still carries `WS_DOMAIN` and not the two new variables, both signaling
-routers get a `Host(``)` rule, never become routable, fail their health check,
-and `scripts/ship.sh` rolls back the **entire** new colour — healthy Django
-included. Diff `.env.production` against `infra/.env.production.example` before
+VPS still carries `WS_DOMAIN` and not the two new variables, **the deploy now
+aborts instead of shipping broken**: `docker-compose.production.yml` requires
+`WS_BLUE_DOMAIN` and `WS_GREEN_DOMAIN` via Compose's `${VAR:?message}`
+syntax, so `docker compose up` for a missing one fails outright before any
+container starts.
+
+This corrects an earlier, false version of this warning, which claimed an
+unset variable would produce "a `Host(``)` rule, a failed health check, and a
+`ship.sh` rollback of the entire colour." **That is not what would have
+happened.** `scripts/ship.sh`'s signaling health check is `docker exec
+kaleem-signaling-${NEW}-1 curl http://localhost:9000/health/live/` —
+container-local, so it passes regardless of Traefik routing, DNS, or
+certificates. Left unguarded, a missing `WS_BLUE_DOMAIN` would have expanded
+to the literal, truthy string `wss://`, defeated `SignalingProvider`'s own
+fail-closed check, and produced a **green deploy with a dead router** — the
+exact silent failure mode this runbook exists to prevent. The `${VAR:?...}`
+guard is what makes the deploy fail instead.
+
+⚠ **The two new hostnames need their own DNS records and certificates before
+you retire `WS_DOMAIN`.** Nothing in code or CI creates
+`ws-blue-staging.kaleem.academy` and `ws-green-staging.kaleem.academy` — an
+operator must add both as A records pointing at the VPS and let Traefik's
+Let's Encrypt resolver issue certificates for them (the first request to each
+triggers issuance; watch `docker logs kaleem-traefik-1` for ACME errors).
+With the env correctly updated but the DNS records absent, `${VAR:?...}`
+guard aside, the result is still a green deploy, a valid-looking `join_url`,
+and every WebSocket handshake failing at DNS/TLS.
+
+**`WS_BLUE_DOMAIN` and `WS_GREEN_DOMAIN` must resolve to two DIFFERENT
+hostnames.** Nothing validates this at deploy time — pointing both variables
+at one hostname to save a DNS record silently restores the exact straddle
+this pair was built to remove, with the code, the `${VAR:?...}` guards, and
+every health check all still green.
+
+Diff `.env.production` against `infra/.env.production.example` before
 deploying.
 
 ## Rotating the shared secret
@@ -213,7 +244,7 @@ Read them in aggregate, not one at a time:
 | Pattern | Almost certainly |
 | --- | --- |
 | *Every* join logs "bad signature" | `DJANGO_SIGNALING_SECRET` differs between the API and signaling containers. The health check cannot catch this — see above. |
-| *Every* join logs "expired" | Clock skew between the API host and the signaling host, or a `GRANT_TTL` shorter than the time it takes a participant to click through. |
+| *Every* join logs "expired" | Clock skew between the API host and the signaling host, or the join window closing before a participant clicks through. `GRANT_TTL` no longer exists (C3c) — a grant's `expires_at` is now the join window's own close, `join_window(session)[1]`, so this means the window itself is too tight, not a separate constant. |
 | Scattered "malformed token" | Usually crawlers and scanners hitting the endpoint. Only interesting in volume. |
 | "token is for room X" | A real capability being replayed against a different room. Investigate. |
 

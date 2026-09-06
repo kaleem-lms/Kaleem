@@ -61,7 +61,7 @@ See `STATE.md` for the current phase and active spec. At the time of this file's
    | `scheduling` — matching | ✅ 3 flows | the student's searching state, a teacher accepting, and the offer gone after a reload |
    | `scheduling` — booking | ✅ 3 flows | generated sessions + quota, a refund visible after a reload, the teacher's view |
    | `signaling` (C3b) | ❌ by design | no user-facing behaviour — a relay with no client until C3d, so there is no flow to drive |
-   | TURN + handshake (C3c) | ❌ by design | still no user-facing behaviour, and CI has no coturn and no media. Verified live instead with `turnutils_uclient` and a throwaway relay-only `RTCPeerConnection` harness, both mutation-checked |
+   | TURN + handshake (C3c) | ❌ by design | still no user-facing behaviour, and CI has no coturn and no media. Live verification is **pending**, not done: coturn is not deployed. Once it is, verify with `turnutils_uclient` and a throwaway relay-only `RTCPeerConnection` harness, both mutation-checked, per `docs/runbook/turn.md` |
    | `scheduling` — video room | ✅ 3 flows | a student joins the lesson happening now (the grant *body* asserted, not just a 200), the teacher's control, a future lesson counting down |
    | app shell | ✅ 5 flows | role-aware nav both ways, `aria-current`, mobile drawer, Escape + focus restore |
    | scaffold routes | ❌ by design | placeholder pages with no behaviour beyond a heading |

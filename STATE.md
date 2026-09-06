@@ -29,14 +29,23 @@ Phase A (identity) is closed via ADR-0024, with one residual human check outstan
 1. **Land C3c — it is code-complete and reviewed, but blocked on VPS work only you can do.**
    In order: (a) create the `turn-staging.kaleem.academy` A record, **DNS-only / grey cloud** —
    Cloudflare cannot proxy UDP and a proxied record breaks every allocation with no interpretable
-   error; (b) open `3478/udp`, `3478/tcp` and `49152-49999/udp` at the provider firewall;
-   (c) add `DJANGO_TURN_SECRET`, `TURN_REALM`, `DJANGO_TURN_URLS`, `WS_BLUE_DOMAIN` and
-   `WS_GREEN_DOMAIN` to the hand-managed `.env.production`, and **remove `WS_DOMAIN` and
-   `DJANGO_SIGNALING_URL`** (the latter is now set per colour in compose). Full steps:
-   `docs/runbook/turn.md`.
+   error; **(a2) also create `ws-blue-staging.kaleem.academy` and
+   `ws-green-staging.kaleem.academy` A records and let Let's Encrypt issue certificates for
+   both — `WS_DOMAIN` is retired, so the old `ws-staging.kaleem.academy` record no longer serves
+   anything, and nothing else creates these two.** `WS_BLUE_DOMAIN` and `WS_GREEN_DOMAIN` must
+   point at two DIFFERENT hostnames — nothing validates that, and pointing both at one hostname to
+   save a record silently restores the exact straddle this phase removes; (b) open `3478/udp`,
+   `3478/tcp` and `49152-49999/udp` at the provider firewall; (c) add `DJANGO_TURN_SECRET`,
+   `TURN_REALM`, `DJANGO_TURN_URLS`, `WS_BLUE_DOMAIN` and `WS_GREEN_DOMAIN` to the hand-managed
+   `.env.production`, and **remove `WS_DOMAIN` and `DJANGO_SIGNALING_URL`** (the latter is now set
+   per colour in compose). Full steps: `docs/runbook/turn.md`, `docs/runbook/signaling.md`.
    ⚠ **Do (a)-(c) BEFORE merging.** `SignalingProvider` now fails closed without the TURN
-   settings, and an unset `WS_*_DOMAIN` gives both signaling routers a `Host(``)` rule, a failed
-   health check, and a `ship.sh` rollback of the **entire** colour — healthy Django included.
+   settings. An unset `WS_*_DOMAIN` does **not** produce a failed health check and a `ship.sh`
+   rollback as earlier notes here claimed — `ship.sh`'s signaling health check is
+   container-local (`docker exec ... curl http://localhost:9000/health/live/`) and cannot see a
+   dead Traefik router. `docker-compose.production.yml` now guards both variables with Compose's
+   `${VAR:?message}` syntax instead, so the deploy **aborts** on an unset value rather than
+   shipping a green deploy with a dead router.
 2. **Then merge, then verify live** — the one gate C3c cannot pass on its own. `turnutils_uclient`
    against staging, plus a throwaway two-`RTCPeerConnection` page with
    `iceTransportPolicy: "relay"`. **Mutation-check both** by breaking the secret. Nothing in any
@@ -49,7 +58,7 @@ Phase A (identity) is closed via ADR-0024, with one residual human check outstan
 
 - **C3c, code-complete on four branches, none merged.** backend PR #46, infra PR #7, dashboard
   `feat/phase-c3c-ice-schema`, meta `feat/phase-c3c-turn`. Backend 881 at 97.76% (floor stays
-  97.7 — see below); dashboard 544, floors ratcheted to 93.6/90.4/86.6/93.6; e2e unchanged at 33
+  97.7 — see below); dashboard 545, floors ratcheted to 93.6/90.4/86.6/93.6; e2e unchanged at 33
   by design. Every task reviewed; two Criticals found and fixed before merge.
 - ⚠ **A merge to `master` is a deploy** (ADR-0028). Do the VPS work first.
 - ⚠ **The backend coverage floor did NOT move this phase.** 97.76% measured, but `fail_under =

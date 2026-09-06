@@ -1317,7 +1317,7 @@ C3b shipped a Critical that every green suite was structurally unable to see: th
 
 - [ ] **Step 1: Deploy to staging**
 
-Merge the backend, infra and dashboard PRs, then the meta PR carrying the pointer bumps. A merge to meta `master` **is** the deploy. Before merging, confirm the VPS `.env.production` already carries `DJANGO_TURN_SECRET`, `TURN_REALM`, `DJANGO_TURN_URLS`, `WS_BLUE_DOMAIN` and `WS_GREEN_DOMAIN` — it is hand-managed, and a missing `WS_*_DOMAIN` rolls back the entire colour, Django included.
+Merge the backend, infra and dashboard PRs, then the meta PR carrying the pointer bumps. A merge to meta `master` **is** the deploy. Before merging, confirm the VPS `.env.production` already carries `DJANGO_TURN_SECRET`, `TURN_REALM`, `DJANGO_TURN_URLS`, `WS_BLUE_DOMAIN` and `WS_GREEN_DOMAIN`, and that `ws-blue-staging.kaleem.academy` / `ws-green-staging.kaleem.academy` DNS records exist with issued certificates — it is hand-managed, and a missing `WS_*_DOMAIN` now aborts the deploy outright via `docker-compose.production.yml`'s `${VAR:?message}` guard (not the "failed health check + colour rollback" this line used to claim — `ship.sh`'s signaling health check is container-local and cannot see a dead Traefik router).
 
 - [ ] **Step 2: Prove the relay allocates**
 

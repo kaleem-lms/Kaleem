@@ -253,9 +253,17 @@ with that reason, and e2e stays at 33.
   provider's firewall produces allocations that succeed and media that never arrives — a failure
   that looks like a client bug. Verified explicitly, not assumed.
 - **Retiring `WS_DOMAIN` is a breaking env change.** A staging box still carrying the old variable
-  and not the two new ones gets `Host(``)` on both signaling routers, no route, a failed health
-  check, and `ship.sh` rolling back the entire colour — Django included. The runbook step lands in
-  the same PR as the compose change.
+  and not the two new ones must have the deploy **abort**, not ship broken.
+  `scripts/ship.sh`'s signaling health check (`docker exec ... curl
+  http://localhost:9000/health/live/`) is container-local — it cannot see whether Traefik's
+  `Host()` rule, DNS, or a certificate exist, so it passes regardless. Left unguarded, an unset
+  `WS_BLUE_DOMAIN`/`WS_GREEN_DOMAIN` expands to the truthy literal `wss://`, defeats
+  `SignalingProvider`'s own fail-closed check, and PERSISTS a broken `Room.signaling_url` to every
+  later joiner — a **green deploy with a dead router**, not a failed health check and a colour
+  rollback. `docker-compose.production.yml` guards both variables with Compose's `${VAR:?message}`
+  mandatory syntax instead, so the deploy fails at `docker compose up` rather than after. The
+  runbook step and the two new DNS records (`ws-blue-staging`/`ws-green-staging`, replacing the
+  retired `ws-staging`) land in the same PR as the compose change.
 - **`Room.signaling_url` on existing rows.** The migration adds it nullable; a room created before
   the migration reads `NULL` and must fall back to the configured URL rather than raise. Staging
   has live rooms.
