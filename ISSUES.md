@@ -255,11 +255,6 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
 
 ## Someday
 
-- **Nothing in `.gitignore` covers `*.db`.** An empty `test.db` was briefly committed during
-  C3e-a from a host `pytest` run (the project's real test environment is the Docker container,
-  not host Python — see the C3e-a plan's rulings). Caught and removed before merge; add `*.db`
-  to `backend/.gitignore` so the next host-side slip doesn't reach a PR.
-
 - **The deploy's file sync now downloads its own binary, unchecksummed.** `appleboy/scp-action`
   v1 is a composite action: instead of running a pinned Docker image, it `curl`s the `drone-scp`
   binary onto the runner at deploy time (default v1.8.0, GitHub releases, no checksum). The action

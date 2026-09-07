@@ -120,10 +120,14 @@ CallDiagnostic.objects.filter(session_id=<id>).order_by("-created_at").values(
 Android — read server-side from the request header, so it cannot be forged. `stats` is a
 client-redacted allow-list of WebRTC stat fields (never an address) and is `null` on the three
 `gum-*` codes, which fire in the Lobby before any `RTCPeerConnection` exists — a null there is
-correct, not missing data.
+correct, not missing data. The guarantee is precisely "**our** client redacts before sending",
+not "the server refuses addresses": `stats` is an unvalidated `JSONField` by design, so a future
+non-kaleem client (or anyone POSTing by hand) could store anything in it — read the column as
+address-free by convention, never as structurally address-free.
 
-**Two things this table will not tell you.** It is throttled at 20/hour per session, so a
-browser failing in a tight loop understates its own frequency — do not read the row count as an
+**Two things this table will not tell you.** It is throttled at 20/hour per **user**, not per
+session — `ScopedRateThrottle` keys on `request.user.pk`, so back-to-back lessons share one
+budget and a browser failing in a tight loop understates its own frequency — do not read the row count as an
 incident count. And reporting is fire-and-forget on the client: a diagnostics outage, a throttle
 refusal, or an offline browser all mean *no row*, which is not the same as *no failure*. Rows
 older than 90 days are gone (a Celery beat job), so a pattern tied to a slow-rolling iOS point
