@@ -182,6 +182,14 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
   `Room` ACTIVE forever, and `Room.Status.ENDED` has no production path at all — it is reachable
   only from a test. Harmless while a room is a string; a real provider leaks a provisioned room
   per lesson, which is a cost and a security surface. C3b or C3d.
+- **An ACTIVE room outlives the colour it was pinned to (C3a/C3c).** `Room.signaling_url` is
+  captured at creation and never revisited, and nothing ends a room (entry above), so after a
+  blue→green flip every pre-existing ACTIVE room still points at the stopped colour's signaling
+  host. This is worse than "a deploy drops calls in progress": a *new* join to that session is
+  handed `wss://ws-<old-colour>-staging…` and the socket never opens — the session is unjoinable
+  permanently, with no error naming the cause. Hit live on staging 2026-09-07 while setting up a
+  two-person call test; worked around by hand (`Room.objects.filter(session_id=…).update(status=ENDED)`),
+  which is not a fix. The deploy needs to end ACTIVE rooms, or the pin needs a liveness fallback.
 - **`Room.provider` is stored but never read (C3a).** The field exists so a room created under
   one adapter stays readable after the setting changes, but `join_session` mints the URL with the
   *currently configured* provider regardless, and there is no registry mapping the stored short
@@ -550,17 +558,16 @@ proves; all are robustness of an unattended job.
 - The room route (C3d) has two `<h1>`s at once during the Lobby state: its own `sr-only`
   "Lesson room" plus `Lobby.tsx`'s visible "Get ready for your lesson". Demote `Lobby`'s to
   `<h2>` once something touches that file again.
-- **No Safari/iOS support yet.** The call client was built and tested against Chromium only;
-  C3e-b (browser hardening, ADR-0034) is the phase that fixes cross-browser behaviour, and it
-  has no spec yet. C3e-a (shipped) only builds the pipeline that will surface a Safari failure
-  as a `CallDiagnostic` row once C3e-b's fixes are live — a user report from Safari or iOS today
-  is still the known gap, not a new bug.
-- **Device changes mid-call are not handled gracefully (C3d).** Unplugging a mic/camera or
-  picking a new one from the OS while a call is live is not detected or renegotiated by
-  `useLocalMedia`/`usePeerConnection` — the peer connection keeps sending whatever track it
-  already has, silently.
-- **Device choices are not remembered between lessons (C3d).** The Lobby's camera/microphone
-  pickers reset to the browser default every time; nothing persists a chosen `deviceId`.
+- **A rejected `sender.replaceTrack()` surfaces only as an unhandled rejection (C3e-b).** When
+  a mid-call device hot-swap's `replaceTrack()` call itself rejects, nothing catches it — no
+  diagnostic code fits, and the vocabulary is deliberately closed (adding one needs a backend
+  enum change and would fail the e2e contract test that pins the client's code list to the
+  backend's). Accepted: narrower than the swap failing to happen at all, which is what the
+  fix's own test proves does not occur.
+- **A microphone-only device swap also re-acquires video, so plugging in a headset briefly
+  blinks the camera (C3e-b).** The hot-swap path re-runs `getUserMedia` for both kinds even
+  when only one changed. Cosmetic — the camera track is the same track afterwards — the
+  correctness half (the microphone actually swaps) is handled.
 - **The e2e gate cannot see the relay path (C3d).** `call.spec.ts`'s two flows run with no
   coturn in CI, so they only prove host-candidate peer-to-peer connectivity with fake media.
   The relay path (real NAT traversal, real audio/video) is covered by C3c's one-time live
