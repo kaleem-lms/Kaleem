@@ -1,6 +1,6 @@
 ---
-current_phase: "C — Scheduling. C0 (matching inputs) SHIPPED 2026-09-05; C1 (matching) SHIPPED 2026-09-05. C2 (booking + quota) SHIPPED 2026-09-05 (backend#43, dashboard#36, meta#162). C3 is decomposed further into C3a-C3e (ADR-0034); C3a (video room + provider seam) SHIPPED 2026-09-05 (backend#44, dashboard#37, meta#164). C3b (signaling) SHIPPED 2026-09-06 (backend#45, infra#6, meta#166) and is live on staging. Phase B (billing) is CLOSED as of 2026-09-04, dunning gate included. Phase C is decomposed because matching, booking and video are separate subsystems in a strict dependency order: C0 matching inputs, C1 matching, C2 booking + quota, then video as C3a rooms, C3b signaling, C3c STUN/TURN, C3d call client, C3e browser hardening. Note the roadmap calls scheduling 'B2'; that label is already taken by a closed billing spec, so scheduling is Phase C here."
-active_spec: "none — C3d (the call client) SHIPPED and verified live on staging 2026-09-07. **A real video call now connects**: relay-only through coturn, 443 KB/455 KB of real media, both remote tracks arriving, over the colour-pinned ws-blue-staging host. Next is C3e (browser hardening — Safari and iOS, ADR-0034), which has no spec yet."
+current_phase: "C — Scheduling. C0 (matching inputs) SHIPPED 2026-09-05; C1 (matching) SHIPPED 2026-09-05. C2 (booking + quota) SHIPPED 2026-09-05 (backend#43, dashboard#36, meta#162). C3 is decomposed further into C3a-C3e (ADR-0034); C3a (video room + provider seam) SHIPPED 2026-09-05 (backend#44, dashboard#37, meta#164). C3b (signaling) SHIPPED 2026-09-06 (backend#45, infra#6, meta#166) and is live on staging. C3d (call client) SHIPPED and verified live on staging 2026-09-07. C3e is split into C3e-a (call diagnostics, code complete on feat/call-diagnostics — this docs PR) and C3e-b (the seven Safari/iOS hardening fixes, no spec yet). Phase B (billing) is CLOSED as of 2026-09-04, dunning gate included. Phase C is decomposed because matching, booking and video are separate subsystems in a strict dependency order: C0 matching inputs, C1 matching, C2 booking + quota, then video as C3a rooms, C3b signaling, C3c STUN/TURN, C3d call client, C3e browser hardening. Note the roadmap calls scheduling 'B2'; that label is already taken by a closed billing spec, so scheduling is Phase C here."
+active_spec: "none — C3e-a (call diagnostics) is code-complete on `feat/call-diagnostics` (backend, dashboard) and closes under a **D9 deviation**: no manual click-through on the target browser is possible in this project (no Apple device exists here, and Playwright's WebKit is not iOS Safari), recorded in `journal/2026-W36.md` rather than skipped. Next is C3e-b (the seven Safari/iOS hardening fixes, ADR-0034), which has no spec yet — its verification loop is watching C3e-a's diagnostic codes fall in frequency after it ships, which is slower and weaker than a test."
 active_branch: "none; backend, dashboard, infra and meta are all on their trunks. TRUNK-BASED (ADR-0028) — branch feat/… off the trunk, PR in. A merge to meta `master` IS a deploy."
 last_green_ci: "meta #172 → master, 2026-09-07 (all 8 checks green, deploy-staging SUCCESS). Staging is on **blue**. ⚠ The e2e job FAILED first: it never ran the signaling service and never set DJANGO_VIDEO_PROVIDER, so it fell back to FakeVideoProvider whose join_url points at a host that does not resolve — the two-peer call test could never have passed in CI. Fixed in ci.yml (uvicorn signaling on :9000, ws.kaleem.localhost in /etc/hosts, five env vars). Verified live after deploy: a relay-only two-peer call carried real media through coturn."
 ---
@@ -26,28 +26,50 @@ Phase A (identity) is closed via ADR-0024, with one residual human check outstan
 
 ## ▶ Next actions, in order
 
-1. **C3d Task 10 — the live manual check.** Code is done and tested (backend#47, dashboard#39,
-   this docs PR); no one has yet watched a real two-person call connect and carry audio/video on
-   staging. Do this before calling C3d closed — CI proves plumbing only (host-candidate P2P with
-   fake media), never quality, and never the relay path.
-2. From `ISSUES.md`, one C3c operational entry wants closing before it bites: a coturn
+1. **Open PRs for `feat/call-diagnostics`** (backend, dashboard) into their trunks and merge
+   this docs PR, then deploy. Code is done and green on both feature branches; nothing further
+   is blocking the merge.
+2. **Write the C3e-b spec** (Safari/iOS hardening, ADR-0034 — `100dvh`, the `getUserMedia`
+   gesture gate, the autoplay fallback control, `restartIce` feature guard, iOS backgrounding,
+   mid-call device changes, persisted device choices). It lands with evidence C3e-a did not
+   have: once live, each fix's effect shows up as a falling count of its `CallDiagnostic` code.
+3. From `ISSUES.md`, one C3c operational entry wants closing before it bites: a coturn
    config-only change does not restart the running relay, so a `turnserver.conf` fix reaches the
    VPS and does nothing until someone restarts it by hand. (The `ws-green-staging` certificate
    entry proved smaller than predicted — see `ISSUES.md`.)
-3. Still standing from C2 under **Blocks launch**: the quota cycle is keyed by an exact
+4. Still standing from C2 under **Blocks launch**: the quota cycle is keyed by an exact
    `current_period_end`, and a mid-cycle rewrite would hand out a second allowance.
 
 ## In flight
 
-- **C3d (the call client)** — backend#47 + dashboard#39 (code, green) + this meta docs PR.
-  `docs/superpowers/specs/2026-09-07-phase-c3d-call-client-design.md`. Dashboard: 645 unit tests,
-  95.28/91.52/87.44/95.28 (floor 95.1/91.4/86.6); e2e 33 → 35 flows. Task 10 (live manual check) is the
-  one thing standing between this and a closed phase.
+- **C3e-a (call diagnostics)** — commits through `dashboard` `65ab434` / `backend` `46d33f1` on
+  `feat/call-diagnostics` (code, green), plus this meta docs PR.
+  `docs/superpowers/specs/2026-09-07-phase-c3e-a-call-diagnostics-design.md`. One endpoint
+  (`POST /api/v1/scheduling/sessions/<id>/diagnostics/`), a closed eight-code vocabulary, WebRTC
+  stats redacted client-side by an allow-list before anything leaves the browser, 90-day
+  retention, and four emitters wired to failures the code already detected. Backend 902 passed
+  at 97.78% (floor stays 97.7); dashboard floors raised to 95.2/91.5/87.0/95.2; e2e 35 → 37.
+  **Closes under a D9 deviation** — no manual click-through on the target browser, because this
+  project has no Apple device and Playwright's WebKit is not iOS Safari. The pipeline is
+  verified on Chromium; that Safari emits anything is not verified and cannot be, here.
 - ⚠ **A merge to `master` is a deploy** (ADR-0028).
 - ⚠ **Deploy between lessons.** A deploy still drops every call in progress — the drain is
   unbuilt, and it is the last surviving half of the split-room issue (`ISSUES.md`).
 
-## Recently verified (2026-09-03 → 06)
+## Recently verified (2026-09-03 → 07)
+
+- **Phase C3d (the call client) SHIPPED and verified live on staging** (backend#47,
+  dashboard#39, meta#172/#173). A real two-peer call now connects: relay-only through coturn,
+  443 KB sent / 455 KB received of real media, both remote tracks arriving, over the
+  colour-pinned `ws-blue-staging` host. Dashboard: 645 unit tests, 95.28/91.52/87.44/95.28
+  (floor 95.1/91.4/86.6 at the time); e2e 33 → 35 flows.
+
+  ⚠ **CI caught a bug no local run could.** `e2e/call.spec.ts` passed locally and failed in CI:
+  the `e2e` job never ran the signaling service and never set `DJANGO_VIDEO_PROVIDER`, so it
+  fell back to `FakeVideoProvider`, whose `join_url` points at a host that does not resolve —
+  the test could never have passed in CI. It had only ever run locally under a
+  `docker-compose.override.yml` created for the run and deleted afterwards. Fixed in `ci.yml`.
+  Full account: `journal/2026-W36.md`.
 
 - **Phase C3c (STUN/TURN) SHIPPED and verified live** (backend#46, infra#7/#8/#9, dashboard#38,
   meta#169). A self-hosted `coturn` relay with HMAC ephemeral credentials delivered as
