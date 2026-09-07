@@ -139,7 +139,7 @@ release needs to be read within that window.
   quality; that is only ever checked by a human in a real call (C3d's Task
   10 manual check).
 - **Safari/iOS**, beyond what C3e-a's diagnostics rows happen to report.
-  C3e-b (ADR-0034) shipped seven Safari/iOS hardening fixes — `min-h-dvh`,
+  C3e-b (ADR-0034) adds seven Safari/iOS hardening fixes — `min-h-dvh`,
   the `getUserMedia` gesture gate, a tap-to-play control for a refused
   autoplay, a feature-guarded `restartIce`, backgrounding/screen-lock
   recovery, device-change hot-swapping, and persisted device choices — but
@@ -149,7 +149,8 @@ release needs to be read within that window.
   nothing here can be verified against the real target browser; only real
   reports from real users can, via C3e-a's `CallDiagnostic` codes
   (`gum-no-gesture`, `autoplay-blocked`, `backgrounded`, `device-lost`,
-  `ice-restart-unsupported`) once C3e-b is live.
+  `ice-restart-unsupported`) once C3e-b is merged and live. It is CODE-COMPLETE
+  on `feat/browser-hardening` today: not merged, not deployed.
 
 ## See also
 

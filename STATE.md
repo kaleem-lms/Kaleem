@@ -1,6 +1,6 @@
 ---
 current_phase: "C — Scheduling. C0 (matching inputs) SHIPPED 2026-09-05; C1 (matching) SHIPPED 2026-09-05. C2 (booking + quota) SHIPPED 2026-09-05 (backend#43, dashboard#36, meta#162). C3 is decomposed further into C3a-C3e (ADR-0034); C3a (video room + provider seam) SHIPPED 2026-09-05 (backend#44, dashboard#37, meta#164). C3b (signaling) SHIPPED 2026-09-06 (backend#45, infra#6, meta#166) and is live on staging. C3d (call client) SHIPPED and verified live on staging 2026-09-07. C3e is split into C3e-a (call diagnostics) SHIPPED and verified live on staging 2026-09-07 (backend#48, dashboard#40, meta#176), and C3e-b (the seven Safari/iOS hardening fixes) is CODE-COMPLETE on dashboard `feat/browser-hardening`, not yet merged or deployed. Phase B (billing) is CLOSED as of 2026-09-04, dunning gate included. Phase C is decomposed because matching, booking and video are separate subsystems in a strict dependency order: C0 matching inputs, C1 matching, C2 booking + quota, then video as C3a rooms, C3b signaling, C3c STUN/TURN, C3d call client, C3e browser hardening. Note the roadmap calls scheduling 'B2'; that label is already taken by a closed billing spec, so scheduling is Phase C here."
-active_spec: "docs/superpowers/specs/2026-09-07-phase-c3e-b-browser-hardening-design.md (C3e-b — the seven Safari/iOS hardening fixes, ADR-0034). Spec and implementation plan both closed. Code is CODE-COMPLETE on dashboard `feat/browser-hardening` (dashboard-only, no backend/signaling change): min-h-dvh on the three call surfaces, getUserMedia moved behind a tap, a tap-to-turn-on-sound control for a refused autoplay, restartIce feature-guarded, backgrounding/screen-lock recovery reusing handleRetryConnection, device changes hot-swapped via sender.replaceTrack(), and camera/microphone choices persisted in localStorage. Dashboard coverage floors raised to 95.5/91.6/87.2/95.5 lines/branches/functions/statements (measured 95.6/91.71/87.38/95.6). Two Chromium e2e flows added (the gesture gate, the tap-to-play control) — nothing here is verified on Safari or iOS and cannot be, in this project (no Apple device exists). **D9 deviation** recorded in `journal/2026-W36.md`: no manual click-through on the target browser is possible. **Not yet merged or deployed** — the dashboard branch has not been opened as a PR yet."
+active_spec: "docs/superpowers/specs/2026-09-07-phase-c3e-b-browser-hardening-design.md (C3e-b — the seven Safari/iOS hardening fixes, ADR-0034). Spec and implementation plan both closed. Code is CODE-COMPLETE on dashboard `feat/browser-hardening` (dashboard-only, no backend/signaling change): min-h-dvh on the three call surfaces, getUserMedia moved behind a tap, a tap-to-turn-on-sound control for a refused autoplay, restartIce feature-guarded, backgrounding/screen-lock recovery reusing handleRetryConnection, device changes hot-swapped via sender.replaceTrack(), and camera/microphone choices persisted in localStorage. Dashboard coverage floors raised to 95.5/91.6/87.2/95.5 lines/branches/functions/statements (measured 95.66/91.75/87.38/95.66). Two Chromium e2e flows added (the gesture gate, the tap-to-play control) — nothing here is verified on Safari or iOS and cannot be, in this project (no Apple device exists). **D9 deviation** recorded in `journal/2026-W36.md`: no manual click-through on the target browser is possible. **Not yet merged or deployed** — the dashboard branch has not been opened as a PR yet."
 active_branch: "dashboard on `feat/browser-hardening` (code-complete, not yet a PR); meta on `docs/c3e-b-spec` (this docs pass). backend and infra are on their trunks. TRUNK-BASED (ADR-0028) — branch feat/… off the trunk, PR in. A merge to meta `master` IS a deploy."
 last_green_ci: "meta #172 → master, 2026-09-07 (all 8 checks green, deploy-staging SUCCESS). Staging is on **blue**. ⚠ The e2e job FAILED first: it never ran the signaling service and never set DJANGO_VIDEO_PROVIDER, so it fell back to FakeVideoProvider whose join_url points at a host that does not resolve — the two-peer call test could never have passed in CI. Fixed in ci.yml (uvicorn signaling on :9000, ws.kaleem.localhost in /etc/hosts, five env vars). Verified live after deploy: a relay-only two-peer call carried real media through coturn."
 ---
@@ -42,16 +42,16 @@ Phase A (identity) is closed via ADR-0024, with one residual human check outstan
 
 ## In flight
 
-- **C3e-b (browser hardening)** — dashboard `feat/browser-hardening`, commit `9b8dc03` (code,
-  green), plus this meta docs PR. No backend or infra change.
+- **C3e-b (browser hardening)** — dashboard `feat/browser-hardening`, commit `7163f43` (code,
+  green — `9b8dc03` plus the whole-branch review fixes), plus this meta docs PR. No backend or infra change.
   `docs/superpowers/specs/2026-09-07-phase-c3e-b-browser-hardening-design.md`. Seven fixes,
-  all dashboard-only: `min-h-dvh` on the three call surfaces; `getUserMedia` moved behind a
-  tap (a visible product change — the Lobby now has an explicit "Turn on camera and
-  microphone" step); a "Tap to turn on sound" control for a refused autoplay; `restartIce`
+  all dashboard-only: `min-h-dvh` on the three call surfaces and the root container; `getUserMedia` moved behind a
+  tap (a visible product change — the Lobby now has an explicit "Turn on camera"
+  step); a "Tap to turn on sound" control for a refused autoplay; `restartIce`
   feature-guarded; backgrounding/screen-lock recovery reusing `handleRetryConnection`;
   device changes hot-swapped via `sender.replaceTrack()` (no renegotiation); camera/microphone
   choices persisted in `localStorage`. Dashboard floors raised to 95.5/91.6/87.2/95.5
-  (measured 95.6/91.71/87.38/95.6); e2e adds 2 Chromium flows (the gesture gate, the
+  (measured 95.66/91.75/87.38/95.66); e2e adds 2 Chromium flows (the gesture gate, the
   tap-to-play control). **Not yet merged or deployed.**
   **Closes under a D9 deviation** — no manual click-through on the target browser, because this
   project has no Apple device and Playwright's WebKit is not iOS Safari. None of the seven

@@ -558,12 +558,13 @@ proves; all are robustness of an unattended job.
 - The room route (C3d) has two `<h1>`s at once during the Lobby state: its own `sr-only`
   "Lesson room" plus `Lobby.tsx`'s visible "Get ready for your lesson". Demote `Lobby`'s to
   `<h2>` once something touches that file again.
-- **A rejected `sender.replaceTrack()` surfaces only as an unhandled rejection (C3e-b).** When
-  a mid-call device hot-swap's `replaceTrack()` call itself rejects, nothing catches it — no
-  diagnostic code fits, and the vocabulary is deliberately closed (adding one needs a backend
-  enum change and would fail the e2e contract test that pins the client's code list to the
-  backend's). Accepted: narrower than the swap failing to happen at all, which is what the
-  fix's own test proves does not occur.
+- **A rejected `sender.replaceTrack()` is swallowed, not reported (C3e-b).** The rejection is
+  now caught (an unhandled rejection would fail `call.spec.ts`'s `pageerror` listener on a
+  lesson that is still running), but nothing is recorded: no diagnostic code fits, and the
+  vocabulary is deliberately closed (adding one needs a backend enum change and would fail the
+  e2e contract test that pins the client's code list to the backend's). Accepted: a failed swap
+  leaves the previously negotiated track in place — degraded, not broken — and narrower than the
+  swap failing to happen at all, which is what the fix's own test proves does not occur.
 - **A microphone-only device swap also re-acquires video, so plugging in a headset briefly
   blinks the camera (C3e-b).** The hot-swap path re-runs `getUserMedia` for both kinds even
   when only one changed. Cosmetic — the camera track is the same track afterwards — the
