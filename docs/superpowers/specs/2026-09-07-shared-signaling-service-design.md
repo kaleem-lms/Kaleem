@@ -2,7 +2,7 @@
 name: shared-signaling-service
 phase: C
 modules: [scheduling]
-status: draft
+status: in-progress
 created: 2026-09-07
 closed: null
 ---

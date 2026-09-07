@@ -25,10 +25,12 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
   **deploy between lessons.**
 
   *(The second half of this entry — the colour overlap splitting one room across two processes —
-  was **fixed in C3c**. Per-colour hostnames alone were not enough, because `django-blue` and
-  `django-green` both claim `Host(${API_DOMAIN})` too and could serve two participants their
-  grants from different colours; `Room.signaling_url` pins the room itself. Recorded because the
-  "fix (a) is sufficient" belief was wrong and is worth not re-deriving.)*
+  was **fixed in C3c, then the fix itself caused a different bug** (`Room.signaling_url` pinned a
+  room to a colour `ship.sh` later removed, making it permanently unjoinable — hit live on
+  staging 2026-09-07). Both are now closed by ADR-0037: signaling is one shared, never-stopped
+  replica, not one per colour, so there is no second process to split across and no colour for a
+  pin to outlive. Implemented and unit-tested; **not yet verified by a live staging colour
+  flip** — see the new entry below.)*
 
 - **Traefik logs no request path for any route, and C3c did NOT make it safe to restore.**
   The token itself is fixed — since C3c it rides `Sec-WebSocket-Protocol`, not a query string.
@@ -182,14 +184,14 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
   `Room` ACTIVE forever, and `Room.Status.ENDED` has no production path at all — it is reachable
   only from a test. Harmless while a room is a string; a real provider leaks a provisioned room
   per lesson, which is a cost and a security surface. C3b or C3d.
-- **An ACTIVE room outlives the colour it was pinned to (C3a/C3c).** `Room.signaling_url` is
-  captured at creation and never revisited, and nothing ends a room (entry above), so after a
-  blue→green flip every pre-existing ACTIVE room still points at the stopped colour's signaling
-  host. This is worse than "a deploy drops calls in progress": a *new* join to that session is
-  handed `wss://ws-<old-colour>-staging…` and the socket never opens — the session is unjoinable
-  permanently, with no error naming the cause. Hit live on staging 2026-09-07 while setting up a
-  two-person call test; worked around by hand (`Room.objects.filter(session_id=…).update(status=ENDED)`),
-  which is not a fix. The deploy needs to end ACTIVE rooms, or the pin needs a liveness fallback.
+- **The shared-signaling fix (ADR-0037) is implemented and unit-tested but NOT verified on the
+  only surface that can prove it.** CI runs its own signaling on `:9000` and never touches
+  Traefik routing or a real blue-green flip, so nothing in the merge path can confirm that one
+  shared `WS_DOMAIN` host actually survives a colour switch in production conditions. That live
+  check is blocked on two things outside this repo's control: a DNS record for
+  `ws-staging.kaleem.academy`, and `WS_DOMAIN` being set in the VPS's hand-managed
+  `/opt/kaleem/.env.production`. Until both exist and a colour flip is run and observed, treat
+  this as "implemented, pending live verification," not "fixed."
 - **`Room.provider` is stored but never read (C3a).** The field exists so a room created under
   one adapter stays readable after the setting changes, but `join_session` mints the URL with the
   *currently configured* provider regardless, and there is no registry mapping the stored short

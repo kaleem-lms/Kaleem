@@ -1,8 +1,8 @@
 ---
 current_phase: "C — Scheduling. C0 (matching inputs) SHIPPED 2026-09-05; C1 (matching) SHIPPED 2026-09-05. C2 (booking + quota) SHIPPED 2026-09-05 (backend#43, dashboard#36, meta#162). C3 is decomposed further into C3a-C3e (ADR-0034); C3a (video room + provider seam) SHIPPED 2026-09-05 (backend#44, dashboard#37, meta#164). C3b (signaling) SHIPPED 2026-09-06 (backend#45, infra#6, meta#166) and is live on staging. C3d (call client) SHIPPED and verified live on staging 2026-09-07. C3e is split into C3e-a (call diagnostics) SHIPPED and verified live on staging 2026-09-07 (backend#48, dashboard#40, meta#176), and C3e-b (the seven Safari/iOS hardening fixes) SHIPPED and verified live on staging 2026-09-07 (dashboard#41, meta#178/#179). **Phase C is COMPLETE** — C0, C1, C2 and C3a–C3e are all shipped and live. Note what Phase C is NOT: the roadmap's own Phase B happy path is still open, because `assessment` (session reports, ratings) and `analytics` (the role dashboards) were never built — a lesson can be booked and delivered, but nothing records what happened in it. Phase B (billing) is CLOSED as of 2026-09-04, dunning gate included. Phase C is decomposed because matching, booking and video are separate subsystems in a strict dependency order: C0 matching inputs, C1 matching, C2 booking + quota, then video as C3a rooms, C3b signaling, C3c STUN/TURN, C3d call client, C3e browser hardening. Note the roadmap calls scheduling 'B2'; that label is already taken by a closed billing spec, so scheduling is Phase C here."
-active_spec: "docs/superpowers/specs/2026-09-07-session-ui-redesign-design.md — SHIPPED 2026-09-07, status: shipped, closed: 2026-09-07 (dashboard `feat/session-ui-redesign` @ c12ea2a, meta `feat/session-ui-redesign-spec` PR #185). Redesigned the session list (responsive grid, grouped by local day) and the call room (fluid stage, visible identity header, real terminal/waiting screens), restructured via ADR-0036 (`use<Feature>` hook + presentational components) — chosen over a presentation-only reskin as a deliberate D10 deviation. **Verified: dashboard unit suite (734→ many more) and 2 new Chromium e2e flows only — the session card's reflow at two viewport widths (mutation-checked red), and the Lobby scrolling rather than clipping at one short landscape viewport (NOT mutation-checked red — see next line).** **Spec correction, made in Task 18:** the original Goal framed `overflow-y-auto` on the Lobby as fixing a bug ('clips its own content and cannot scroll'). Chromium does not reproduce that clipping bug at all — reverting to the literal pre-fix CSS left the e2e flow green, and a minimal bare-metal repro (flex column, min-height:100vh, justify-center, 2000px child, 400×220 viewport, no overflow set) scrolled fine. The change is defensive hardening against a plausibly-Safari-only bug, unverifiable here, not a demonstrated fix. Nothing here is verified outside Chromium at the two tested viewport sizes — not Safari, not iOS, not any other viewport. D9 deviation: no click-through on iOS Safari is possible in this project, same as C3e-a/b. Next phase not yet chosen — see journal 2026-W36, 2026-09-07 entry, for the full account."
-active_branch: "meta `feat/session-ui-redesign-spec`, PR #185 OPEN (docs only so far; this session adds the Task 18 close-out docs + dashboard pointer bump, not yet pushed/merged). dashboard `feat/session-ui-redesign` @ c12ea2a, code-complete, no PR opened yet. TRUNK-BASED (ADR-0028) — branch feat/… off the trunk, PR in. A merge to meta `master` IS a deploy."
-last_green_ci: "meta #172 → master, 2026-09-07 (all 8 checks green, deploy-staging SUCCESS). Staging is on **blue**. ⚠ The e2e job FAILED first: it never ran the signaling service and never set DJANGO_VIDEO_PROVIDER, so it fell back to FakeVideoProvider whose join_url points at a host that does not resolve — the two-peer call test could never have passed in CI. Fixed in ci.yml (uvicorn signaling on :9000, ws.kaleem.localhost in /etc/hosts, five env vars). Verified live after deploy: a relay-only two-peer call carried real media through coturn."
+active_spec: "docs/superpowers/specs/2026-09-07-shared-signaling-service-design.md — status: in-progress, closed: null (ADR-0037). Fixes a live staging bug: `Room.signaling_url` pinned a room to its deploy colour, `ship.sh` removed the old colour's signaling container on every flip, and `_ensure_room` reused the ACTIVE row forever — so a room created before a deploy became permanently unjoinable, silently. The fix collapses signaling from `signaling-blue`/`signaling-green` to one shared, never-stopped replica on a single `WS_DOMAIN` host. **Implemented and unit-tested (backend `feat/shared-signaling` @ 6a273b9, infra `feat/shared-signaling` @ d0363b9, both reviewed clean). NOT live-verified.** The one thing that can prove it — a real staging colour flip — is blocked on two things outside this repo: a DNS record for `ws-staging.kaleem.academy` and `WS_DOMAIN` in the VPS's hand-managed `.env.production`. CI cannot substitute: it runs its own signaling on `:9000` and never touches Traefik routing or blue-green. Do not treat this as shipped until that live check runs — see `ISSUES.md`."
+active_branch: "meta `feat/shared-signaling-service`, PR #186 OPEN, carrying the spec, ADR-0037, the plan, and this close-out (docs + both submodule pointer bumps). backend `feat/shared-signaling` @ 6a273b9 and infra `feat/shared-signaling` @ d0363b9, both reviewed and clean, not yet merged. TRUNK-BASED (ADR-0028) — branch feat/… off the trunk, PR in. A merge to meta `master` IS a deploy, and this one changes signaling topology: merge between lessons, and only after the live colour-flip check (above) has run."
+last_green_ci: "meta #172 → master, 2026-09-07 (all 8 checks green, deploy-staging SUCCESS, session-ui-redesign since merged as #185). Staging is on **blue**, running the OLD per-colour signaling — the shared-signaling fix has not deployed yet."
 ---
 
 # kaleem Project State
@@ -37,22 +37,30 @@ against the account's `basil` default, not production's `dahlia` pin).
 
 Phase A (identity) is closed via ADR-0024, with one residual human check outstanding.
 
+**A standalone fix is in flight, outside any phase: shared signaling (ADR-0037).** A room
+created before a staging deploy could become permanently unjoinable — `Room.signaling_url`
+pinned it to a colour `ship.sh` then removed. Code is implemented and unit-tested; the live
+staging colour-flip check that would prove it has not run (see `active_spec` above).
+
 ## ▶ Next actions, in order
 
-1. **Choose the next phase with the user.** Phase C is closed and nothing is in flight. The
+1. **Get the shared-signaling fix (ADR-0037) live-verified, then merge PR #186.** Needs a DNS
+   record for `ws-staging.kaleem.academy` and `WS_DOMAIN` set in the VPS's
+   `/opt/kaleem/.env.production`, both outside this repo's control, then a real colour flip
+   watched end to end. Do not merge on the strength of unit tests alone.
+2. **Choose the next phase with the user.** Phase C is closed and nothing else is in flight. The
    two obvious candidates: `assessment` (session reports + symmetric ratings), which closes
    the roadmap's Phase B happy path and is what makes a delivered lesson leave a trace; or
    `notifications`, which the roadmap puts in its own Phase C and which every other feature
    ends up needing. Do not pick one unilaterally — the roadmap says Phase C priorities are
    provisional until preview feedback, and preview mode has not run.
-2. Once live, watch C3e-a's `CallDiagnostic` codes — `gum-no-gesture`, `autoplay-blocked`,
+3. Once live, watch C3e-a's `CallDiagnostic` codes — `gum-no-gesture`, `autoplay-blocked`,
    `backgrounded`, `device-lost`, `ice-restart-unsupported` — for real Safari/iOS traffic. That
    is the only verification loop this phase has; see `journal/2026-W36.md`.
-3. From `ISSUES.md`, one C3c operational entry wants closing before it bites: a coturn
+4. From `ISSUES.md`, one C3c operational entry wants closing before it bites: a coturn
    config-only change does not restart the running relay, so a `turnserver.conf` fix reaches the
-   VPS and does nothing until someone restarts it by hand. (The `ws-green-staging` certificate
-   entry proved smaller than predicted — see `ISSUES.md`.)
-4. Still standing from C2 under **Blocks launch**: the quota cycle is keyed by an exact
+   VPS and does nothing until someone restarts it by hand.
+5. Still standing from C2 under **Blocks launch**: the quota cycle is keyed by an exact
    `current_period_end`, and a mid-cycle rewrite would hand out a second allowance.
 
 ## Standing warnings
