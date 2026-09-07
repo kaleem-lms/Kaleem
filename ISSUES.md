@@ -550,19 +550,17 @@ proves; all are robustness of an unattended job.
 - The room route (C3d) has two `<h1>`s at once during the Lobby state: its own `sr-only`
   "Lesson room" plus `Lobby.tsx`'s visible "Get ready for your lesson". Demote `Lobby`'s to
   `<h2>` once something touches that file again.
-- **No Safari/iOS support yet (C3d).** The call client was built and tested against Chromium
-  only; C3e (browser hardening, ADR-0034) is the phase that addresses cross-browser behaviour.
-  A user report from Safari or iOS is the known gap, not a new bug.
+- **No Safari/iOS support yet.** The call client was built and tested against Chromium only;
+  C3e-b (browser hardening, ADR-0034) is the phase that fixes cross-browser behaviour, and it
+  has no spec yet. C3e-a (shipped) only builds the pipeline that will surface a Safari failure
+  as a `CallDiagnostic` row once C3e-b's fixes are live — a user report from Safari or iOS today
+  is still the known gap, not a new bug.
 - **Device changes mid-call are not handled gracefully (C3d).** Unplugging a mic/camera or
   picking a new one from the OS while a call is live is not detected or renegotiated by
   `useLocalMedia`/`usePeerConnection` — the peer connection keeps sending whatever track it
   already has, silently.
 - **Device choices are not remembered between lessons (C3d).** The Lobby's camera/microphone
   pickers reset to the browser default every time; nothing persists a chosen `deviceId`.
-- **`useLocalMedia`'s `selectCamera`/`selectMicrophone` don't re-acquire the stream (C3d).**
-  They update the selected `deviceId` in state but never call `getUserMedia` again with the new
-  constraint, so choosing a different camera or microphone in the Lobby has no visible effect
-  until the whole stream is torn down and re-created some other way.
 - **The e2e gate cannot see the relay path (C3d).** `call.spec.ts`'s two flows run with no
   coturn in CI, so they only prove host-candidate peer-to-peer connectivity with fake media.
   The relay path (real NAT traversal, real audio/video) is covered by C3c's one-time live

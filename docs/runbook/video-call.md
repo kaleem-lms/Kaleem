@@ -96,13 +96,56 @@ this step doesn't apply.
   see `docs/runbook/turn.md`'s "Why the secret is a command-line argument"
   section, since this is an easy, security-relevant mistake to reintroduce.
 
+## Step 5 — did the browser tell us anything? (C3e-a)
+
+Shipped in Phase C3e-a: `docs/superpowers/specs/2026-09-07-phase-c3e-a-call-diagnostics-design.md`.
+Before C3e-a, a call failing on a browser this project cannot run (see below) produced exactly
+one signal — a parent saying "the lesson didn't work" — compatible with at least six distinct
+defects. Now it can produce a `CallDiagnostic` row naming one of eight failure codes:
+`gum-denied`, `gum-not-found`, `gum-in-use`, `autoplay-blocked` (all wired to an emitter as of
+C3e-a), and `gum-no-gesture`, `ice-restart-unsupported`, `backgrounded`, `device-lost` (reserved
+for C3e-b's fixes, in the enum from the start so the contract test covers them before their
+emitters exist).
+
+Read it with the Django shell, there is no dashboard for this data:
+
+```python
+from kaleem.scheduling.models import CallDiagnostic
+CallDiagnostic.objects.filter(session_id=<id>).order_by("-created_at").values(
+    "code", "user_agent", "stats", "created_at"
+)
+```
+
+`user_agent` is the field that tells you whether the report was Safari 17 on iOS or Chrome on
+Android — read server-side from the request header, so it cannot be forged. `stats` is a
+client-redacted allow-list of WebRTC stat fields (never an address) and is `null` on the three
+`gum-*` codes, which fire in the Lobby before any `RTCPeerConnection` exists — a null there is
+correct, not missing data. The guarantee is precisely "**our** client redacts before sending",
+not "the server refuses addresses": `stats` is an unvalidated `JSONField` by design, so a future
+non-kaleem client (or anyone POSTing by hand) could store anything in it — read the column as
+address-free by convention, never as structurally address-free.
+
+**Two things this table will not tell you.** It is throttled at 20/hour per **user**, not per
+session — `ScopedRateThrottle` keys on `request.user.pk`, so back-to-back lessons share one
+budget and a browser failing in a tight loop understates its own frequency — do not read the row count as an
+incident count. And reporting is fire-and-forget on the client: a diagnostics outage, a throttle
+refusal, or an offline browser all mean *no row*, which is not the same as *no failure*. Rows
+older than 90 days are gone (a Celery beat job), so a pattern tied to a slow-rolling iOS point
+release needs to be read within that window.
+
 ## What this runbook cannot diagnose
 
 - **Whether a real call was audible or watchable.** No log or test proves
   quality; that is only ever checked by a human in a real call (C3d's Task
   10 manual check).
-- **Safari/iOS.** Not supported yet (C3e, ADR-0034) — a report from one of
-  those clients is not a bug in this stack, it's the known gap.
+- **Safari/iOS**, beyond what C3e-a's diagnostics rows happen to report. The
+  call client itself was built and tested against Chromium only; C3e-b
+  (ADR-0034) is the phase that fixes cross-browser behaviour, and it has no
+  spec yet. This project has no Apple device at all — no Mac, no iPhone, no
+  iPad — and Playwright's WebKit on Linux is not iOS Safari and has no
+  fake-media equivalent, so nothing here can be verified against the real
+  target browser; only real reports from real users can, once C3e-a's
+  pipeline is live.
 - **Device changes mid-call, or remembered device choices.** Neither is
   implemented; see `ISSUES.md`.
 
