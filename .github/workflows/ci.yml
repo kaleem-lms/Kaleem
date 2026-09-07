@@ -195,6 +195,26 @@ jobs:
       # a 500 rather than a no-op.
       DJANGO_EMAIL_BACKEND: django.core.mail.backends.locmem.EmailBackend
       E2E_APP_URL: http://app.kaleem.localhost:4173
+      # C3d: the call e2e spec needs a real join URL, so this job runs the real
+      # SignalingProvider instead of the FakeVideoProvider default -- otherwise the
+      # browser gets a join_url pointing at the unresolvable https://video.kaleem.test
+      # and no WebSocket ever opens. DJANGO_SIGNALING_SECRET is a fixed, non-secret
+      # value shared with the signaling process started below (this is a throwaway CI
+      # database); if the two ever disagree every join fails authentication with a
+      # correct-looking token. DJANGO_SIGNALING_URL points at the ws.kaleem.localhost
+      # mapping added below.
+      DJANGO_VIDEO_PROVIDER: kaleem.scheduling.providers.signaling_provider.SignalingProvider
+      DJANGO_SIGNALING_SECRET: ci-test-signaling-secret
+      DJANGO_SIGNALING_URL: ws://ws.kaleem.localhost:9000
+      # SignalingProvider fails closed (ImproperlyConfigured) without both TURN
+      # values, so they must be set -- but there is no TURN server in CI and there
+      # should not be one: the test's two peers are on the same host and connect
+      # over host candidates, never touching a relay. These values only need to be
+      # well-formed and non-empty for credential minting to succeed; their presence
+      # here is not a claim that CI exercises the TURN relay (it doesn't -- see the
+      # D3 e2e table and the C3d spec).
+      DJANGO_TURN_SECRET: ci-test-turn-secret
+      DJANGO_TURN_URLS: turn:127.0.0.1:3478
     steps:
       - uses: actions/checkout@v4
         with:
@@ -203,7 +223,7 @@ jobs:
 
       - name: Map the kaleem.localhost subdomains
         run: |
-          echo "127.0.0.1 app.kaleem.localhost api.kaleem.localhost" | sudo tee -a /etc/hosts
+          echo "127.0.0.1 app.kaleem.localhost api.kaleem.localhost ws.kaleem.localhost" | sudo tee -a /etc/hosts
 
       - uses: actions/setup-python@v5
         with:
@@ -243,6 +263,25 @@ jobs:
           done
           echo "::error::API never became ready"; cat /tmp/django.log; exit 1
 
+      # C3d: the signaling service (backend/signaling/app.py) is its own ASGI
+      # deployable, importing no Django (ADR-0035), normally run as
+      # `uvicorn signaling.app:app`. `--log-config` is not optional here either --
+      # without it uvicorn logs every handshake's raw query string, and this repo
+      # is public, so the same redaction production relies on applies in CI.
+      - name: Start signaling
+        working-directory: backend
+        run: |
+          nohup uvicorn signaling.app:app --host 0.0.0.0 --port 9000 \
+            --log-config signaling/logconf.json \
+            > /tmp/signaling.log 2>&1 &
+      - name: Wait for signaling
+        run: |
+          for _ in $(seq 1 60); do
+            curl -sf -o /dev/null http://ws.kaleem.localhost:9000/health/live/ && exit 0
+            sleep 2
+          done
+          echo "::error::Signaling never became ready"; cat /tmp/signaling.log; exit 1
+
       - name: Install dashboard dependencies
         working-directory: dashboard
         run: pnpm install --frozen-lockfile
@@ -281,6 +320,7 @@ jobs:
             dashboard/playwright-report/
             dashboard/test-results/
             /tmp/django.log
+            /tmp/signaling.log
             /tmp/preview.log
           retention-days: 7
 
