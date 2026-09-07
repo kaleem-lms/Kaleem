@@ -527,6 +527,31 @@ proves; all are robustness of an unattended job.
 - The room route (C3d) has two `<h1>`s at once during the Lobby state: its own `sr-only`
   "Lesson room" plus `Lobby.tsx`'s visible "Get ready for your lesson". Demote `Lobby`'s to
   `<h2>` once something touches that file again.
+- **No Safari/iOS support yet (C3d).** The call client was built and tested against Chromium
+  only; C3e (browser hardening, ADR-0034) is the phase that addresses cross-browser behaviour.
+  A user report from Safari or iOS is the known gap, not a new bug.
+- **Device changes mid-call are not handled gracefully (C3d).** Unplugging a mic/camera or
+  picking a new one from the OS while a call is live is not detected or renegotiated by
+  `useLocalMedia`/`usePeerConnection` — the peer connection keeps sending whatever track it
+  already has, silently.
+- **Device choices are not remembered between lessons (C3d).** The Lobby's camera/microphone
+  pickers reset to the browser default every time; nothing persists a chosen `deviceId`.
+- **`useLocalMedia`'s `selectCamera`/`selectMicrophone` don't re-acquire the stream (C3d).**
+  They update the selected `deviceId` in state but never call `getUserMedia` again with the new
+  constraint, so choosing a different camera or microphone in the Lobby has no visible effect
+  until the whole stream is torn down and re-created some other way.
+- **The e2e gate cannot see the relay path (C3d).** `call.spec.ts`'s two flows run with no
+  coturn in CI, so they only prove host-candidate peer-to-peer connectivity with fake media.
+  The relay path (real NAT traversal, real audio/video) is covered by C3c's one-time live
+  verification on staging, not by anything that runs on every merge. See the D3 table row in
+  `CLAUDE.md` and `docs/runbook/video-call.md`.
+- **`call.spec.ts`'s `pageerror` assertion is a stopgap, not a durable guard (C3d).** It only
+  catches the single-offerer regression because nothing currently `.catch`es the rejection
+  `sendOffer`/`sendAnswer` throw on misuse (both are fire-and-forget IIFEs). A future tidy-up
+  that adds a `.catch` anywhere in that chain would silently blind this assertion with no edit
+  to the spec itself to flag the coverage change. The durable pin is the unit-level call-count
+  tests in `usePeerConnection.test.ts`; treat the e2e `pageerror` check as a bonus, not the
+  guard.
 
 ---
 
