@@ -255,6 +255,14 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
 
 ## Someday
 
+- **The deploy's file sync now downloads its own binary, unchecksummed.** `appleboy/scp-action`
+  v1 is a composite action: instead of running a pinned Docker image, it `curl`s the `drone-scp`
+  binary onto the runner at deploy time (default v1.8.0, GitHub releases, no checksum). The action
+  tag is pinned, the thing it fetches is not. This is the step that carries `turnserver.conf` to
+  the VPS, so a compromised or substituted binary is a path to an unfenced relay. Closing it means
+  either pinning `version:` and verifying a hash, or vendoring the binary — neither is a 15-second
+  change, and the same exposure exists in `appleboy/ssh-action`, which is built the same way.
+
 - **A signaling socket that never opens and never closes leaves the room saying "Connecting…"
   forever (C3d).** `useSignaling` only begins counting failures from a close event, so it reaches
   `MAX_RECONNECT_ATTEMPTS` and the `lost` state only if the socket *opened and then dropped*. A
