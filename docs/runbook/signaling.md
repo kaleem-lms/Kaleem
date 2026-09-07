@@ -20,7 +20,7 @@ drops a message rather than queuing it if the other peer is not there.
 | Variable | Set on | Purpose |
 | --- | --- | --- |
 | `DJANGO_SIGNALING_SECRET` | both the API (Django) container and the signaling container | HMAC key used to mint (API) and verify (signaling) the short-lived, room-scoped join token. **Must be byte-for-byte identical in both containers.** |
-| `DJANGO_SIGNALING_URL` | the API container only, **and set per deploy colour in `docker-compose.production.yml`, not in `.env.production`** | The public base URL of the signaling service, used to build the `join_url` handed to each participant. Since C3c each Django colour is given its own colour's host (`wss://${WS_BLUE_DOMAIN}` / `wss://${WS_GREEN_DOMAIN}`) via the service's `environment:` block, which takes precedence over `env_file:`. Do not put this variable back in `.env.production` — a single shared value is what let a room straddle a deploy. |
+| `DJANGO_SIGNALING_URL` | the API container only, **set in `docker-compose.production.yml`, not in `.env.production`** | The public base URL of the signaling service, used to build the `join_url` handed to each participant. As of ADR-0037 both Django colours are given the **same** value, `wss://${WS_DOMAIN}`, via each colour's `environment:` block (which takes precedence over `env_file:`). That used to be exactly the bug — a shared value straddling two independent signaling hosts — but signaling is no longer two independent hosts: there is one shared replica, so both colours pointing at the same URL is now correct. |
 | `DJANGO_TURN_SECRET` | the API (Django) container **and** coturn | HMAC key for the ephemeral TURN credentials. One entry in `.env.production` feeds both; coturn receives it as a `--static-auth-secret` command-line argument (see `docs/runbook/turn.md` for why it cannot live in `turnserver.conf`). |
 | `DJANGO_TURN_URLS` | the API container only | Comma-separated ICE URLs handed to the browser. Absent, `SignalingProvider` refuses to start. |
 | `DJANGO_VIDEO_PROVIDER` | the API container only | Must be `kaleem.scheduling.providers.signaling_provider.SignalingProvider`. It **defaults to `FakeVideoProvider`**, whose join URLs point at nothing — so leaving it unset deploys a healthy, routable signaling service that no lesson can reach. This failure is silent: every gate stays green. |
@@ -32,53 +32,79 @@ disk, not a deployment mechanism** — adding a variable there does not put it o
 the server. `docs/runbook/deploy.md` has the diff command to run before
 deploying.
 
-`WS_BLUE_DOMAIN` and `WS_GREEN_DOMAIN` are separate variables used only by
-`docker-compose.production.yml` — to build the Traefik `Host()` rule for
-`signaling-blue` and `signaling-green` respectively, and to build each Django
-colour's `DJANGO_SIGNALING_URL`. They are not read by the application itself.
-They live in the hand-managed `.env.production` on the VPS, the same file that
-holds `API_DOMAIN`, `DASHBOARD_DOMAIN`, etc. There is no `.env.production` in
-git; it is created by hand on first VPS setup (see `docs/runbook/deploy.md`)
-and edited by hand thereafter.
+`WS_DOMAIN` is a single variable used only by `docker-compose.production.yml`
+— to build the Traefik `Host()` rule for the shared `signaling` service, and
+to build both Django colours' `DJANGO_SIGNALING_URL` (the same value for
+each). It is not read by the application itself. It lives in the
+hand-managed `.env.production` on the VPS, the same file that holds
+`API_DOMAIN`, `DASHBOARD_DOMAIN`, etc. There is no `.env.production` in git;
+it is created by hand on first VPS setup (see `docs/runbook/deploy.md`) and
+edited by hand thereafter.
 
-⚠ **`WS_DOMAIN` is retired as of C3c.** A single hostname shared by both
-colours is exactly what allowed one room to split across two processes. If a
-VPS still carries `WS_DOMAIN` and not the two new variables, **the deploy now
-aborts instead of shipping broken**: `docker-compose.production.yml` requires
-`WS_BLUE_DOMAIN` and `WS_GREEN_DOMAIN` via Compose's `${VAR:?message}`
-syntax, so `docker compose up` for a missing one fails outright before any
-container starts.
+⚠ **`WS_DOMAIN` was retired between C3c and 2026-09-07, then reinstated as a
+single shared host under ADR-0037 — the name is the same, the meaning is
+not.** C3c replaced it with `WS_BLUE_DOMAIN`/`WS_GREEN_DOMAIN` (one hostname
+per deploy colour) specifically to stop two participants landing on
+different signaling processes. That per-colour scheme created a worse bug:
+`Room.signaling_url` pins a room to the colour that created it, `ship.sh`
+removed the *old* colour's signaling container on every flip, and
+`_ensure_room` reuses an `ACTIVE` row forever — so a session created before a
+deploy became permanently unjoinable, silently, with no close code and
+nothing naming the cause. Hit live on staging 2026-09-07. ADR-0037's fix is
+not a revert to the pre-C3c bug: signaling is now **one shared, never-stopped
+replica** (see "Deployment" below), so a single hostname no longer risks
+splitting a room the way it did before C3c — there is only one process to
+land on.
 
-This corrects an earlier, false version of this warning, which claimed an
-unset variable would produce "a `Host(``)` rule, a failed health check, and a
-`ship.sh` rollback of the entire colour." **That is not what would have
-happened.** `scripts/ship.sh`'s signaling health check is `docker exec
-kaleem-signaling-${NEW}-1 curl http://localhost:9000/health/live/` —
-container-local, so it passes regardless of Traefik routing, DNS, or
-certificates. Left unguarded, a missing `WS_BLUE_DOMAIN` would have expanded
-to the literal, truthy string `wss://`, defeated `SignalingProvider`'s own
-fail-closed check, and produced a **green deploy with a dead router** — the
-exact silent failure mode this runbook exists to prevent. The `${VAR:?...}`
-guard is what makes the deploy fail instead.
-
-⚠ **The two new hostnames need their own DNS records and certificates before
-you retire `WS_DOMAIN`.** Nothing in code or CI creates
-`ws-blue-staging.kaleem.academy` and `ws-green-staging.kaleem.academy` — an
-operator must add both as A records pointing at the VPS and let Traefik's
-Let's Encrypt resolver issue certificates for them (the first request to each
-triggers issuance; watch `docker logs kaleem-traefik-1` for ACME errors).
-With the env correctly updated but the DNS records absent, `${VAR:?...}`
-guard aside, the result is still a green deploy, a valid-looking `join_url`,
-and every WebSocket handshake failing at DNS/TLS.
-
-**`WS_BLUE_DOMAIN` and `WS_GREEN_DOMAIN` must resolve to two DIFFERENT
-hostnames.** Nothing validates this at deploy time — pointing both variables
-at one hostname to save a DNS record silently restores the exact straddle
-this pair was built to remove, with the code, the `${VAR:?...}` guards, and
-every health check all still green.
+If a VPS carries the retired `WS_BLUE_DOMAIN`/`WS_GREEN_DOMAIN` pair and not
+`WS_DOMAIN`, the deploy aborts rather than shipping broken:
+`docker-compose.production.yml` requires `WS_DOMAIN` via Compose's
+`${VAR:?message}` syntax, so `docker compose up` for a missing value fails
+outright before any container starts.
 
 Diff `.env.production` against `infra/.env.production.example` before
 deploying.
+
+## Changing `WS_DOMAIN` after go-live
+
+⚠ **Editing `WS_DOMAIN` on the VPS strands every currently-`ACTIVE` room, the
+same failure class ADR-0037 fixed for deploys — reopened here for this one
+operator action, because ADR-0037 only made both deploy colours agree with
+each other, not with a value an operator changes by hand.**
+
+`Room.signaling_url` is pinned at creation and `get_join_url` prefers it over
+`settings.SIGNALING_URL` (see the comment on `signaling_provider.py`'s
+`get_join_url` for why: re-reading settings at join time is the split-room bug
+C3c removed, and this code intentionally does not do it). `_ensure_room`
+reuses an `ACTIVE` `Room` row forever rather than minting a new one. So a
+`Room` created under the old `WS_DOMAIN` keeps handing out `wss://<old
+host>/...` join URLs indefinitely after the hostname changes underneath it —
+permanently unjoinable, silently, with no close code and nothing naming the
+cause. This is a **deliberate non-fix**: healing it automatically (e.g.
+ending stale rooms on a schedule) is exactly the "treat the symptom
+recurringly instead of fixing the cause" pattern ADR-0037 rejected for the
+deploy case. The fix here is procedural, not code.
+
+**Before changing `WS_DOMAIN`, end every `ACTIVE` room.** On the VPS, in a
+Django shell (`docker exec -it kaleem-django-<colour>-1 python manage.py
+shell_plus`, or equivalent):
+
+```python
+from django.utils import timezone
+from kaleem.scheduling.models import Room
+
+active = Room.objects.filter(status=Room.Status.ACTIVE)
+count = active.count()
+active.update(status=Room.Status.ENDED, ended_at=timezone.now())
+print(f"Ended {count} active room(s).")
+```
+
+Run this **before** the deploy that changes `WS_DOMAIN` lands, ideally during
+the same "deploy between lessons" window the rest of this runbook already
+calls for. Any lesson genuinely in progress at that moment will need to
+reload — same as the existing "deploys drop live calls" trade-off below, not
+a new one. `_ensure_room` will mint a fresh `Room` pinned to the new
+`WS_DOMAIN` the next time each session's participants join.
 
 ## Rotating the shared secret
 
@@ -87,10 +113,12 @@ halves of the pair must change together:
 
 1. Generate a new value.
 2. Update `DJANGO_SIGNALING_SECRET` in `.env.production` on the VPS (the one
-   file both the `django-*` and `signaling-*` services read via `env_file`).
-3. Redeploy (`bash scripts/ship.sh <sha>`), which recreates both the new
-   colour's Django containers and its signaling container with the updated
-   value, then drains the old colour.
+   file both the `django-*` services and the shared `signaling` service read
+   via `env_file`).
+3. Redeploy (`bash scripts/ship.sh <sha>`), which recreates the new colour's
+   Django containers and, since `signaling` is a shared service that every
+   deploy re-applies (see "Deployment" above), also recreates the signaling
+   container with the updated value.
 
 Because a join token is signed with the secret at the moment a student or
 teacher opens the lesson page, **every outstanding, unused token becomes
@@ -158,23 +186,36 @@ this), so an operator can still tell a shared-secret mismatch (*every* join
 logs "bad signature") from clock skew (*every* join logs "expired"). See
 "Reading the logs" below.
 
-## Deployment: single replica per colour
+## Deployment: one shared replica
 
-`signaling-blue` and `signaling-green` each run **exactly one replica**. Room
+As of ADR-0037 (2026-09-07), signaling is a **single shared service** —
+`signaling`, container `kaleem-signaling-1` — started alongside the other
+shared services (`traefik`, `postgres`, `redis`, `flower`, `coturn`) in
+`scripts/ship.sh` step 4, and it is **never stopped by a colour flip**: it
+carries no `--profile` and does not appear in either colour's service list,
+including the step that used to stop the old colour. Before this it was
+`signaling-blue` / `signaling-green`, one instance per deploy colour,
+recreated and torn down on every flip — that per-colour split is what
+produced the pinned-room bug described in "Environment variables" above.
+
+The **single-replica constraint itself is unchanged and still matters**: room
 membership (`RoomRegistry`) is an in-process, in-memory `dict` — there is no
 shared store between processes. Two peers in the same lesson must land on the
-same process, or neither can see the other join. If the signaling service is
-ever scaled beyond one replica per colour, `RoomRegistry` needs a fan-out
-layer (e.g. Redis pub/sub) first; until that lands, do not raise its replica
-count.
+same process, or neither can see the other join. What changed is *why* there
+is one replica: it used to be one per colour (two processes total, kept apart
+by per-colour hostnames); now it is one process, period, and there is no
+second one to land on. If signaling is ever scaled beyond a single replica,
+`RoomRegistry` needs a fan-out layer (e.g. Redis pub/sub) first; until that
+lands, do not raise its replica count.
 
 ## Health check and its limit
 
-Both `signaling-blue` and `signaling-green` expose `GET /health/live/` on
-port 9000. The check mints a token and immediately verifies it using the
-container's own `DJANGO_SIGNALING_SECRET`, returning `503` if the secret is
-missing or the round trip fails. This is what `scripts/ship.sh` polls before
-promoting a new colour.
+The shared `signaling` service (container `kaleem-signaling-1`) exposes `GET
+/health/live/` on port 9000. The check mints a token and immediately verifies
+it using the container's own `DJANGO_SIGNALING_SECRET`, returning `503` if
+the secret is missing or the round trip fails. This is what `scripts/ship.sh`
+polls as part of "ensure shared services are running" — it is no longer tied
+to promoting a colour, since signaling is not per-colour any more.
 
 **What this proves:** the signaling container has *a* usable secret — it is
 present, non-empty, and internally self-consistent.
@@ -193,7 +234,7 @@ calling a deploy done.
 
 ## Reading the logs
 
-`docker logs kaleem-signaling-<colour>-1`.
+`docker logs kaleem-signaling-1`.
 
 **The join token must never appear in a log line, and two things had to be
 done to keep it out.**
@@ -206,8 +247,10 @@ switch only touches the `uvicorn.access` logger; the handshake line is on
 `uvicorn.error`), and `--log-level warning` would only trade the leak for
 blindness. The fix is `backend/signaling/logconf.py`, a `logging.Filter` that
 rewrites the record before emit, installed via `--log-config
-signaling/logconf.json` in **all three** places the service is started:
-`docker-compose.local.yml`, `signaling-blue`, and `signaling-green`.
+signaling/logconf.json` everywhere the service is started: `docker-compose.local.yml`
+and, since ADR-0037 collapsed the per-colour pair into one shared service,
+the single `signaling` service in `docker-compose.production.yml` (it used
+to be both `signaling-blue` and `signaling-green`).
 
 A correct log line looks like this — note `?REDACTED`:
 
@@ -248,47 +291,53 @@ Read them in aggregate, not one at a time:
 | Scattered "malformed token" | Usually crawlers and scanners hitting the endpoint. Only interesting in volume. |
 | "token is for room X" | A real capability being replayed against a different room. Investigate. |
 
-## Deploys drop live calls, and can split a room
+## Deploys drop live calls
 
-There were two separate problems here, both from `scripts/ship.sh`. **C3c
-fixed the second. The first is still open**, and it is still the reason for the
-operational rule below.
+This section used to be "Deploys drop live calls, and can split a room" and
+covered two separate problems. **The split-room half is now structurally
+impossible and this section no longer covers it. The dropped-calls half is
+unchanged, still open, and is still the reason for the operational rule
+below.**
 
-**1. A deploy kills every call in progress. STILL OPEN.** Step 8 stops the old
-colour with `stop --timeout 30`. Room membership is an in-process dict, so a
-stopped container takes its rooms with it: both participants' sockets close,
-and neither browser is told why in a way it can recover from. Thirty seconds of
-"graceful drain" is not a drain — nothing waits for rooms to empty, it is just
-a SIGTERM grace period. Fixing this needs a join-routing switch that does not
-exist yet (stop routing new joins to the old colour, wait for its rooms to
-empty, then stop it). Tracked in `ISSUES.md` under *Blocks launch*.
+**Room splitting: gone, not just fixed.** Through C3c, signaling ran as
+`signaling-blue` / `signaling-green` — two independent processes — and a
+colour overlap could hand a teacher and student to different ones with no
+error at all. C3c's fix was per-colour hostnames plus `Room.signaling_url`
+pinning a room to the colour that created it. That pin then caused a second
+bug: a room created before a deploy kept pointing at a colour `ship.sh` had
+since removed, and because `_ensure_room` reuses an `ACTIVE` row forever, the
+session became permanently unjoinable — hit live on staging 2026-09-07. **As
+of ADR-0037, signaling is one shared replica** (see "Deployment" above), not
+two colour-scoped ones, so there is no second process for a participant to be
+handed and no colour for a room's pin to outlive. `Room.signaling_url` still
+exists and is still written and replayed the same way, but with a single
+signaling host it can no longer disagree with the live deployment. This is
+implemented and unit-tested; it has not yet been verified with a live
+staging colour flip (the gate that would prove it — see `ISSUES.md`).
 
-**2. One room splitting across two processes. FIXED in C3c.** Both colours used
-to claim `Host(${WS_DOMAIN})`, so during the colour overlap Traefik
-load-balanced the *same* hostname across both: a teacher could land on one
-colour and their student on the other, each alone in a room of one, with **no
-`peer-joined`, no error, no close code** — every health check green and nothing
-logged. Two changes closed it, and both were needed:
-
-- Each colour now claims its own hostname (`WS_BLUE_DOMAIN` / `WS_GREEN_DOMAIN`),
-  and each Django colour hands out its own colour's URL.
-- **A room records the signaling host it was created on** (`Room.signaling_url`),
-  written by the first joiner under the session row lock and replayed to every
-  later joiner. The hostname split alone was *not* sufficient: `django-blue` and
-  `django-green` both claim `Host(${API_DOMAIN})` too, so two participants could
-  be served their grants by different Django colours and straddle anyway. The
-  room-level pin is what actually makes straddling impossible.
-
-The trade this makes, deliberately: a room pinned to a colour that has since
-been stopped now fails a rejoin **loudly**, where before it would have quietly
-succeeded into a split room. Loud beats undetectable.
+**A deploy still kills every call in progress. STILL OPEN.** This used to be
+described as "step 8 stops the old colour" — that specific mechanism is gone,
+since signaling is no longer part of either colour's service list and is
+never stopped by a flip. But the underlying problem is unchanged: room
+membership is an in-process dict with no drain, and `scripts/ship.sh` step 4
+runs `docker compose up -d ... signaling` on **every** deploy. If that
+command recreates the container — because a deploy actually changes the
+signaling image, its compose definition, or its env — every room in it
+closes at once, both participants' sockets die, and neither browser is told
+why in a way it can recover from. This is now *worse* in blast radius than
+before: there used to be an unaffected colour to fail over to; now there is
+only one signaling process for the whole deployment, so a signaling redeploy
+affects every live call, not half of them. Fixing this needs a join-routing
+drain that does not exist yet (stop routing new joins, wait for rooms to
+empty, then recreate). Tracked in `ISSUES.md` under *Blocks launch*.
 
 **Operational rule, still in force: deploy between lessons.** Check the
-schedule before shipping. Problem 1 is unfixed — a deploy still drops every
-call in progress. If you must ship during a lesson, expect to tell those
-participants to reload.
+schedule before shipping, especially before a deploy that touches the
+signaling service itself. If you must ship during a lesson, expect to tell
+those participants to reload.
 
 ## Related
 
 - `docs/runbook/deploy.md` — general blue-green deploy flow (`scripts/ship.sh`)
 - ADR-0035 — signaling as its own Django-free deployable
+- ADR-0037 — signaling as one shared service instead of one per deploy colour

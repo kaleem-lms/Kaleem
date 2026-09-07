@@ -72,7 +72,7 @@ Variables added in Phase C3b (signaling / WebRTC) — all four are required, see
 
 | Variable | Read by | Missing means |
 | --- | --- | --- |
-| `WS_DOMAIN` | `docker-compose.production.yml` | signaling routers get `Host(``)`, never routable; health check fails; **deploy rolls back** |
+| `WS_DOMAIN` | `docker-compose.production.yml` | `${WS_DOMAIN:?WS_DOMAIN is required}` fails interpolation before anything starts; **deploy aborts immediately**, not a routing failure caught later by a health check |
 | `DJANGO_SIGNALING_SECRET` | both `django-*` and `signaling-*` | signaling's health check 503s; **deploy rolls back** |
 | `DJANGO_SIGNALING_URL` | `django-*` | `SignalingProvider` refuses to construct (`ImproperlyConfigured`) |
 | `DJANGO_VIDEO_PROVIDER` | `django-*` | falls back to `FakeVideoProvider` — deploy succeeds, signaling is healthy, and **no lesson can reach it** |
