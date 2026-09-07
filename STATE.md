@@ -1,7 +1,7 @@
 ---
-current_phase: "C — Scheduling. C0 (matching inputs) SHIPPED 2026-09-05; C1 (matching) SHIPPED 2026-09-05. C2 (booking + quota) SHIPPED 2026-09-05 (backend#43, dashboard#36, meta#162). C3 is decomposed further into C3a-C3e (ADR-0034); C3a (video room + provider seam) SHIPPED 2026-09-05 (backend#44, dashboard#37, meta#164). C3b (signaling) SHIPPED 2026-09-06 (backend#45, infra#6, meta#166) and is live on staging. C3d (call client) SHIPPED and verified live on staging 2026-09-07. C3e is split into C3e-a (call diagnostics) SHIPPED and verified live on staging 2026-09-07 (backend#48, dashboard#40, meta#176), and C3e-b (the seven Safari/iOS hardening fixes, no spec yet). Phase B (billing) is CLOSED as of 2026-09-04, dunning gate included. Phase C is decomposed because matching, booking and video are separate subsystems in a strict dependency order: C0 matching inputs, C1 matching, C2 booking + quota, then video as C3a rooms, C3b signaling, C3c STUN/TURN, C3d call client, C3e browser hardening. Note the roadmap calls scheduling 'B2'; that label is already taken by a closed billing spec, so scheduling is Phase C here."
-active_spec: "none — C3e-a (call diagnostics) SHIPPED 2026-09-07 and **verified live on staging**: a real POST through the deployed stack returned 201, an unknown code 400, a nonexistent session 404 and an unauthenticated request 403, with all three refusals writing nothing; the stored row carried the real iPhone-Safari `User-Agent` from the header while a `FORGED` value in the body was ignored; and no IPv4 or IPv6 address appeared anywhere in `stats` or `user_agent`. It closes under a **D9 deviation**: no manual click-through on the target browser is possible in this project (no Apple device exists here, and Playwright's WebKit is not iOS Safari), recorded in `journal/2026-W36.md` rather than skipped. **One check could not be run live**: a 403 for a non-participant, because staging holds exactly one session and no session exists that the fixture student is not a party to — that path is covered by unit and API tests only. Next is C3e-b (the seven Safari/iOS hardening fixes, ADR-0034), which has no spec yet — its verification loop is watching C3e-a's diagnostic codes fall in frequency after it ships, which is slower and weaker than a test."
-active_branch: "none; backend, dashboard, infra and meta are all on their trunks. TRUNK-BASED (ADR-0028) — branch feat/… off the trunk, PR in. A merge to meta `master` IS a deploy."
+current_phase: "C — Scheduling. C0 (matching inputs) SHIPPED 2026-09-05; C1 (matching) SHIPPED 2026-09-05. C2 (booking + quota) SHIPPED 2026-09-05 (backend#43, dashboard#36, meta#162). C3 is decomposed further into C3a-C3e (ADR-0034); C3a (video room + provider seam) SHIPPED 2026-09-05 (backend#44, dashboard#37, meta#164). C3b (signaling) SHIPPED 2026-09-06 (backend#45, infra#6, meta#166) and is live on staging. C3d (call client) SHIPPED and verified live on staging 2026-09-07. C3e is split into C3e-a (call diagnostics) SHIPPED and verified live on staging 2026-09-07 (backend#48, dashboard#40, meta#176), and C3e-b (the seven Safari/iOS hardening fixes) is CODE-COMPLETE on dashboard `feat/browser-hardening`, not yet merged or deployed. Phase B (billing) is CLOSED as of 2026-09-04, dunning gate included. Phase C is decomposed because matching, booking and video are separate subsystems in a strict dependency order: C0 matching inputs, C1 matching, C2 booking + quota, then video as C3a rooms, C3b signaling, C3c STUN/TURN, C3d call client, C3e browser hardening. Note the roadmap calls scheduling 'B2'; that label is already taken by a closed billing spec, so scheduling is Phase C here."
+active_spec: "docs/superpowers/specs/2026-09-07-phase-c3e-b-browser-hardening-design.md (C3e-b — the seven Safari/iOS hardening fixes, ADR-0034). Spec and implementation plan both closed. Code is CODE-COMPLETE on dashboard `feat/browser-hardening` (dashboard-only, no backend/signaling change): min-h-dvh on the three call surfaces, getUserMedia moved behind a tap, a tap-to-turn-on-sound control for a refused autoplay, restartIce feature-guarded, backgrounding/screen-lock recovery reusing handleRetryConnection, device changes hot-swapped via sender.replaceTrack(), and camera/microphone choices persisted in localStorage. Dashboard coverage floors raised to 95.5/91.6/87.2/95.5 lines/branches/functions/statements (measured 95.66/91.75/87.38/95.66). Two Chromium e2e flows added (the gesture gate, the tap-to-play control) — nothing here is verified on Safari or iOS and cannot be, in this project (no Apple device exists). **D9 deviation** recorded in `journal/2026-W36.md`: no manual click-through on the target browser is possible. **Not yet merged or deployed** — the dashboard branch has not been opened as a PR yet."
+active_branch: "dashboard on `feat/browser-hardening` (code-complete, not yet a PR); meta on `docs/c3e-b-spec` (this docs pass). backend and infra are on their trunks. TRUNK-BASED (ADR-0028) — branch feat/… off the trunk, PR in. A merge to meta `master` IS a deploy."
 last_green_ci: "meta #172 → master, 2026-09-07 (all 8 checks green, deploy-staging SUCCESS). Staging is on **blue**. ⚠ The e2e job FAILED first: it never ran the signaling service and never set DJANGO_VIDEO_PROVIDER, so it fell back to FakeVideoProvider whose join_url points at a host that does not resolve — the two-peer call test could never have passed in CI. Fixed in ci.yml (uvicorn signaling on :9000, ws.kaleem.localhost in /etc/hosts, five env vars). Verified live after deploy: a relay-only two-peer call carried real media through coturn."
 ---
 
@@ -26,13 +26,13 @@ Phase A (identity) is closed via ADR-0024, with one residual human check outstan
 
 ## ▶ Next actions, in order
 
-1. **Open PRs for `feat/call-diagnostics`** (backend, dashboard) into their trunks and merge
-   this docs PR, then deploy. Code is done and green on both feature branches; nothing further
-   is blocking the merge.
-2. **Write the C3e-b spec** (Safari/iOS hardening, ADR-0034 — `100dvh`, the `getUserMedia`
-   gesture gate, the autoplay fallback control, `restartIce` feature guard, iOS backgrounding,
-   mid-call device changes, persisted device choices). It lands with evidence C3e-a did not
-   have: once live, each fix's effect shows up as a falling count of its `CallDiagnostic` code.
+1. **Open a PR for `dashboard` `feat/browser-hardening`** into its trunk and merge this docs
+   PR, then deploy. Code is done and green on the feature branch (coverage floors raised);
+   nothing further is blocking the merge. There is no backend or infra branch for this phase —
+   dashboard-only, no signaling change.
+2. Once live, watch C3e-a's `CallDiagnostic` codes — `gum-no-gesture`, `autoplay-blocked`,
+   `backgrounded`, `device-lost`, `ice-restart-unsupported` — for real Safari/iOS traffic. That
+   is the only verification loop this phase has; see `journal/2026-W36.md`.
 3. From `ISSUES.md`, one C3c operational entry wants closing before it bites: a coturn
    config-only change does not restart the running relay, so a `turnserver.conf` fix reaches the
    VPS and does nothing until someone restarts it by hand. (The `ws-green-staging` certificate
@@ -41,6 +41,22 @@ Phase A (identity) is closed via ADR-0024, with one residual human check outstan
    `current_period_end`, and a mid-cycle rewrite would hand out a second allowance.
 
 ## In flight
+
+- **C3e-b (browser hardening)** — dashboard `feat/browser-hardening`, commit `7163f43` (code,
+  green — `9b8dc03` plus the whole-branch review fixes), plus this meta docs PR. No backend or infra change.
+  `docs/superpowers/specs/2026-09-07-phase-c3e-b-browser-hardening-design.md`. Seven fixes,
+  all dashboard-only: `min-h-dvh` on the three call surfaces and the root container; `getUserMedia` moved behind a
+  tap (a visible product change — the Lobby now has an explicit "Turn on camera"
+  step); a "Tap to turn on sound" control for a refused autoplay; `restartIce`
+  feature-guarded; backgrounding/screen-lock recovery reusing `handleRetryConnection`;
+  device changes hot-swapped via `sender.replaceTrack()` (no renegotiation); camera/microphone
+  choices persisted in `localStorage`. Dashboard floors raised to 95.5/91.6/87.2/95.5
+  (measured 95.66/91.75/87.38/95.66); e2e adds 2 Chromium flows (the gesture gate, the
+  tap-to-play control). **Not yet merged or deployed.**
+  **Closes under a D9 deviation** — no manual click-through on the target browser, because this
+  project has no Apple device and Playwright's WebKit is not iOS Safari. None of the seven
+  fixes is verified on the browser it exists for; the verification loop is watching C3e-a's
+  diagnostic codes once real traffic arrives, per `journal/2026-W36.md`.
 
 - **C3e-a (call diagnostics)** — commits through `dashboard` `65ab434` / `backend` `46d33f1` on
   `feat/call-diagnostics` (code, green), plus this meta docs PR.
