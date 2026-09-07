@@ -65,6 +65,47 @@ outright before any container starts.
 Diff `.env.production` against `infra/.env.production.example` before
 deploying.
 
+## Changing `WS_DOMAIN` after go-live
+
+⚠ **Editing `WS_DOMAIN` on the VPS strands every currently-`ACTIVE` room, the
+same failure class ADR-0037 fixed for deploys — reopened here for this one
+operator action, because ADR-0037 only made both deploy colours agree with
+each other, not with a value an operator changes by hand.**
+
+`Room.signaling_url` is pinned at creation and `get_join_url` prefers it over
+`settings.SIGNALING_URL` (see the comment on `signaling_provider.py`'s
+`get_join_url` for why: re-reading settings at join time is the split-room bug
+C3c removed, and this code intentionally does not do it). `_ensure_room`
+reuses an `ACTIVE` `Room` row forever rather than minting a new one. So a
+`Room` created under the old `WS_DOMAIN` keeps handing out `wss://<old
+host>/...` join URLs indefinitely after the hostname changes underneath it —
+permanently unjoinable, silently, with no close code and nothing naming the
+cause. This is a **deliberate non-fix**: healing it automatically (e.g.
+ending stale rooms on a schedule) is exactly the "treat the symptom
+recurringly instead of fixing the cause" pattern ADR-0037 rejected for the
+deploy case. The fix here is procedural, not code.
+
+**Before changing `WS_DOMAIN`, end every `ACTIVE` room.** On the VPS, in a
+Django shell (`docker exec -it kaleem-django-<colour>-1 python manage.py
+shell_plus`, or equivalent):
+
+```python
+from django.utils import timezone
+from kaleem.scheduling.models import Room
+
+active = Room.objects.filter(status=Room.Status.ACTIVE)
+count = active.count()
+active.update(status=Room.Status.ENDED, ended_at=timezone.now())
+print(f"Ended {count} active room(s).")
+```
+
+Run this **before** the deploy that changes `WS_DOMAIN` lands, ideally during
+the same "deploy between lessons" window the rest of this runbook already
+calls for. Any lesson genuinely in progress at that moment will need to
+reload — same as the existing "deploys drop live calls" trade-off below, not
+a new one. `_ensure_room` will mint a fresh `Room` pinned to the new
+`WS_DOMAIN` the next time each session's participants join.
+
 ## Rotating the shared secret
 
 The secret is not per-environment-variable-only — it is a **pair**, and both

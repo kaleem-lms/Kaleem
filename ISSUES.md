@@ -332,9 +332,18 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
   TURN with `startswith("stun:")`, so a `stuns:` entry falls into the TURN bucket and is handed a
   credential it does not need. Unreachable today: `DJANGO_TURN_URLS` has no `stuns:` entry and
   C3c ships no TLS listener at all. Fix it together with the `turns:` work above.
-- **`.env.production.example` has a stale comment referring to `WS_DOMAIN` (C3c).** The variable
-  was retired and replaced by `WS_BLUE_DOMAIN`/`WS_GREEN_DOMAIN`, but one comment still reads
-  "WS_DOMAIN, above, is …" and now points at nothing. One-line fix.
+- **`.env.production.example` had a stale comment referring to `WS_DOMAIN` (C3c), now doubly
+  stale.** It used to say the variable "was retired and replaced by
+  `WS_BLUE_DOMAIN`/`WS_GREEN_DOMAIN`" — backwards as of ADR-0037, which collapsed signaling back
+  to a single shared `WS_DOMAIN` and retired the per-colour pair instead. Fixed as part of the
+  shared-signaling change; flagging here in case any other doc still has the C3c-era phrasing.
+
+- **Changing `WS_DOMAIN` on the VPS strands any `ACTIVE` `Room` (ADR-0037).** `Room.signaling_url`
+  is pinned at creation and `_ensure_room` reuses an `ACTIVE` row forever, so an operator who edits
+  `WS_DOMAIN` without first ending active rooms leaves those sessions permanently unjoinable —
+  same failure class ADR-0037 fixed for deploys, reopened for this one operator action. Documented
+  as a required step in `docs/runbook/signaling.md`, not fixed in code: a recurring deploy-time
+  room-ending job is exactly the "treat the symptom on a schedule" design ADR-0037 rejected.
 
 - **`mypy` is red on `config/settings/local.py:61` and nothing notices.** `LOGGING["handlers"]["console"]["formatter"] = "verbose"` — mypy types `LOGGING` as `object`, so the subscript errors. Pre-existing (present at HEAD before Phase C3b's fix wave), and harmless only because **mypy runs in neither `ci.yml` nor pre-commit nor `just lint`** — it is a manual command. Either fix the annotation and put mypy in the merge path, or stop calling it a gate.
 
