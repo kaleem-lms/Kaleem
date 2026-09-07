@@ -263,6 +263,19 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
 
 ## Someday
 
+- **Headset auto-takeover depends on `groupId`, which iOS Safari may not populate (C3e-b).** The
+  device-swap rule only adopts a newly-arrived default when the in-use track and the candidate both
+  report a `groupId` and the two differ — deliberately failing closed, since the alternative
+  interrupted working calls on every unrelated `devicechange`. But `track.getSettings().groupId` is
+  not guaranteed on Safari, the browser this phase exists for. If Safari omits it, auto-takeover
+  silently never fires there and the Lobby picker is the only route. Unverifiable here: no Apple
+  device. Watch whether `device-lost` rows ever arrive from Safari user agents.
+- **The `100vh` guard scans two directories, not the whole tree (C3e-b).** `viewport-units.test.ts`
+  walks `src/routes` and `src/features/call`. `src/features/shell/AppShell.tsx` and
+  `src/ui/auth-layout.tsx` also establish page height and sit outside that scan — both correct
+  today. The "a container nobody pointed the check at" failure is narrowed, not eliminated; the
+  root container that defeated the original fix was exactly this class.
+
 - **The deploy's file sync now downloads its own binary, unchecksummed.** `appleboy/scp-action`
   v1 is a composite action: instead of running a pinned Docker image, it `curl`s the `drone-scp`
   binary onto the runner at deploy time (default v1.8.0, GitHub releases, no checksum). The action
