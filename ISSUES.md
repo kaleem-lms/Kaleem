@@ -653,6 +653,18 @@ proves; all are robustness of an unattended job.
   the point — but it is a wasted round trip on every load and a red herring for anyone
   debugging a real 403. Fix is `enabled:` on the two queries, keyed off the audience.
 
+- **The dashboard unit suite flakes: jsdom intermittently crashes creating a Window.**
+  Roughly 1 run in 4 on a loaded machine, `vitest` reports an unhandled
+  `SyntaxError: Invalid or unexpected token` from `jsdom/living/interfaces.js`
+  `installInterfaces` -> `createWindow`, one test *file* is dropped from the run, and the
+  process exits non-zero with every test that did run passing. The counts move between runs
+  (782, 779, 778 on the same tree). **It is not caused by the session UI redesign** —
+  confirmed 2026-09-07 by running the suite four times on the pre-branch base `00f8581`,
+  where run 3 dropped a file the same way (96/97 files, 718 tests). It predates the branch
+  and is invisible until you read the file count rather than the pass count. This is a
+  merge gate, so a spurious red costs a re-run every time it fires; worth pinning the
+  jsdom/vitest pair or capping `poolOptions` concurrency and seeing if it stops.
+
 - **A user with no full name is greeted "Assalamu alaikum," and gets a blank account menu.**
   The home heading interpolates an empty `full_name` and leaves the comma stranded, and the
   header's account-menu trigger renders no visible text at all (its `aria-label` is intact,
