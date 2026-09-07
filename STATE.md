@@ -41,7 +41,7 @@ Phase A (identity) is closed via ADR-0024, with one residual human check outstan
 
 - **C3d (the call client)** — backend#47 + dashboard#39 (code, green) + this meta docs PR.
   `docs/superpowers/specs/2026-09-07-phase-c3d-call-client-design.md`. Dashboard: 645 unit tests,
-  95.3/91.5/87.4/95.3 (floor 93.5/90/86.5); e2e 33 → 35 flows. Task 10 (live manual check) is the
+  95.28/91.52/87.44/95.28 (floor 95.1/91.4/86.6); e2e 33 → 35 flows. Task 10 (live manual check) is the
   one thing standing between this and a closed phase.
 - ⚠ **A merge to `master` is a deploy** (ADR-0028).
 - ⚠ **Deploy between lessons.** A deploy still drops every call in progress — the drain is

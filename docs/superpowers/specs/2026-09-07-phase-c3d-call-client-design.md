@@ -170,8 +170,13 @@ Remote dominant, local as a picture-in-picture tile:
 └────────────────────────────────────┘
 ```
 
-The self-tile is positioned with logical inset properties (`inset-e-*`/`inset-b-*`), so RTL mirrors
-it rather than needing a second rule. Controls are real buttons, keyboard reachable, with
+The self-tile is positioned with `inset-e-*` (a logical inline-axis property) and `bottom-*` (a
+physical property), so RTL mirrors the inline axis it needs to mirror without a second rule. Only
+the *inline* axis takes a logical utility here — **the block axis does not mirror in RTL, and
+Tailwind v4 has no `inset-t-*`/`inset-b-*` aliases to begin with** (verified against this repo's
+own Tailwind 4.2.2 build: they compile to nothing). A previous revision of this spec prescribed
+`inset-b-*` for the block axis, which does not exist and shipped a self-tile with no vertical
+position at all — corrected here. Controls are real buttons, keyboard reachable, with
 `aria-pressed` on the two toggles.
 
 While alone in the room, the remote area carries a waiting state naming who is expected — not an
@@ -214,6 +219,15 @@ signaling service exactly as the existing harness does:
    an element rendered;
 2. muting on one side is observed on the other;
 3. one participant leaving is seen by the one who stays.
+
+**Deviation, recorded rather than left implicit:** flow 2 (muting observed on the other side) was
+not built. `e2e/call.spec.ts` ships flows 1 and 3 only, and the D3 table in `CLAUDE.md` honestly
+says "2 flows" rather than claiming three — but reducing a binding spec item to a manual
+click-through check is a real deviation and belongs on the record, not just in the harness's own
+line count. `track.enabled = false` (the mechanism flow 2 would exercise) is unit-tested in
+`CallRoom.test.tsx` against a fake track; what is missing is the end-to-end proof that the OTHER
+peer's rendered video actually reflects it. Verified by hand instead, alongside the rest of the
+manual verification pass below.
 
 Two limits recorded rather than discovered later:
 
