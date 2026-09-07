@@ -202,6 +202,11 @@ Phase A (identity) is closed via ADR-0024, with one residual human check outstan
   and by 4 e2e flows against a real stack, so this is a gap in *manual* D9 coverage
   only — close it by making a teacher on staging via Django admin.
 
+- ⚠ **C3d throwaway staging accounts**, password `KaleemC3d!2026`: `c3d.student@example.com` and
+  `c3d.teacher@example.com`, with a matched Arabic assignment, a recurring slot and one session
+  positioned on `now` (session id 3). Built by hand for the C3d live call check. **They are a
+  standing joinable lesson** — clear them on the next staging DB reset, or reuse them for C3e's
+  Safari/iOS checks rather than rebuilding the fixture.
 - Throwaway staging accounts, all password `KaleemStaging!2026`: `billing.clickthrough@`
   (id 7), `billing.recheck@` (id 8), `billing.failcard@` (id 9), plus the two older `*.smoke@`
   users. Clear them all on the next staging DB reset.
