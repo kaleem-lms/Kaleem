@@ -115,9 +115,13 @@ A two-field stub would remove the very constraint under test.
 | `backgrounded` | The page was suspended mid-call | C3e-b |
 | `device-lost` | A device disappeared mid-call | C3e-b |
 
-The enum is defined **once**, in the backend, and the client's copy is checked against it by a
-test that fails if the two drift. Every code is listed here from the start, including C3e-b's,
-so that phase adds emitters rather than reopening the schema.
+The enum is defined **once**, in the backend. The client necessarily holds its own copy — a
+Vitest test cannot read a Python enum, and the dashboard is a separate submodule — so drift is
+caught by **an e2e test that POSTs every code the client knows through the real endpoint** and
+asserts each is accepted. That is a genuine contract test against a running Django, not two
+frozen literals a human is trusted to keep in step. Every code is listed here from the start,
+including C3e-b's, so that phase adds emitters rather than reopening the schema, and so the
+contract test covers them before their emitters exist.
 
 `autoplay-blocked` is the highest-value emitter in the phase. Today `VideoTile` does
 `void video.play().catch(() => {})` — an empty catch. On Safari a refused audible autoplay is
