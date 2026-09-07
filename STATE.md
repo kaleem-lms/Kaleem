@@ -1,7 +1,7 @@
 ---
 current_phase: "C — Scheduling. C0 (matching inputs) SHIPPED 2026-09-05; C1 (matching) SHIPPED 2026-09-05. C2 (booking + quota) SHIPPED 2026-09-05 (backend#43, dashboard#36, meta#162). C3 is decomposed further into C3a-C3e (ADR-0034); C3a (video room + provider seam) SHIPPED 2026-09-05 (backend#44, dashboard#37, meta#164). C3b (signaling) SHIPPED 2026-09-06 (backend#45, infra#6, meta#166) and is live on staging. Phase B (billing) is CLOSED as of 2026-09-04, dunning gate included. Phase C is decomposed because matching, booking and video are separate subsystems in a strict dependency order: C0 matching inputs, C1 matching, C2 booking + quota, then video as C3a rooms, C3b signaling, C3c STUN/TURN, C3d call client, C3e browser hardening. Note the roadmap calls scheduling 'B2'; that label is already taken by a closed billing spec, so scheduling is Phase C here."
-active_spec: "none — C3c (STUN/TURN) SHIPPED and verified live on staging 2026-09-06. Next is C3d (the call client), which has no spec yet and is the first phase that can produce a working call."
-active_branch: "none; backend, dashboard, infra and meta are all on their trunks. NOTE infra `main` is one commit ahead of the deployed pointer (the `log-file=stdout` fix, applied to staging by hand) — bump it with the next meta PR. TRUNK-BASED as of 2026-09-04 (ADR-0028) — `master` is the only long-lived branch; `develop` is deleted. Branch feat/… off master, PR into master."
+active_spec: "docs/superpowers/specs/2026-09-07-phase-c3d-call-client-design.md — C3d (the call client), the first phase that produces a working call. Backend#47 and dashboard#39 land `is_teacher` on the join grant, the lobby, the three call hooks, and the call room; both green (backend suite + dashboard 645 tests + e2e 35 flows, 2 new). Docs task (this one) in flight. NOT yet done: the live manual click-through (Task 10) — no human has watched real audio/video connect on staging."
+active_branch: "meta `feat/phase-c3d-call-client` (docs closing C3d); submodules `feat/phase-c3d-call-client` on backend#47 and dashboard#39, not yet merged to their trunks — meta does not bump submodule pointers until after those merge. TRUNK-BASED as of 2026-09-04 (ADR-0028) — `master` is the only long-lived branch; `develop` is deleted. Branch feat/… off master, PR into master."
 last_green_ci: "meta #169 → master, 2026-09-06 (all 8 checks green; deploy-staging SUCCESS on the second attempt — the first failed loudly at `Sync infra config to staging` because a hand-created root-owned `/opt/kaleem/coturn` blocked the `deploy` user\'s tar, fixed with a chown). Staging is on **blue** at 43d6dea. Verified live: `https://ws-blue-staging.kaleem.academy/health/live/` returns healthy; a relay-only RTCPeerConnection pair connects through coturn (2.3 KB each way); the Sec-WebSocket-Protocol handshake accepts a valid token and refuses three bad cases with 4401. Both mutation-checked. ⚠ `ws-green-staging` has NO certificate until green is active (ISSUES). The `Stripe test clock` nightly was last green 2026-09-04."
 ---
 
@@ -26,21 +26,23 @@ Phase A (identity) is closed via ADR-0024, with one residual human check outstan
 
 ## ▶ Next actions, in order
 
-1. **C3d — the call client.** The first phase that can produce a working call. Everything under
-   it now exists and is proven live: rooms (C3a), an authenticated signaling relay (C3b), and a
-   TURN relay with ephemeral credentials (C3c). C3d is `RTCPeerConnection`, the video grid and
-   the controls, driven by `join_url` + `token` + `ice_servers` off the join grant.
-2. **Bump the infra pointer** — `infra/main` carries the `log-file=stdout` fix, which was applied
-   to staging by hand but is not in the deployed SHA.
-3. From `ISSUES.md`, two C3c operational entries want closing before they bite: `ws-green-staging`
-   has no certificate until green is active, and a coturn config-only change does not restart the
-   running relay.
-4. Still standing from C2 under **Blocks launch**: the quota cycle is keyed by an exact
+1. **C3d Task 10 — the live manual check.** Code is done and tested (backend#47, dashboard#39,
+   this docs PR); no one has yet watched a real two-person call connect and carry audio/video on
+   staging. Do this before calling C3d closed — CI proves plumbing only (host-candidate P2P with
+   fake media), never quality, and never the relay path.
+2. From `ISSUES.md`, one C3c operational entry wants closing before it bites: a coturn
+   config-only change does not restart the running relay, so a `turnserver.conf` fix reaches the
+   VPS and does nothing until someone restarts it by hand. (The `ws-green-staging` certificate
+   entry proved smaller than predicted — see `ISSUES.md`.)
+3. Still standing from C2 under **Blocks launch**: the quota cycle is keyed by an exact
    `current_period_end`, and a mid-cycle rewrite would hand out a second allowance.
 
 ## In flight
 
-- **Nothing.** C3c shipped and was verified live on 2026-09-06.
+- **C3d (the call client)** — backend#47 + dashboard#39 (code, green) + this meta docs PR.
+  `docs/superpowers/specs/2026-09-07-phase-c3d-call-client-design.md`. Dashboard: 645 unit tests,
+  95.28/91.52/87.44/95.28 (floor 95.1/91.4/86.6); e2e 33 → 35 flows. Task 10 (live manual check) is the
+  one thing standing between this and a closed phase.
 - ⚠ **A merge to `master` is a deploy** (ADR-0028).
 - ⚠ **Deploy between lessons.** A deploy still drops every call in progress — the drain is
   unbuilt, and it is the last surviving half of the split-room issue (`ISSUES.md`).

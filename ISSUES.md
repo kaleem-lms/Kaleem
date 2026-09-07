@@ -141,14 +141,16 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
 
 ## Blocks a phase close
 
-- **`ws-green-staging` has no TLS certificate until green is the active colour (C3c).** Traefik
-  issues via Let's Encrypt's HTTP challenge when a router first appears, so the *inactive*
-  colour's WebSocket hostname does not resolve to a valid certificate. Verified 2026-09-06 with
-  blue active: `ws-blue-staging` answers `{"status":"healthy"}`, `ws-green-staging` fails TLS
-  verification. The first deploy that flips to green therefore has a window where its signaling
-  host is unusable until ACME completes — which, combined with `Room.signaling_url` pinning, means
-  joins to a freshly-pinned green room could fail during it. Pre-issue both certificates, or add
-  an ACME warm-up step to the deploy.
+- **The inactive colour's WebSocket hostname has no TLS certificate (C3c) — smaller than first
+  thought.** Traefik issues via Let's Encrypt's HTTP challenge when a router first appears, so
+  while blue was active `ws-green-staging` failed TLS verification and `ws-blue-staging` answered
+  healthy. **The predicted outage on switching colours did not materialise:** the 2026-09-06
+  colour flip to green was checked immediately afterwards and `ws-green-staging` already served
+  `{"status":"healthy"}` over a valid certificate, with the handshake refusing a bad token 4401 as
+  designed. ACME completed inside the deploy's own window. Left open because it is unproven under
+  a slower ACME or a rate-limited issuance, and because the first flip to a *never-before-active*
+  colour is the risky case — but do not plan work around an outage that has not been observed.
+
 - **A coturn config-only change does not restart the running relay (C3c).** `ship.sh` runs
   `docker compose up -d ... coturn`; the config arrives by `scp` as a bind-mounted file, so the
   service definition is unchanged and Compose leaves the container running with the OLD config.
@@ -252,6 +254,21 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
 - Dunning UX beyond mirroring `past_due` (retry/notice flow) is deferred.
 
 ## Someday
+
+- **A signaling socket that never opens and never closes leaves the room saying "Connecting…"
+  forever (C3d).** `useSignaling` only begins counting failures from a close event, so it reaches
+  `MAX_RECONNECT_ATTEMPTS` and the `lost` state only if the socket *opened and then dropped*. A
+  relay that is unreachable from the start — DNS gone, certificate rejected, a silently blackholed
+  connection — produces no `onclose`, so nothing ever surfaces. The other half of this finding (a
+  socket that opens and later dies) IS handled, with copy and a retry control. Closing this needs a
+  connect-timeout with a chosen value and a test; it was deliberately not bolted on untested during
+  the C3d fix wave.
+- **Retrying a failed connection silently reverts the chosen camera and microphone (C3d).**
+  `RoomPage.handleRetryConnection` calls `localMedia.retry()`, which re-acquires with
+  `DEFAULT_CONSTRAINTS` rather than the `deviceId` the person picked in the lobby. So someone who
+  chose their good camera, hit a connection failure and clicked "Try again" gets the default one
+  back with no indication. Only reachable now that the retry path and the device wiring both exist.
+  Fix: have `retry()` reuse the current selection.
 
 - **Signaling reads only the first `Sec-WebSocket-Protocol` header line (C3c).**
   `signaling/app.py` uses `headers.get(...)`, which returns the first occurrence. A client that
@@ -522,6 +539,34 @@ proves; all are robustness of an unattended job.
   per call.
 - The cancel dialog's `bg-black/40` overlay is a non-token colour, carried over from
   `RemoveEmailDialog`. Fix both call sites in a token audit.
+- The room route (C3d) has two `<h1>`s at once during the Lobby state: its own `sr-only`
+  "Lesson room" plus `Lobby.tsx`'s visible "Get ready for your lesson". Demote `Lobby`'s to
+  `<h2>` once something touches that file again.
+- **No Safari/iOS support yet (C3d).** The call client was built and tested against Chromium
+  only; C3e (browser hardening, ADR-0034) is the phase that addresses cross-browser behaviour.
+  A user report from Safari or iOS is the known gap, not a new bug.
+- **Device changes mid-call are not handled gracefully (C3d).** Unplugging a mic/camera or
+  picking a new one from the OS while a call is live is not detected or renegotiated by
+  `useLocalMedia`/`usePeerConnection` — the peer connection keeps sending whatever track it
+  already has, silently.
+- **Device choices are not remembered between lessons (C3d).** The Lobby's camera/microphone
+  pickers reset to the browser default every time; nothing persists a chosen `deviceId`.
+- **`useLocalMedia`'s `selectCamera`/`selectMicrophone` don't re-acquire the stream (C3d).**
+  They update the selected `deviceId` in state but never call `getUserMedia` again with the new
+  constraint, so choosing a different camera or microphone in the Lobby has no visible effect
+  until the whole stream is torn down and re-created some other way.
+- **The e2e gate cannot see the relay path (C3d).** `call.spec.ts`'s two flows run with no
+  coturn in CI, so they only prove host-candidate peer-to-peer connectivity with fake media.
+  The relay path (real NAT traversal, real audio/video) is covered by C3c's one-time live
+  verification on staging, not by anything that runs on every merge. See the D3 table row in
+  `CLAUDE.md` and `docs/runbook/video-call.md`.
+- **`call.spec.ts`'s `pageerror` assertion is a stopgap, not a durable guard (C3d).** It only
+  catches the single-offerer regression because nothing currently `.catch`es the rejection
+  `sendOffer`/`sendAnswer` throw on misuse (both are fire-and-forget IIFEs). A future tidy-up
+  that adds a `.catch` anywhere in that chain would silently blind this assertion with no edit
+  to the spec itself to flag the coverage change. The durable pin is the unit-level call-count
+  tests in `usePeerConnection.test.ts`; treat the e2e `pageerror` check as a bonus, not the
+  guard.
 
 ---
 
