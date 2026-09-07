@@ -26,7 +26,7 @@ jobs:
         with:
           submodules: recursive
           token: ${{ secrets.SUBMODULE_TOKEN }}
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.13"
       - name: Install dependencies
@@ -75,7 +75,7 @@ jobs:
         with:
           submodules: recursive
           token: ${{ secrets.SUBMODULE_TOKEN }}
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.13"
       - name: Install dependencies
@@ -225,7 +225,7 @@ jobs:
         run: |
           echo "127.0.0.1 app.kaleem.localhost api.kaleem.localhost ws.kaleem.localhost" | sudo tee -a /etc/hosts
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.13"
       - uses: pnpm/action-setup@v6
@@ -358,7 +358,7 @@ jobs:
           docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:v8.30.1 \
             dir /repo --redact --no-banner --exit-code 1
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.13"
 
