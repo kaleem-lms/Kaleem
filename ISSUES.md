@@ -255,6 +255,21 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
 
 ## Someday
 
+- **A signaling socket that never opens and never closes leaves the room saying "Connecting…"
+  forever (C3d).** `useSignaling` only begins counting failures from a close event, so it reaches
+  `MAX_RECONNECT_ATTEMPTS` and the `lost` state only if the socket *opened and then dropped*. A
+  relay that is unreachable from the start — DNS gone, certificate rejected, a silently blackholed
+  connection — produces no `onclose`, so nothing ever surfaces. The other half of this finding (a
+  socket that opens and later dies) IS handled, with copy and a retry control. Closing this needs a
+  connect-timeout with a chosen value and a test; it was deliberately not bolted on untested during
+  the C3d fix wave.
+- **Retrying a failed connection silently reverts the chosen camera and microphone (C3d).**
+  `RoomPage.handleRetryConnection` calls `localMedia.retry()`, which re-acquires with
+  `DEFAULT_CONSTRAINTS` rather than the `deviceId` the person picked in the lobby. So someone who
+  chose their good camera, hit a connection failure and clicked "Try again" gets the default one
+  back with no indication. Only reachable now that the retry path and the device wiring both exist.
+  Fix: have `retry()` reuse the current selection.
+
 - **Signaling reads only the first `Sec-WebSocket-Protocol` header line (C3c).**
   `signaling/app.py` uses `headers.get(...)`, which returns the first occurrence. A client that
   sends the offer as two repeated header lines — semantically equivalent to one comma-joined line
