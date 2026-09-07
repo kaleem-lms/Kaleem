@@ -2,9 +2,9 @@
 name: session-ui-redesign
 phase: C
 modules: [scheduling]
-status: draft
+status: shipped
 created: 2026-09-07
-closed: null
+closed: 2026-09-07
 ---
 
 ## Goal
@@ -12,9 +12,16 @@ closed: null
 The two surfaces a lesson is actually lived through — the schedule's session list and
 the call room — were each built to prove a mechanism, not to be used. The list renders
 seven stacked paragraphs at every viewport from 360px to 1920px. The call room has no
-orientation handling at all, a self-view pinned to a magic offset, and a Lobby that
-clips its own content and cannot scroll. This spec redesigns both, and restructures the
-components underneath them so the redesign has somewhere to live.
+orientation handling at all, a self-view pinned to a magic offset, and a Lobby with no
+scroll container around its centered content. This spec redesigns both, and restructures
+the components underneath them so the redesign has somewhere to live.
+
+**Correction (2026-09-07, Task 18):** an earlier draft of this section framed the Lobby's
+`overflow-y-auto` change as fixing a demonstrated bug — "a Lobby that clips its own content
+and cannot scroll." Task 16 established that this is wrong for every browser this project can
+test: Chromium does not reproduce the classic flex-centering clipping bug at all (see "What
+this spec cannot prove"). The change is defensive hardening against a bug that is plausibly
+Safari-only, not a fix for something we ever demonstrated broken here.
 
 This is a **presentation and structure** change. No API changes, no data model changes,
 no backend work.
@@ -158,11 +165,13 @@ Extending the grant serializer instead would mean a backend PR for a cosmetic fi
 instead of a bare centered paragraph. **Terminal screens** become a card with an icon,
 title, explanation and actions — the same copy keys and the same retry semantics.
 
-**The Lobby clipping bug.** `min-h-dvh` with `justify-center` and no scroll container
-means that when the preview, two device selects and the Join button are collectively
-taller than the viewport — routine on a landscape phone — the top is cut off and
+**The Lobby's scroll hardening.** `min-h-dvh` with `justify-center` and no scroll container
+means that if the preview, two device selects and the Join button were ever collectively
+taller than the viewport — plausible on a landscape phone — the top would be cut off and
 unreachable. It becomes `flex min-h-dvh flex-col overflow-y-auto` with an inner
 `m-auto`: centered when it fits, scrollable when it does not. Two columns from `md`.
+**This is defensive, not a fix for a demonstrated defect** — see "What this spec cannot
+prove" below; Chromium never reproduced the clipping this guards against.
 
 **The gesture gate is untouched.** No preview and no `getUserMedia` before a real tap.
 
@@ -209,6 +218,20 @@ the device this redesign is largely aimed at.
 
 This is the same standing limitation recorded for C3e-a and C3e-b, and it closes under
 the same **D9 deviation**, recorded in `journal/2026-W36.md` rather than skipped.
+
+**The Lobby's `overflow-y-auto` is not a proven fix, and Chromium says the bug it targets
+does not reproduce here at all.** Task 16 checked this twice. First, the new Playwright flow
+was mutation-checked by reverting to the literal pre-fix CSS — the flow stayed green.
+Second, a minimal bare-metal reproduction (flex column, `min-height: 100vh`,
+`justify-content: center`, a 2000px child, a 400×220 viewport, no `overflow` set) driven
+through the same Chromium showed `scrollHeight` at the full 2000px, with the content's top
+reachable at `y=0` after scrolling. **Chromium does not reproduce the classic
+flex-centering clipping bug at all.** So the change described above is defensive hardening
+against a bug that is plausibly Safari-only and is unverifiable in this project — not a fix
+for a defect this project ever demonstrated. It is kept because it is the standard robust
+pattern and costs nothing, matching the C3e Safari-hardening posture, but it must not be
+reported as closing a bug we proved existed. Full account: `journal/2026-W36.md`,
+2026-09-07 entry.
 
 ## Deviations
 

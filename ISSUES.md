@@ -263,6 +263,22 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
 
 ## Someday
 
+- **The session UI redesign's class-string unit tests are weak proxies for real layout
+  (`SessionCard.test.tsx`, `CallStage.test.tsx`/`SelfView.test.tsx`, `Lobby.layout.test.tsx`).**
+  They assert things like `toHaveClass("sm:flex-row")` or a logical-property regex match, which
+  proves the string is present, not that anything reflows, reorders or mirrors under RTL. jsdom
+  has no layout engine, so nothing about actual media-query behaviour can be exercised at the
+  unit level at all. The only real evidence is the session-ui-redesign e2e flows added in Task
+  16, and those run in Chromium only — no coverage of any other browser or of viewport sizes the
+  flows don't hit.
+- **The session-ui-redesign e2e flows ran against the dev-server/HMR topology, not CI's
+  build-then-preview topology.** Task 16 executed them locally against `docker-compose` +
+  `pnpm dev`, not the `pnpm build` + `pnpm preview` pair CI uses. Unlikely to matter for
+  Tailwind-class-driven layout, but it is asserted rather than verified — this project has
+  already hit a case (C3d's `call.spec.ts`) where a flow passed locally and could never have
+  passed in CI because the two environments differed in a way nobody had checked. CI's own run
+  on this branch is the actual proof; watch it rather than assuming the local result carries over.
+
 - **Headset auto-takeover depends on `groupId`, which iOS Safari may not populate (C3e-b).** The
   device-swap rule only adopts a newly-arrived default when the in-use track and the candidate both
   report a `groupId` and the two differ — deliberately failing closed, since the alternative
