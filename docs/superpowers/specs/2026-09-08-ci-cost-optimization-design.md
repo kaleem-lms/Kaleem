@@ -211,6 +211,29 @@ it is merged.** That is not a regression, because today it is not tested either 
 checkout — it is just no longer six minutes of failing to test it. Reviewing an Actions
 version bump by hand is the compensating control, and it is what already happens.
 
+### 6. A cost ceiling: `timeout-minutes` on every job
+
+`ci.yml` sets **no `timeout-minutes` anywhere** — `grep -c` returns 0. GitHub's default is
+**360 minutes per job**. One hung `pnpm install`, one `curl` waiting on a dead host, one
+Playwright process that never exits, and a single job bills six hours: more than two full
+weeks of the savings this spec is built to produce.
+
+Every job gets a `timeout-minutes` at roughly 3× its measured wall clock — enough headroom
+that a slow runner never trips it, low enough that a hang is capped:
+
+| Job | Measured | `timeout-minutes` |
+| --- | --- | --- |
+| `triage`, `record-verified-tree` | ~0.3 min | 5 |
+| `backend-lint`, `marketing-build`, `dashboard-build`, `security` | 0.4–0.7 min | 10 |
+| `backend-test` | 1.5 min | 10 |
+| `e2e` | 3.0 min | 15 |
+| `dashboard-lint` | 4.5 min | 15 |
+| `deploy-staging` | 3.0 min | 20 |
+
+This is insurance, not a saving — it changes nothing about a healthy run. It is in this spec
+because it is a one-line-per-job change to the same file, and because a single hung job costs
+more than everything else here saves in a fortnight.
+
 Lighthouse and the Stripe test clock move from nightly to weekly (`cron` day-of-week pinned).
 Both measure external drift, not our own commits; ADR-0030 and the Stripe harness spec both
 justify them as out-of-merge-path signals, and neither argument depends on a 24-hour period.
@@ -287,9 +310,15 @@ Push a commit touching one submodule pointer and confirm all seven gates run.
 
 1. Open a code PR, let it go green, merge it. Confirm the `master` push run skips the seven
    gates, that `deploy-staging` still runs, and that staging receives the new images.
-2. Push a commit directly to `master` that no PR ever tested. Confirm `triage` reports
-   `verified=false` and the **full suite runs**. Without this half, a guard that always
-   returns `true` would look identical to a working one.
+2. On a second code PR, let it go green, then **delete its `verified-tree-<hash>` artifact**
+   (`gh api -X DELETE /repos/{owner}/{repo}/actions/artifacts/{id}`) before merging. Confirm
+   `triage` reports `verified=false` and the **full suite runs** on the push. Without this
+   half, a guard hard-wired to `true` would look identical to a working one.
+
+   Deleting the artifact is exactly what its 7-day expiry does, so this is the real failure
+   path and not a simulation of one. It is used **instead of pushing an untested commit
+   straight to `master`**, which is what an earlier draft of this test plan called for and
+   which ADR-0028 forbids.
 3. Confirm a documentation-only push to `master` runs neither the gates nor the deploy.
 
 **`deploy-staging`'s `if:` expression.** Verified by execution, on a scratch branch with the
