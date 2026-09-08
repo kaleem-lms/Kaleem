@@ -1,7 +1,7 @@
 ---
 current_phase: "C — Scheduling. CLOSED 2026-09-07: C0-C3e (matching, booking+quota, video) all shipped and live. Phase B (billing) CLOSED 2026-09-04. Phase A (identity) closed via ADR-0024, one residual human check outstanding. Roadmap's Phase B happy path is still open: `assessment` and `analytics` were never built. Preview mode has not run."
 active_spec: "none — next phase not yet chosen. Session UI redesign SHIPPED and visually verified on staging 2026-09-08 (ADR-0036). Shared signaling (ADR-0037) SHIPPED and verified live on staging 2026-09-07 — signaling is now one shared service, not per deploy colour."
-active_branch: "docs/ci-cost-optimization-close (this session, docs-only). Every code repo is on its trunk otherwise. TRUNK-BASED (ADR-0028) — a merge to meta `master` IS a deploy."
+active_branch: "docs/ci-cost-optimization-close — committed, NOT pushed, NOT merged, deliberately held (see 'Where we are'). Every code repo is on its trunk otherwise. TRUNK-BASED (ADR-0028) — a merge to meta `master` IS a deploy."
 last_green_ci: "meta 480b78b (PR #190, ADR-0038 CI cost change) → master, 2026-09-08. Run 34206968953: triage code=true verified=true, all 7 gates SKIPPED (guard matched the PR's proven tree), deploy-staging SUCCESS, staging confirmed live after. See `docs/runbook/ci.md`."
 ---
 
@@ -20,13 +20,17 @@ dunning gate included. What is **not** closed: the roadmap's Phase B happy path
 has never run, which the roadmap makes non-optional before the next phase's priorities are
 final.
 
-**CI cost optimization shipped** (ADR-0038, PR #190). `triage` skips the seven gate jobs on
-docs-only changes and on a push whose exact tree a PR run already proved. Verified on the
-real merge (see `last_green_ci`): 4 billed minutes vs. an 18-minute baseline. Modelled saving
-~54% (~10,040 → ~4,650 min/month; dollars are modelled, not read off an invoice — the billing
-API needs `admin:org`, which this project's token lacks). **Not yet exercised on a real
-push:** the artifact-miss direction, and any Dependabot push/PR — see `docs/runbook/ci.md` and
-`journal/2026-W37.md`.
+**CI cost optimization shipped, and its stated justification is FALSE** (ADR-0038, PR #190).
+The mechanism works and was verified on the real merge (`last_green_ci`): `triage` skips the
+seven gate jobs on docs-only changes and on a push whose exact tree a PR already proved.
+But it was justified by an Actions bill **that does not exist**. This repo is PUBLIC — since
+creation in 2024, not a recent flip — so standard-runner minutes are free, and
+`actions/runs/<id>/timing` returns `billable.total_ms: 0` for runs both before and after the
+change. All five submodules are private but carry **zero workflows**, so nothing is billed
+anywhere. The real benefit is wall-clock and noise, not money. **The docs branch is held
+un-merged until this is rewritten** — see `journal/2026-W37.md`.
+
+**Also not exercised on a real push:** the artifact-miss direction — see `docs/runbook/ci.md`.
 
 ## ▶ Next actions, in order
 
@@ -52,6 +56,11 @@ push:** the artifact-miss direction, and any Dependabot push/PR — see `docs/ru
 - ⚠ Dependabot PRs #182/#183/#184 now report green with nothing tested (ADR-0038 consequence);
   #183 (`upload-artifact` 4→7) is a real upgrade `ci.yml` should take deliberately, not merge
   on the tick.
+- ⚠ **THE REPO IS PUBLIC.** Live staging passwords were world-readable in `STATE.md` on
+  `master` and are still in git history. Rotate them; see `ISSUES.md` → *Blocks launch*.
+  Treat every file here as published, including `ISSUES.md` and the journals.
+- ⚠ ADR-0038 made the `security` job (gitleaks) skip on docs-only changes, and root `*.md`
+  counts as docs — the exact shape of this project's one previous leak (`portal-snapshot.md`).
 
 ## Recently verified
 
