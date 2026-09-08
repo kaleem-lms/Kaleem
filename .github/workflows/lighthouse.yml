@@ -15,7 +15,10 @@ name: Lighthouse
 # read the uploaded report before assuming flake.
 on:
   schedule:
-    - cron: "41 3 * * *"
+    # Weekly, not nightly (2026-09-08): 56 billed minutes a week became 8. This
+    # measures a deployed environment against ratchet floors that move when we
+    # move them, not on a 24-hour cycle.
+    - cron: "41 3 * * 1"
   workflow_dispatch:
 
 concurrency:

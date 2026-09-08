@@ -15,9 +15,95 @@ concurrency:
   group: ${{ github.head_ref || github.run_id }}
   cancel-in-progress: true
 
+# The artifact lookup in `triage` reads the Actions API. Declaring permissions
+# explicitly also drops the token from the repo-default (write) to the least
+# set these jobs need; `deploy-staging` authenticates to GHCR and the VPS with
+# its own secrets, not with this token.
+permissions:
+  actions: read
+  contents: read
+
 jobs:
+  # One job, two questions, because a job skipped by `if:` also skips its
+  # dependents -- so a separate guard job would have to run on pull requests
+  # too, and GitHub bills a ONE MINUTE FLOOR per job. Merged, the guard is free.
+  triage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      # "false" iff every changed path is docs/** or a root *.md.
+      code: ${{ steps.classify.outputs.code }}
+      # "true" iff a green run already tested this exact git tree. EMPTY on a
+      # pull_request event, because the lookup step is skipped there --
+      # consumers must test `!= 'true'`, never `== 'false'`.
+      verified: ${{ steps.guard.outputs.verified }}
+    steps:
+      # fetch-depth 0: the classifier diffs `before..sha`, which the default
+      # shallow checkout cannot reach. No submodules: the classifier reads path
+      # names, and `git rev-parse HEAD^{tree}` reads the commit's tree object --
+      # which already contains the submodule gitlinks whether or not they are
+      # checked out.
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Self-test the classifier
+        run: .github/scripts/test-classify-changes.sh
+
+      # On a pull_request, actions/checkout gives us the MERGE REF, so HEAD^1 is
+      # the base branch and HEAD is the merged result -- diffing those two is
+      # exactly the PR's net change, with no dependence on the event payload.
+      - name: Classify the change
+        id: classify
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            code="$(.github/scripts/classify-changes.sh HEAD^1 HEAD)"
+          else
+            code="$(.github/scripts/classify-changes.sh \
+              "${{ github.event.before }}" "${{ github.sha }}")"
+          fi
+          case "$code" in
+            true | false) ;;
+            *)
+              echo "::error::classifier emitted '$code', expected true or false"
+              exit 1
+              ;;
+          esac
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          echo "::notice::code=$code"
+
+      # A tree hash is content-addressed and includes submodule gitlinks, so a
+      # merge commit and the PR merge ref that produced it have the SAME tree --
+      # under merge, squash or rebase alike. If a green run recorded this tree,
+      # the gates have already run against this exact content.
+      - name: Look for a green run of this exact tree
+        id: guard
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tree="$(git rev-parse HEAD^{tree})"
+          count="$(gh api \
+            "/repos/${{ github.repository }}/actions/artifacts?name=verified-tree-$tree" \
+            --jq '[.artifacts[] | select(.expired == false)] | length')"
+          if [ "$count" -gt 0 ]; then verified=true; else verified=false; fi
+          echo "verified=$verified" >> "$GITHUB_OUTPUT"
+          echo "::notice::tree=$tree verified=$verified"
+
   backend-lint:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: triage
+    # `verified != 'true'` and not `== 'false'`: the guard step is skipped on
+    # pull_request events, so this output is the EMPTY STRING there, not "false".
+    #
+    # A Dependabot PR cannot read secrets.SUBMODULE_TOKEN, so every one of these
+    # jobs dies in `actions/checkout` -- six billed minutes to fail. It is not
+    # newly untested; it was never testable here. See the spec.
+    if: >-
+      needs.triage.outputs.code == 'true'
+      && needs.triage.outputs.verified != 'true'
+      && github.actor != 'dependabot[bot]'
     defaults:
       run:
         working-directory: backend
@@ -40,6 +126,18 @@ jobs:
 
   backend-test:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: triage
+    # `verified != 'true'` and not `== 'false'`: the guard step is skipped on
+    # pull_request events, so this output is the EMPTY STRING there, not "false".
+    #
+    # A Dependabot PR cannot read secrets.SUBMODULE_TOKEN, so every one of these
+    # jobs dies in `actions/checkout` -- six billed minutes to fail. It is not
+    # newly untested; it was never testable here. See the spec.
+    if: >-
+      needs.triage.outputs.code == 'true'
+      && needs.triage.outputs.verified != 'true'
+      && github.actor != 'dependabot[bot]'
     services:
       postgres:
         image: postgres:18-alpine
@@ -96,6 +194,18 @@ jobs:
 
   dashboard-lint:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: triage
+    # `verified != 'true'` and not `== 'false'`: the guard step is skipped on
+    # pull_request events, so this output is the EMPTY STRING there, not "false".
+    #
+    # A Dependabot PR cannot read secrets.SUBMODULE_TOKEN, so every one of these
+    # jobs dies in `actions/checkout` -- six billed minutes to fail. It is not
+    # newly untested; it was never testable here. See the spec.
+    if: >-
+      needs.triage.outputs.code == 'true'
+      && needs.triage.outputs.verified != 'true'
+      && github.actor != 'dependabot[bot]'
     defaults:
       run:
         working-directory: dashboard
@@ -130,7 +240,18 @@ jobs:
 
   dashboard-build:
     runs-on: ubuntu-latest
-    needs: dashboard-lint
+    timeout-minutes: 10
+    needs: [triage, dashboard-lint]
+    # `verified != 'true'` and not `== 'false'`: the guard step is skipped on
+    # pull_request events, so this output is the EMPTY STRING there, not "false".
+    #
+    # A Dependabot PR cannot read secrets.SUBMODULE_TOKEN, so every one of these
+    # jobs dies in `actions/checkout` -- six billed minutes to fail. It is not
+    # newly untested; it was never testable here. See the spec.
+    if: >-
+      needs.triage.outputs.code == 'true'
+      && needs.triage.outputs.verified != 'true'
+      && github.actor != 'dependabot[bot]'
     defaults:
       run:
         working-directory: dashboard
@@ -164,6 +285,18 @@ jobs:
   # nothing about the cross-subdomain cookie that production actually depends on.
   e2e:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: triage
+    # `verified != 'true'` and not `== 'false'`: the guard step is skipped on
+    # pull_request events, so this output is the EMPTY STRING there, not "false".
+    #
+    # A Dependabot PR cannot read secrets.SUBMODULE_TOKEN, so every one of these
+    # jobs dies in `actions/checkout` -- six billed minutes to fail. It is not
+    # newly untested; it was never testable here. See the spec.
+    if: >-
+      needs.triage.outputs.code == 'true'
+      && needs.triage.outputs.verified != 'true'
+      && github.actor != 'dependabot[bot]'
     services:
       postgres:
         image: postgres:18-alpine
@@ -332,6 +465,18 @@ jobs:
   # Playwright dump. Same shape as the coverage and e2e gates before ADR-0026/0027.
   security:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: triage
+    # `verified != 'true'` and not `== 'false'`: the guard step is skipped on
+    # pull_request events, so this output is the EMPTY STRING there, not "false".
+    #
+    # A Dependabot PR cannot read secrets.SUBMODULE_TOKEN, so every one of these
+    # jobs dies in `actions/checkout` -- six billed minutes to fail. It is not
+    # newly untested; it was never testable here. See the spec.
+    if: >-
+      needs.triage.outputs.code == 'true'
+      && needs.triage.outputs.verified != 'true'
+      && github.actor != 'dependabot[bot]'
     steps:
       - uses: actions/checkout@v7
         with:
@@ -375,8 +520,65 @@ jobs:
       - name: pip-audit
         run: pip-audit --progress-spinner off --path /tmp/prodenv/lib/python3.13/site-packages
 
+  # Publishes "these gates went green against this exact content" so the push
+  # that merges this PR does not have to prove it again.
+  #
+  # No submodules and no token: `git rev-parse HEAD^{tree}` reads the commit's
+  # tree object, which already carries the submodule gitlinks whether or not
+  # they are checked out. Checking them out would produce the same hash more
+  # slowly.
+  record-verified-tree:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs:
+      [
+        triage,
+        backend-lint,
+        backend-test,
+        dashboard-lint,
+        dashboard-build,
+        e2e,
+        marketing-build,
+        security,
+      ]
+    # Deliberately NOT `!cancelled()`: unlike deploy-staging, this job must run
+    # only when every gate actually ran and passed. A skipped gate means this
+    # tree was never fully proved, so recording it would let a later push skip
+    # gates on the strength of a run that did not perform them.
+    if: >-
+      github.event_name == 'pull_request'
+      && needs.triage.outputs.code == 'true'
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Compute the tree this run proved
+        id: tree
+        run: |
+          tree="$(git rev-parse HEAD^{tree})"
+          echo "$tree" > verified-tree.txt
+          echo "tree=$tree" >> "$GITHUB_OUTPUT"
+          echo "::notice::recording verified tree $tree"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: verified-tree-${{ steps.tree.outputs.tree }}
+          path: verified-tree.txt
+          retention-days: 7
+
   marketing-build:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: triage
+    # `verified != 'true'` and not `== 'false'`: the guard step is skipped on
+    # pull_request events, so this output is the EMPTY STRING there, not "false".
+    #
+    # A Dependabot PR cannot read secrets.SUBMODULE_TOKEN, so every one of these
+    # jobs dies in `actions/checkout` -- six billed minutes to fail. It is not
+    # newly untested; it was never testable here. See the spec.
+    if: >-
+      needs.triage.outputs.code == 'true'
+      && needs.triage.outputs.verified != 'true'
+      && github.actor != 'dependabot[bot]'
     defaults:
       run:
         working-directory: marketing
@@ -405,6 +607,7 @@ jobs:
   deploy-staging:
     needs:
       [
+        triage,
         backend-lint,
         backend-test,
         dashboard-lint,
@@ -413,8 +616,34 @@ jobs:
         marketing-build,
         security,
       ]
-    if: github.ref == 'refs/heads/master' && github.event_name == 'push'
+    # `!cancelled()` opts out of the default "all needs succeeded" rule, which
+    # would treat a deliberately SKIPPED gate as a reason not to deploy. The
+    # explicit failure check is what still stops a red gate reaching staging.
+    # `triage` itself is never skipped, so `code` is always readable here.
+    #
+    # `'cancelled'` is checked separately from `!cancelled()` because that builtin
+    # is a workflow-run-level signal, false only when the whole run is cancelled --
+    # it does NOT cover a single job being killed by its own `timeout-minutes`
+    # (added in this same change). A job timed out on its own reports 'cancelled'
+    # in needs.*.result, so without this clause a hung backend-test could be
+    # killed at its 10-minute cap and deploy-staging would still ship a tree
+    # whose test suite never finished. A deliberately skipped gate is always
+    # 'skipped', never 'cancelled', so this clause cannot cause a false block.
+    #
+    # The actor clause exists because the seven gates skip for
+    # `github.actor == 'dependabot[bot]'` -- without it, a Dependabot-authored
+    # PR merged by Dependabot itself (`@dependabot merge` / auto-merge) would
+    # push to master with every gate skipped and still deploy, ungated.
+    if: >-
+      !cancelled()
+      && !contains(needs.*.result, 'failure')
+      && !contains(needs.*.result, 'cancelled')
+      && github.ref == 'refs/heads/master'
+      && github.event_name == 'push'
+      && github.actor != 'dependabot[bot]'
+      && needs.triage.outputs.code == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
         with:
