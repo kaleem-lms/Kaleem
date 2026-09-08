@@ -9,7 +9,10 @@ name: Stripe test clock
 # shape, the wrong one for anything we author. A red run here is a real failure.
 on:
   schedule:
-    - cron: "17 3 * * *"
+    # Weekly, not nightly (2026-09-08). The trade is explicit: a renewal-path
+    # regression is now caught within 7 days rather than 24 hours. It watches
+    # for drift in an external payload shape, which is not a daily event.
+    - cron: "17 3 * * 4"
   workflow_dispatch:
 
 concurrency:
