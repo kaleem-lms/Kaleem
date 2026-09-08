@@ -16,6 +16,26 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
 
 ## Blocks launch
 
+- **This repository is PUBLIC, and live staging passwords sat in `STATE.md` on `master` in
+  plaintext.** Verified 2026-09-08 three ways: `gh api /repos/kaleem-lms/Kaleem` returns
+  `private: false`, an unauthenticated `curl` of the API returns 200, and
+  `curl https://raw.githubusercontent.com/kaleem-lms/Kaleem/master/STATE.md` returned
+  `KaleemC3d!2026` and `KaleemStaging!2026` to an anonymous caller. The repo's `PublicEvent` is
+  dated `2024-09-29`, the same timestamp as `created_at`, so it has been public since creation —
+  this is not a recent flip. The strings are removed from the working tree by the ADR-0038 docs
+  commit, but **removal from a file does not remove them from history**: they remain readable at
+  any older commit, exactly as the `.gitleaksignore` rotation record says of the 588a1e35
+  credentials (ADR-0032).
+  **Do:** rotate the staging passwords for `c3d.student@`, `c3d.teacher@`, `billing.clickthrough@`,
+  `billing.recheck@`, `billing.failcard@` and the two `*.smoke@` users, then keep the new ones out
+  of the repo entirely.
+  **Also review:** ADR-0038 made the `security` job (gitleaks) skip on documentation-only changes.
+  Root-level `*.md` is classified as documentation, and this project has already leaked a secret
+  in exactly that shape once — `portal-snapshot.md`, found by the first `security` run. On a public
+  repo, delaying that scan until the next code PR means world-readable in the interim. Consider
+  dropping the `code == 'true'` clause from `security` alone; it costs nothing, because Actions
+  minutes on a public repo are free.
+
 - **A deploy drops every live call (C3b).** `scripts/ship.sh` step 8 stops the old signaling
   container with `stop --timeout 30`; room membership is an in-process dict, so every call in
   progress dies with it — the 30s is a SIGTERM grace period, not a drain, and nothing waits for
@@ -278,17 +298,19 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
   #183 is a real version upgrade this repo hasn't taken — review it deliberately rather than
   merging on a green tick that verified nothing.
 - **Staging carries throwaway fixtures from the Phase B and C live checks.** Moved here from
-  `STATE.md` when it was trimmed 303 → 71 lines on 2026-09-08 — the accounts, ids and
-  credentials below are live artefacts on a shared environment, and losing the record does not
-  remove them, it just means the next person meets them with no context.
+  `STATE.md` when it was trimmed 303 → 71 lines on 2026-09-08 — these are live artefacts on a
+  shared environment, and losing the record does not remove them, it just means the next person
+  meets them with no context. **Passwords are deliberately NOT recorded here: this repository is
+  public.** They were in `STATE.md` on `master` in plaintext until this commit; see the
+  credential-exposure entry under *Blocks launch*.
   - **C3d call-check accounts:** `c3d.student@example.com` / `c3d.teacher@example.com`,
-    password `KaleemC3d!2026`, with a matched Arabic assignment and a recurring slot. **Session
+    with a matched Arabic assignment and a recurring slot. **Session
     id 3 is a permanently joinable lesson** — it was repositioned to `now` on 2026-09-07 09:20
     so a live check could reach the Lobby, and nothing has moved it back. Clear on the next
     staging DB reset, or reuse for a future call check rather than rebuilding the fixture.
-  - **Billing click-through accounts**, all password `KaleemStaging!2026`:
-    `billing.clickthrough@` (id 7), `billing.recheck@` (id 8), `billing.failcard@` (id 9), plus
-    two older `*.smoke@` users. Clear on the next staging DB reset.
+  - **Billing click-through accounts:** `billing.clickthrough@` (id 7), `billing.recheck@`
+    (id 8), `billing.failcard@` (id 9), plus two older `*.smoke@` users. Clear on the next
+    staging DB reset.
   - **One throwaway `CallDiagnostic` row**, written by the 2026-09-07 live check: session 3,
     `autoplay-blocked`, a synthetic iPhone-Safari `User-Agent` and hand-built redacted stats.
     Evidence the diagnostics pipeline works, not real user data. Delete on the next staging DB
