@@ -330,6 +330,21 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
   to a single shared `WS_DOMAIN` and retired the per-colour pair instead. Fixed as part of the
   shared-signaling change; flagging here in case any other doc still has the C3c-era phrasing.
 
+- **On a phone, the session card's Join stretches full-width but Cancel does not.** Verified on
+  staging 2026-09-08 at 390x844: the actions container stacks correctly (96px tall vs 44px in a
+  row at 1280px), but `JoinButton` carries `w-full sm:w-auto` while `CancelSessionDialog`'s
+  trigger has no width class, so it renders 81px wide under a 324px-wide Join. Reads as
+  unbalanced rather than deliberate. Either give Cancel the same treatment or drop it from Join.
+  Cosmetic only — no test can see it, which is why it took a human-style look to find.
+
+- **`GET /api/v1/scheduling/slots/` and `/quota/` return 404, not 403, for a student with no
+  subscription.** Both routes exist (confirmed against the deployed URLconf), so the 404 is the
+  view expressing a business state as "not found". Every schedule page load for such a student
+  logs two console errors, which is noise in its own right and a red herring for anyone
+  debugging a real routing problem later. Pre-existing, unrelated to the session UI redesign;
+  observed 2026-09-08. Adjacent to the entry above about these queries firing for the wrong
+  audience.
+
 - **Changing `WS_DOMAIN` on the VPS strands any `ACTIVE` `Room` (ADR-0037).** `Room.signaling_url`
   is pinned at creation and `_ensure_room` reuses an `ACTIVE` row forever, so an operator who edits
   `WS_DOMAIN` without first ending active rooms leaves those sessions permanently unjoinable —
