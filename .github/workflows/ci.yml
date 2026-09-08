@@ -15,7 +15,74 @@ concurrency:
   group: ${{ github.head_ref || github.run_id }}
   cancel-in-progress: true
 
+# The artifact lookup in `triage` reads the Actions API. Declaring permissions
+# explicitly also drops the token from the repo-default (write) to the least
+# set these jobs need; `deploy-staging` authenticates to GHCR and the VPS with
+# its own secrets, not with this token.
+permissions:
+  actions: read
+  contents: read
+
 jobs:
+  # One job, two questions, because a job skipped by `if:` also skips its
+  # dependents -- so a separate guard job would have to run on pull requests
+  # too, and GitHub bills a ONE MINUTE FLOOR per job. Merged, the guard is free.
+  triage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      # "false" iff every changed path is docs/** or a root *.md.
+      code: ${{ steps.classify.outputs.code }}
+      # "true" iff a green run already tested this exact git tree. EMPTY on a
+      # pull_request event, because the lookup step is skipped there --
+      # consumers must test `!= 'true'`, never `== 'false'`.
+      verified: ${{ steps.guard.outputs.verified }}
+    steps:
+      # fetch-depth 0: the classifier diffs `before..sha`, which the default
+      # shallow checkout cannot reach. No submodules: the classifier reads path
+      # names, and `git rev-parse HEAD^{tree}` reads the commit's tree object --
+      # which already contains the submodule gitlinks whether or not they are
+      # checked out.
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Self-test the classifier
+        run: .github/scripts/test-classify-changes.sh
+
+      # On a pull_request, actions/checkout gives us the MERGE REF, so HEAD^1 is
+      # the base branch and HEAD is the merged result -- diffing those two is
+      # exactly the PR's net change, with no dependence on the event payload.
+      - name: Classify the change
+        id: classify
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            code="$(.github/scripts/classify-changes.sh HEAD^1 HEAD)"
+          else
+            code="$(.github/scripts/classify-changes.sh \
+              "${{ github.event.before }}" "${{ github.sha }}")"
+          fi
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          echo "::notice::code=$code"
+
+      # A tree hash is content-addressed and includes submodule gitlinks, so a
+      # merge commit and the PR merge ref that produced it have the SAME tree --
+      # under merge, squash or rebase alike. If a green run recorded this tree,
+      # the gates have already run against this exact content.
+      - name: Look for a green run of this exact tree
+        id: guard
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tree="$(git rev-parse HEAD^{tree})"
+          count="$(gh api \
+            "/repos/${{ github.repository }}/actions/artifacts?name=verified-tree-$tree" \
+            --jq '[.artifacts[] | select(.expired == false)] | length')"
+          if [ "$count" -gt 0 ]; then verified=true; else verified=false; fi
+          echo "verified=$verified" >> "$GITHUB_OUTPUT"
+          echo "::notice::tree=$tree verified=$verified"
+
   backend-lint:
     runs-on: ubuntu-latest
     defaults:
