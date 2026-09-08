@@ -520,6 +520,51 @@ jobs:
       - name: pip-audit
         run: pip-audit --progress-spinner off --path /tmp/prodenv/lib/python3.13/site-packages
 
+  # Publishes "these gates went green against this exact content" so the push
+  # that merges this PR does not have to prove it again.
+  #
+  # No submodules and no token: `git rev-parse HEAD^{tree}` reads the commit's
+  # tree object, which already carries the submodule gitlinks whether or not
+  # they are checked out. Checking them out would produce the same hash more
+  # slowly.
+  record-verified-tree:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs:
+      [
+        triage,
+        backend-lint,
+        backend-test,
+        dashboard-lint,
+        dashboard-build,
+        e2e,
+        marketing-build,
+        security,
+      ]
+    # Deliberately NOT `!cancelled()`: unlike deploy-staging, this job must run
+    # only when every gate actually ran and passed. A skipped gate means this
+    # tree was never fully proved, so recording it would let a later push skip
+    # gates on the strength of a run that did not perform them.
+    if: >-
+      github.event_name == 'pull_request'
+      && needs.triage.outputs.code == 'true'
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Compute the tree this run proved
+        id: tree
+        run: |
+          tree="$(git rev-parse HEAD^{tree})"
+          echo "$tree" > verified-tree.txt
+          echo "tree=$tree" >> "$GITHUB_OUTPUT"
+          echo "::notice::recording verified tree $tree"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: verified-tree-${{ steps.tree.outputs.tree }}
+          path: verified-tree.txt
+          retention-days: 7
+
   marketing-build:
     runs-on: ubuntu-latest
     timeout-minutes: 10
