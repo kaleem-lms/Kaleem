@@ -34,6 +34,10 @@ staticfiles/
 .codegraph/
 # Playwright MCP scratch output
 .playwright-mcp/
+# Playwright MCP writes screenshots to the CWD when given a bare filename, so a
+# stray one lands in the repo root and `git add -A` sweeps it in. Happened once.
+schedule-*.png
+page-*.png
 
 # Brainstorming visual-companion scratch output
 .superpowers/
