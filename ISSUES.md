@@ -277,6 +277,22 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
   (`upload-artifact` 4→7), #184 (`setup-node` 6→7). `ci.yml` pins `upload-artifact@v4`, so
   #183 is a real version upgrade this repo hasn't taken — review it deliberately rather than
   merging on a green tick that verified nothing.
+- **Staging carries throwaway fixtures from the Phase B and C live checks.** Moved here from
+  `STATE.md` when it was trimmed 303 → 71 lines on 2026-09-08 — the accounts, ids and
+  credentials below are live artefacts on a shared environment, and losing the record does not
+  remove them, it just means the next person meets them with no context.
+  - **C3d call-check accounts:** `c3d.student@example.com` / `c3d.teacher@example.com`,
+    password `KaleemC3d!2026`, with a matched Arabic assignment and a recurring slot. **Session
+    id 3 is a permanently joinable lesson** — it was repositioned to `now` on 2026-09-07 09:20
+    so a live check could reach the Lobby, and nothing has moved it back. Clear on the next
+    staging DB reset, or reuse for a future call check rather than rebuilding the fixture.
+  - **Billing click-through accounts**, all password `KaleemStaging!2026`:
+    `billing.clickthrough@` (id 7), `billing.recheck@` (id 8), `billing.failcard@` (id 9), plus
+    two older `*.smoke@` users. Clear on the next staging DB reset.
+  - **One throwaway `CallDiagnostic` row**, written by the 2026-09-07 live check: session 3,
+    `autoplay-blocked`, a synthetic iPhone-Safari `User-Agent` and hand-built redacted stats.
+    Evidence the diagnostics pipeline works, not real user data. Delete on the next staging DB
+    reset, or leave it — the 90-day purge job takes it on 2026-12-06 either way.
 - **The session UI redesign's class-string unit tests are weak proxies for real layout
   (`SessionCard.test.tsx`, `CallStage.test.tsx`/`SelfView.test.tsx`, `Lobby.layout.test.tsx`).**
   They assert things like `toHaveClass("sm:flex-row")` or a logical-property regex match, which
