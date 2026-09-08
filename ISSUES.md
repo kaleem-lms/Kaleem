@@ -257,6 +257,26 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
 
 ## Someday
 
+- **The CI cost model (ADR-0038) has never met an invoice.** Every dollar figure in
+  `docs/superpowers/specs/2026-09-08-ci-cost-optimization-design.md` is run-count times
+  measured per-job minutes times the published per-minute rate — the billing API needs
+  `admin:org`, which this project's token does not have. Read one real month's Actions bill
+  and correct the spec against it.
+- **The artifact-miss path in the CI cost guard is unproven on a real push (ADR-0038).** A
+  push whose tree has no recorded `verified-tree-<hash>` artifact should re-run the full
+  suite, but that has only been checked mechanically (a `gh api` query against a name that
+  does not exist returns 0), never end to end on a real `push` event. The next code change
+  that merges more than 7 days after going green, or after `master` moves underneath its PR,
+  will exercise it on its own — or force it deliberately by deleting the artifact before
+  merging (`docs/runbook/ci.md`).
+- **Dependabot PRs now report green with nothing tested (ADR-0038).** The seven gate jobs and
+  `deploy-staging` all skip for `github.actor == 'dependabot[bot]'` rather than failing at
+  checkout as before — cheaper and no less honest about what was tested, but GitHub counts a
+  skipped required check as satisfied, so this would look mergeable if branch protection is
+  ever enabled. Three real Dependabot PRs are open: #182 (`setup-python` 5→7), #183
+  (`upload-artifact` 4→7), #184 (`setup-node` 6→7). `ci.yml` pins `upload-artifact@v4`, so
+  #183 is a real version upgrade this repo hasn't taken — review it deliberately rather than
+  merging on a green tick that verified nothing.
 - **The session UI redesign's class-string unit tests are weak proxies for real layout
   (`SessionCard.test.tsx`, `CallStage.test.tsx`/`SelfView.test.tsx`, `Lobby.layout.test.tsx`).**
   They assert things like `toHaveClass("sm:flex-row")` or a logical-property regex match, which
