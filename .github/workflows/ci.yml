@@ -575,11 +575,27 @@ jobs:
     # would treat a deliberately SKIPPED gate as a reason not to deploy. The
     # explicit failure check is what still stops a red gate reaching staging.
     # `triage` itself is never skipped, so `code` is always readable here.
+    #
+    # `'cancelled'` is checked separately from `!cancelled()` because that builtin
+    # is a workflow-run-level signal, false only when the whole run is cancelled --
+    # it does NOT cover a single job being killed by its own `timeout-minutes`
+    # (added in this same change). A job timed out on its own reports 'cancelled'
+    # in needs.*.result, so without this clause a hung backend-test could be
+    # killed at its 10-minute cap and deploy-staging would still ship a tree
+    # whose test suite never finished. A deliberately skipped gate is always
+    # 'skipped', never 'cancelled', so this clause cannot cause a false block.
+    #
+    # The actor clause exists because the seven gates skip for
+    # `github.actor == 'dependabot[bot]'` -- without it, a Dependabot-authored
+    # PR merged by Dependabot itself (`@dependabot merge` / auto-merge) would
+    # push to master with every gate skipped and still deploy, ungated.
     if: >-
       !cancelled()
       && !contains(needs.*.result, 'failure')
+      && !contains(needs.*.result, 'cancelled')
       && github.ref == 'refs/heads/master'
       && github.event_name == 'push'
+      && github.actor != 'dependabot[bot]'
       && needs.triage.outputs.code == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
