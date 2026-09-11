@@ -16,25 +16,25 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
 
 ## Blocks launch
 
-- **This repository is PUBLIC, and live staging passwords sat in `STATE.md` on `master` in
-  plaintext.** Verified 2026-09-08 three ways: `gh api /repos/kaleem-lms/Kaleem` returns
-  `private: false`, an unauthenticated `curl` of the API returns 200, and
+- **Staging passwords were world-readable on a then-public `master`, and remain in git
+  history.** On 2026-09-08 `kaleem-lms/Kaleem` was public and
   `curl https://raw.githubusercontent.com/kaleem-lms/Kaleem/master/STATE.md` returned
-  `KaleemC3d!2026` and `KaleemStaging!2026` to an anonymous caller. The repo's `PublicEvent` is
-  dated `2024-09-29`, the same timestamp as `created_at`, so it has been public since creation —
-  this is not a recent flip. The strings are removed from the working tree by the ADR-0038 docs
-  commit, but **removal from a file does not remove them from history**: they remain readable at
-  any older commit, exactly as the `.gitleaksignore` rotation record says of the 588a1e35
-  credentials (ADR-0032).
-  **Do:** rotate the staging passwords for `c3d.student@`, `c3d.teacher@`, `billing.clickthrough@`,
-  `billing.recheck@`, `billing.failcard@` and the two `*.smoke@` users, then keep the new ones out
-  of the repo entirely.
-  **Also review:** ADR-0038 made the `security` job (gitleaks) skip on documentation-only changes.
-  Root-level `*.md` is classified as documentation, and this project has already leaked a secret
-  in exactly that shape once — `portal-snapshot.md`, found by the first `security` run. On a public
-  repo, delaying that scan until the next code PR means world-readable in the interim. Consider
-  dropping the `code == 'true'` clause from `security` alone; it costs nothing, because Actions
-  minutes on a public repo are free.
+  `KaleemC3d!2026` and `KaleemStaging!2026` to an anonymous caller. **The repo has since been
+  made private by its owner** — as of 2026-09-11 `private: true`, and the same anonymous
+  `curl` 404s, so the open window is closed. It is not undone: the strings stay in history at
+  every older commit, and anyone who cloned or scraped while it was open still holds them,
+  exactly as the `.gitleaksignore` rotation record says of the 588a1e35 credentials (ADR-0032).
+  **Do:** rotate the staging passwords for `c3d.student@`, `c3d.teacher@`,
+  `billing.clickthrough@`, `billing.recheck@`, `billing.failcard@` and the two `*.smoke@` users,
+  then keep the new ones out of the repo entirely.
+
+- **`security` (gitleaks) skips on documentation-only changes, and root `*.md` counts as
+  documentation** (ADR-0038). This project's one previous leak was exactly that shape —
+  `portal-snapshot.md`, a root-level `.md`, caught by the first `security` run. Delaying that
+  scan until the next code PR is an unbounded window for the one file shape that has leaked
+  here before. **Do:** drop the `code == 'true'` clause from the `security` job alone, leaving
+  the `verified` clause in place. Costs one job per docs PR; the repo's Actions net spend is
+  $0.00/month (ADR-0038 Correction), so the trade is not close.
 
 - **A deploy drops every live call (C3b).** `scripts/ship.sh` step 8 stops the old signaling
   container with `stop --timeout 30`; room membership is an in-process dict, so every call in

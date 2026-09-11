@@ -7,6 +7,43 @@ created: 2026-09-08
 closed: 2026-09-08
 ---
 
+## ⚠ Correction (2026-09-11): every cost figure below is wrong, and the change stands anyway
+
+**Read this before any number in this document.** This spec's stated target — "get the
+monthly Actions bill down" — was arithmetic on a bill that does not exist, and the figures
+were out by roughly 5×.
+
+The spec records that the real invoice could not be read, because
+`GET /orgs/kaleem-lms/settings/billing/actions` returns `410 This endpoint has been moved`.
+The move was taken as the end of the road. It was not: the replacement,
+`GET /organizations/kaleem-lms/settings/billing/usage`, answers with the `repo` scope this
+project's token already had. What it reports for this repository:
+
+| Month | Actions minutes | Gross | Discount | **Net** |
+| --- | --- | --- | --- | --- |
+| 2026-04 | 115 | $0.69 | $0.69 | **$0.00** |
+| 2026-05 | 114 | $0.68 | $0.68 | **$0.00** |
+| 2026-06 | 351 | $2.11 | $2.11 | **$0.00** |
+| 2026-08 | 72 | $0.43 | $0.43 | **$0.00** |
+| 2026-09 | 2,098 | $12.59 | $12.59 | **$0.00** |
+
+- Modelled baseline ~10,040 min/month vs **2,098 actual** in the month the change landed.
+- Amount actually paid: **$0.00, every month on record** — the included allowance covers it.
+- Overage rate is **$0.006/min**, not the $0.008 used below.
+
+Everything below this banner is left unedited as the record of what was designed and why,
+including the figures now known to be wrong. The *mechanism* is unaffected and was verified on
+a real merge; the justification is rewritten in **ADR-0038 → Correction**, around wall-clock
+and signal plus keeping a now-private repository inside its 2,000-minute allowance.
+
+A first attempt at this correction (2026-09-08) replaced the false premise with a second false
+one — "the repo is public, so runners are free". It was public then and is private now, but
+that was never why the bill was zero. The reading behind it, `billable.total_ms: 0` from
+`actions/runs/<id>/timing`, returns 0 on this repository **while private too**, including on a
+full eight-job 501-second run. That field is not evidence of anything.
+
+---
+
 ## Goal
 
 CI runs the full eight-job suite on every pull request and then runs it again on the merge

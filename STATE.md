@@ -1,7 +1,7 @@
 ---
 current_phase: "C — Scheduling. CLOSED 2026-09-07: C0-C3e (matching, booking+quota, video) all shipped and live. Phase B (billing) CLOSED 2026-09-04. Phase A (identity) closed via ADR-0024, one residual human check outstanding. Roadmap's Phase B happy path is still open: `assessment` and `analytics` were never built. Preview mode has not run."
 active_spec: "none — next phase not yet chosen. Session UI redesign SHIPPED and visually verified on staging 2026-09-08 (ADR-0036). Shared signaling (ADR-0037) SHIPPED and verified live on staging 2026-09-07 — signaling is now one shared service, not per deploy colour."
-active_branch: "docs/ci-cost-optimization-close — committed, NOT pushed, NOT merged, deliberately held (see 'Where we are'). Every code repo is on its trunk otherwise. TRUNK-BASED (ADR-0028) — a merge to meta `master` IS a deploy."
+active_branch: "docs/ci-cost-optimization-close — docs-only, the hold is LIFTED (justification corrected against the real invoice 2026-09-11), open as a PR into master. Every code repo is on its trunk otherwise. TRUNK-BASED (ADR-0028) — a merge to meta `master` IS a deploy."
 last_green_ci: "meta 480b78b (PR #190, ADR-0038 CI cost change) → master, 2026-09-08. Run 34206968953: triage code=true verified=true, all 7 gates SKIPPED (guard matched the PR's proven tree), deploy-staging SUCCESS, staging confirmed live after. See `docs/runbook/ci.md`."
 ---
 
@@ -20,15 +20,18 @@ dunning gate included. What is **not** closed: the roadmap's Phase B happy path
 has never run, which the roadmap makes non-optional before the next phase's priorities are
 final.
 
-**CI cost optimization shipped, and its stated justification is FALSE** (ADR-0038, PR #190).
-The mechanism works and was verified on the real merge (`last_green_ci`): `triage` skips the
-seven gate jobs on docs-only changes and on a push whose exact tree a PR already proved.
-But it was justified by an Actions bill **that does not exist**. This repo is PUBLIC — since
-creation in 2024, not a recent flip — so standard-runner minutes are free, and
-`actions/runs/<id>/timing` returns `billable.total_ms: 0` for runs both before and after the
-change. All five submodules are private but carry **zero workflows**, so nothing is billed
-anywhere. The real benefit is wall-clock and noise, not money. **The docs branch is held
-un-merged until this is rewritten** — see `journal/2026-W37.md`.
+**CI cost optimization shipped; its justification was rewritten twice and is now settled
+against the real invoice** (ADR-0038, PR #190). The mechanism works and was verified on the
+real merge (`last_green_ci`): `triage` skips the seven gate jobs on docs-only changes and on a
+push whose exact tree a PR already proved. It was justified by a modelled ~$64/month Actions
+bill. The real invoice — readable all along via
+`/organizations/kaleem-lms/settings/billing/usage`, the replacement for the `410`'d endpoint
+the spec gave up on — says **2,098 minutes and $0.00 net in Sept 2026, and $0.00 in every
+month on record**; the model was ~5× high. A first correction (09-08) blamed "the repo is
+public, runners are free" — also wrong: it *was* public then, is private now, and neither is
+why the bill was zero. ADR-0038's Correction section carries the full account. The real
+benefit is wall-clock and signal, plus keeping a now-private repo inside its 2,000-min
+allowance, which Sept's usage sits exactly on.
 
 **Also not exercised on a real push:** the artifact-miss direction — see `docs/runbook/ci.md`.
 
@@ -43,8 +46,9 @@ un-merged until this is rewritten** — see `journal/2026-W37.md`.
    again (`ISSUES.md`).
 4. **Blocks launch:** the quota cycle is keyed by an exact `current_period_end`; a mid-cycle
    rewrite would hand out a second allowance.
-5. **Someday:** confirm the CI cost model against one real month's Actions invoice; force the
-   artifact-miss path once a code change merges >7 days after going green (`ISSUES.md`).
+5. **Someday:** force the artifact-miss path once a code change merges >7 days after going
+   green (`ISSUES.md`). *(The "confirm the cost model against a real invoice" item is done —
+   2026-09-11, ADR-0038 Correction.)*
 
 ## Standing warnings
 
@@ -56,16 +60,18 @@ un-merged until this is rewritten** — see `journal/2026-W37.md`.
 - ⚠ Dependabot PRs #182/#183/#184 now report green with nothing tested (ADR-0038 consequence);
   #183 (`upload-artifact` 4→7) is a real upgrade `ci.yml` should take deliberately, not merge
   on the tick.
-- ⚠ **THE REPO IS PUBLIC.** Live staging passwords were world-readable in `STATE.md` on
-  `master` and are still in git history. Rotate them; see `ISSUES.md` → *Blocks launch*.
-  Treat every file here as published, including `ISSUES.md` and the journals.
+- ⚠ **The repo was PUBLIC until the owner made it private (between 2026-09-08 and 09-11).**
+  Live staging passwords were world-readable in `STATE.md` on `master` during that window and
+  are still in git history. Anonymous access 404s as of 2026-09-11, so the window is closed,
+  but anyone who cloned while it was open still has them. **Rotate them** — `ISSUES.md` →
+  *Blocks launch*.
 - ⚠ ADR-0038 made the `security` job (gitleaks) skip on docs-only changes, and root `*.md`
   counts as docs — the exact shape of this project's one previous leak (`portal-snapshot.md`).
 
 ## Recently verified
 
-- **CI cost optimization (ADR-0038)** — see "Where we are" above; full account
-  `journal/2026-W37.md`.
+- **CI cost optimization (ADR-0038)** — mechanism verified on the real merge; justification
+  corrected against the real invoice 2026-09-11. Full account `journal/2026-W37.md`.
 - **Session UI redesign** verified on staging 2026-09-08: desktop grid, measured reflow, RTL
   mirroring, Lobby gesture gate, no false diagnostics. Two cosmetic findings logged, not fixed.
 - **Shared signaling (ADR-0037)** verified live 2026-09-07: a room created before a colour
