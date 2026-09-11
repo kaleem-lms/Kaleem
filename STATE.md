@@ -1,7 +1,7 @@
 ---
-current_phase: "C — Scheduling. RE-OPENED as C4 on 2026-09-11 (call experience redesign: in-call device pickers, join without permission, pre-join toggles, screen share, per-viewer layout). Previously CLOSED 2026-09-07: C0-C3e (matching, booking+quota, video) all shipped and live. Phase B (billing) CLOSED 2026-09-04. Phase A (identity) closed via ADR-0024, one residual human check outstanding. Roadmap's Phase B happy path is still open: `assessment` and `analytics` were never built. Preview mode has not run."
-active_spec: "`docs/superpowers/specs/2026-09-11-call-experience-redesign-design.md` (C4). C4a SHIPPED to both submodule trunks 2026-09-11 — ADR-0039 ACCEPTED and amended after measurement. C4b (lobby/control-bar/layout redesign) has no plan yet. Session UI redesign SHIPPED and visually verified on staging 2026-09-08 (ADR-0036). Shared signaling (ADR-0037) SHIPPED and verified live on staging 2026-09-07 — signaling is now one shared service, not per deploy colour."
-active_branch: "chore/c4a-submodule-pointers — the C4a pointer bump. dashboard#43 and backend#50 are MERGED to their trunks; meta #192 (spec/plan/ADR) is merged. Every code repo is on its trunk otherwise. TRUNK-BASED (ADR-0028) — a merge to meta `master` IS a deploy."
+current_phase: "C — Scheduling. C4 (call experience redesign) CODE-COMPLETE 2026-09-11 — C4a the capability, C4b the UI, both on the submodule trunks. Only the D9 manual phone pass remains. Previously CLOSED 2026-09-07: C0-C3e (matching, booking+quota, video) all shipped and live. Phase B (billing) CLOSED 2026-09-04. Phase A (identity) closed via ADR-0024, one residual human check outstanding. Roadmap's Phase B happy path is still open: `assessment` and `analytics` were never built. Preview mode has not run."
+active_spec: "`docs/superpowers/specs/2026-09-11-call-experience-redesign-design.md` — C4a and C4b both shipped. ADR-0039 ACCEPTED and amended after measurement (the answerer adopts the offer's lines; it cannot pre-create its own). No spec is open."
+active_branch: "chore/c4b-pointer — the C4b pointer bump, open. Everything else is merged: dashboard#43/#44/#45/#46, backend#50, meta #191-#195."
 last_green_ci: "meta 480b78b (PR #190, ADR-0038 CI cost change) → master, 2026-09-08. Run 34206968953: triage code=true verified=true, all 7 gates SKIPPED (guard matched the PR's proven tree), deploy-staging SUCCESS, staging confirmed live after. See `docs/runbook/ci.md`."
 ---
 
@@ -37,24 +37,23 @@ allowance, which Sept's usage sits exactly on.
 
 ## ▶ Next actions, in order
 
-0. ⚠ **Rotate `SUBMODULE_TOKEN` — CI's gates cannot run without it.** The nightly Stripe
-   harness has failed since 2026-09-10 at `actions/checkout`: the auth header is set and the
-   server rejects it (401 → "could not read Username"), which is what an expired PAT looks
-   like. Every gate job and `deploy-staging` use that same secret; only `triage` does not. A
-   docs-only PR skips them all, so **CI has been reporting green over a dead credential**.
-   The next code PR will fail at checkout until this is rotated.
-1. **C4 — call experience redesign.** Spec drafted 2026-09-11, ADR-0039 proposed. Next step
-   is the implementation plan (D2), then TDD. Phase choice (`assessment` / `notifications`)
-   is deferred behind this; preview mode still has not run.
-2. Watch C3e-a's `CallDiagnostic` codes for real Safari/iOS traffic — the only verification
-   loop that phase has (`journal/2026-W36.md`).
-3. A coturn config-only change does not restart the running relay — close before it bites
+1. **The D9 manual pass for C4, on a real phone.** Portrait and landscape, light and dark,
+   English and Arabic. Everything else in C4's Definition of Done is met; this is the only
+   step no harness here can do. ⚠ Nothing in C4 is verified on Safari or iOS — no Apple
+   device exists in this project, a standing deviation (see `journal/2026-W36.md`).
+2. **Then choose the next phase with the user.** `assessment` closes the roadmap's happy path
+   — a delivered lesson still leaves no trace — and `notifications` is the other candidate.
+   Preview mode has still never run, so priorities remain provisional. Do not pick unilaterally.
+3. Watch C3e-a's `CallDiagnostic` codes for real Safari/iOS traffic — the only verification
+   loop that phase has (`journal/2026-W36.md`). C4 added `screenshare-failed` and
+   `line-mismatch`; the second fires only when two peers' media lines disagree, which is the
+   mismatched-bundle deploy window ADR-0039 names and nothing exercises.
+4. A coturn config-only change does not restart the running relay — close before it bites
    again (`ISSUES.md`).
-4. **Blocks launch:** the quota cycle is keyed by an exact `current_period_end`; a mid-cycle
+5. **Blocks launch:** the quota cycle is keyed by an exact `current_period_end`; a mid-cycle
    rewrite would hand out a second allowance.
-5. **Someday:** force the artifact-miss path once a code change merges >7 days after going
-   green (`ISSUES.md`). *(The "confirm the cost model against a real invoice" item is done —
-   2026-09-11, ADR-0038 Correction.)*
+6. **Someday:** force the artifact-miss path once a code change merges >7 days after going
+   green (`ISSUES.md`).
 
 ## Standing warnings
 
