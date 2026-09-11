@@ -43,8 +43,9 @@ allowance, which Sept's usage sits exactly on.
    like. Every gate job and `deploy-staging` use that same secret; only `triage` does not. A
    docs-only PR skips them all, so **CI has been reporting green over a dead credential**.
    The next code PR will fail at checkout until this is rotated.
-1. **C4 — call experience redesign.** Spec drafted 2026-09-11, ADR-0039 proposed. Next step
-   is the implementation plan (D2), then TDD. Phase choice (`assessment` / `notifications`)
+1. **C4 — call experience redesign.** Spec drafted 2026-09-11, ADR-0039 proposed, plan
+   `plans/2026-09-11-call-negotiation-foundation.md` (C4a, 8 tasks) written. Next step is
+   executing it TDD; the UI plan (C4b) is written after C4a lands. Phase choice (`assessment` / `notifications`)
    is deferred behind this; preview mode still has not run.
 2. Watch C3e-a's `CallDiagnostic` codes for real Safari/iOS traffic — the only verification
    loop that phase has (`journal/2026-W36.md`).
