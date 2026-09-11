@@ -277,6 +277,32 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
 
 ## Someday
 
+- **The call's idle screen tile relies on a laid-out-but-invisible `<video>` continuing to
+  decode, and that is not spec-guaranteed.** C4b gates the shared-screen tile on frames
+  (`useVideoFrames`), which means the `<video>` must be mounted and decoding before anyone
+  shares. It is kept as a 1px fully transparent box (`CallStage.IDLE_SCREEN_TILE`) rather
+  than `display: none` precisely because an element generating no box is the case a browser
+  is free to stop decoding — measured in Chromium, where BOTH spellings kept decoding
+  (`videoWidth: 1280` through a real share), but nothing in the spec promises it. Residual
+  risk: on an engine that stops decoding a zero-area or fully transparent video, a shared
+  screen would silently never appear for the watcher — no error, no fallback. **This project
+  cannot test that**: there is no Apple device here and Playwright's WebKit on Linux is not
+  iOS Safari (standing D9 deviation). **Do:** when an Apple device or a real WebKit lane
+  exists, drive one share end to end on it; if it fails, the fix is a real "screen share
+  started/stopped" signalling message, which is the same thing the stop-detection gap below
+  needs.
+- **Nothing tells the watcher when a screen share STOPS.** Measured on the built app: 12s
+  after the sharer clicked Stop, the receiving `<video>` still reported `videoWidth: 1280`,
+  `currentTime` frozen, `track.muted` still `false`, and neither `resize` nor `emptied` ever
+  fired. So `useVideoFrames` latches `true` and the frozen last frame keeps the main tile.
+  C4b ships a viewer-side escape (the "Hide the shared screen" control in the layout
+  popover, which outranks `mainIsScreen` in every layout) so nobody is trapped, but that is
+  a manual workaround, not detection — and because a NEW share is equally undetectable, a
+  viewer who hides a stale screen must ask for the next one back by hand. **Do:** an
+  explicit screen-share started/stopped signalling message (the relay contract changes), or
+  receiver-stats polling. `usePeerConnection`'s own comment above `setRemoteScreen` names
+  both.
+
 - **The CI cost model (ADR-0038) has never met an invoice.** Every dollar figure in
   `docs/superpowers/specs/2026-09-08-ci-cost-optimization-design.md` is run-count times
   measured per-job minutes times the published per-minute rate — the billing API needs
@@ -331,6 +357,17 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
   passed in CI because the two environments differed in a way nobody had checked. CI's own run
   on this branch is the actual proof; watch it rather than assuming the local result carries over.
 
+- **Whether a real browser reports the "camera turned off mid-call" case `useVideoFrames`
+  exists for is unverified (C4b).** The hook returns to `false` when the video element's
+  reported size drops to zero (a `resize`/`emptied` event with `videoWidth === 0`), which is
+  proved against a fake element whose `videoWidth` the unit test sets directly. Whether a real
+  `<video>` actually fires such an event when a connected peer's camera stops mid-call is not
+  measured: browsers commonly freeze a `<video>` on its last frame and keep reporting that
+  frame's intrinsic size, in which case nothing would fire and the tile would stay on a frozen
+  frame instead of returning to the peer's initials. `call-no-permission.spec.ts` only proves
+  the "never had a camera" case (a real browser refusing `getUserMedia` up front), not a camera
+  that was live and then turned off. Needs a real two-peer e2e case that starts with video,
+  stops the track mid-call, and asserts the initials return.
 - **Headset auto-takeover depends on `groupId`, which iOS Safari may not populate (C3e-b).** The
   device-swap rule only adopts a newly-arrived default when the in-use track and the candidate both
   report a `groupId` and the two differ — deliberately failing closed, since the alternative
