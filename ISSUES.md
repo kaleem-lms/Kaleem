@@ -163,6 +163,68 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
 
 ## Blocks a phase close
 
+- **A blank screen tile renders on every call, for the whole lesson (C4a).** ADR-0039's
+  pre-negotiated screen line delivers a receiver track whether or not anyone is sharing, so
+  `usePeerConnection` publishes `remoteScreen` immediately and `CallRoom` renders a second,
+  empty `VideoTile` over every call, both sides. Gating on `track.muted` was tried and
+  removed after measurement: with two real peers and nobody sharing, the idle screen track
+  reports `muted: false` at 3s, 8s and 13s while `videoWidth` stays 0. `event.streams` is no
+  help either (a sender with no track at negotiation time carries no msid, and `replaceTrack`
+  never renegotiates one in). A correct signal needs an explicit screen-share signaling
+  message or receiver stats; C4b owns the surface that consumes it. Already visible in
+  `call-hardening.spec.ts`, whose tap-to-play locator had to be narrowed to the camera tile to
+  avoid matching both. See ADR-0039's 2026-09-11 amendment.
+
+- **`remoteHasVideo` is effectively constant `true`, so `CallRoom`'s "waiting" branch is
+  dead and a camera-less peer renders as a black rectangle (C4a).** The same measurement as
+  the entry above, applied to the CAMERA line: it is negotiated whether or not the peer has
+  a camera, so a receiver track always arrives and `remoteHasVideo` flips true on every call
+  that connects. `showWaiting = !remoteHasVideo` therefore only distinguishes "nobody has
+  connected yet" from "somebody has" -- never "they have a camera" from "they don't", which
+  is what its own comment used to promise. A participant who joined without a camera (now
+  reachable by anyone, since the lobby join gate is gone) is shown to the other side as an
+  empty video tile with nothing naming them. **C4b owns the fix** -- `ParticipantTile`
+  renders the participant's initials for a line with no media, which needs no new
+  receive-side signal (there isn't one; `track.muted` reads `false` on an empty line).
+  `call-no-permission.spec.ts` pins the media pipeline in this state and says so; when C4b
+  lands, that assertion should move to the initials tile. Comments in `usePeerConnection.ts`
+  and `CallRoom.tsx` now state the truth rather than the guarantee.
+
+- **One transient `disconnected` empties both remote video lines for the rest of the call.**
+  `usePeerConnection`'s `onconnectionstatechange` nulls `remoteCamera`/`remoteScreen` on
+  `disconnected`/`failed` -- correct, a frozen frame is worse -- but nothing ever refills
+  them. A fresh `ontrack` only fires while a remote description is being applied, and after
+  a drop none ever is: `restartIce()` merely flags the NEXT offer as a restart, there is no
+  `onnegotiationneeded` handler (deliberately, ADR-0039), and nothing calls `sendOffer` from
+  the recovery path. So a wifi blip or a phone changing cell blanks both tiles permanently
+  even when ICE recovers on its own and the status chip goes back to "Connected". The only
+  escape is the route's full remount. **Pre-existing, not introduced by the pre-negotiation
+  work.** Fixing it means the teacher re-offering after a restart, which is its own piece of
+  work with its own failure modes. The comments there described the recovery as if it ran;
+  they now say it does not.
+
+- **The mismatched-bundle pair -- ADR-0039's one named unhandled deploy window -- is
+  exercised by nothing.** It is the premise behind the whole `line-mismatch` diagnostic:
+  two participants on different dashboard bundles negotiating a different number of `m=`
+  sections, or the same positions in a different order. Unit tests now cover how the client
+  BEHAVES when it happens (drop the track, report once), but nothing anywhere stands two
+  real bundles up against each other, so the SDP-level premise is assumed rather than
+  observed. The C4a spec lists it as a staging check; it has no automated home.
+
+- **No e2e drives `getDisplayMedia`, so the entire screen-share path is unexercised
+  end to end.** Playwright cannot grant or fake a display capture the way it can a camera,
+  so every screen-share flow -- start, stop, the browser's own "Stop sharing" bar, the
+  pre-offer share that `usePeerConnection` now holds and re-applies -- is covered by unit
+  tests alone. The pre-offer bug (a share started before the first offer reaching nothing,
+  forever) was found by review and is guarded only by a unit test; the harness could not
+  have caught it and cannot verify the fix.
+
+- **`tsconfig.json` type-checks `src` only, so `e2e/` is never type-checked.** `pnpm tsc
+  --noEmit` passes over a Playwright spec with any type error in it; Playwright transpiles
+  without checking, so the first signal is a runtime failure in CI. Found while adding
+  `e2e/call-no-permission.spec.ts` (D10 - not fixed there).
+
+
 - **The inactive colour's WebSocket hostname has no TLS certificate (C3c) — smaller than first
   thought.** Traefik issues via Let's Encrypt's HTTP challenge when a router first appears, so
   while blue was active `ws-green-staging` failed TLS verification and `ws-blue-staging` answered
@@ -276,6 +338,29 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
 - Dunning UX beyond mirroring `past_due` (retry/notice flow) is deferred.
 
 ## Someday
+
+- **`useScreenShare`'s unmount `track.stop()` has no test.** Delete the cleanup effect and
+  the suite stays green -- yet it is the thing that stops the OS sharing indicator staying
+  lit after a lesson ends, on a platform for children. C4a review finding, D10.
+
+- **`setRemoteScreen` mints a fresh `MediaStream` identity on every `ontrack`.** Exactly the
+  churn that was diagnosed and fixed for the camera line (a new stream object reassigns
+  `srcObject` and calls `play()` while the previous call is pending, so the first rejects
+  with `AbortError` and is read as a real autoplay refusal). The screen line never got the
+  same treatment. C4a review finding.
+
+- **The share-screen control is a bare `<button>` with no `aria-pressed`.** It is a toggle
+  whose state is carried only by its label, against the repo's WCAG 2.2 AA baseline. C4b
+  replaces this control (`ScreenShareButton`) and should carry the fix.
+
+- **The shared `MediaStreamStub` does not implement the `addTrack` calls production makes.**
+  Tests that exercise the merge paths are therefore agreeing with a stub that is narrower
+  than the real object. C4a review finding.
+
+- **A display stream's non-video tracks are never stopped.** `useScreenShare` keeps and
+  stops only `getVideoTracks()[0]`; a share captured with system audio leaves that audio
+  track live after the share ends. C4a review finding.
+
 
 - **The CI cost model (ADR-0038) has never met an invoice.** Every dollar figure in
   `docs/superpowers/specs/2026-09-08-ci-cost-optimization-design.md` is run-count times

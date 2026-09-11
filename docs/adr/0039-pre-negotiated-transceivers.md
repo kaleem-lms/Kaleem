@@ -1,7 +1,7 @@
 ---
 number: 0039
 title: Pre-negotiate every media line before the first offer
-status: proposed
+status: accepted
 date: 2026-09-11
 ---
 
@@ -143,3 +143,126 @@ the failure is a known shape rather than a surprise.
 remote track producing frames; if pre-negotiation is right, that test does not know anything
 changed. A change to that spec's expectations would be evidence the negotiation shape moved,
 so it is the regression signal for this ADR.
+
+---
+
+## Amendment — 2026-09-11: the answerer cannot create its own lines
+
+**The design held. The implementation had a defect, and it was in this ADR's own text.**
+
+This ADR's regression signal worked exactly as intended. `dashboard/e2e/call.spec.ts` went red
+on the first end-to-end run of the implementation, on both peers, and that is what surfaced
+everything below. It is now green again, unchanged.
+
+### What was measured
+
+Two real browser contexts, a real signaling service and a real `RTCPeerConnection` pair, with
+`RTCPeerConnection` instrumented through CDP. On the answering side:
+
+| # | mid | direction | sender.track | created by |
+| --- | --- | --- | --- | --- |
+| 0–2 | `null` | `sendrecv` | audio / camera / — | our `addTransceiver` calls |
+| 3–5 | `"0"`, `"1"`, `"2"` | **`recvonly`** | — | the browser, applying the offer |
+
+**Six transceivers, not three.** The three this side created were never associated with the
+offer's `m=` sections; the browser built its own. Two consequences, both silent:
+
+1. `ontrack` fired with transceivers 3–5 — objects no map in `usePeerConnection` had ever
+   seen — so the handler, which matched on object identity, discarded **every remote track**.
+2. The answer was generated from 3–5, so it went out `recvonly` on all three lines. The
+   answerer's actual media sat on 0–2, which appeared in no SDP at all.
+
+Neither peer received anything, in either direction, while both reported
+`connectionState: "connected"`. `call-hardening.spec.ts`'s autoplay flow was collateral: it
+needs a remote tile that never appeared.
+
+### Why — the two cheap explanations, ruled out by measurement
+
+- **Not a timing bug.** Logging immediately before `setRemoteDescription` shows
+  `transceiverCount: 3`, all three `addTransceiver` calls already applied. The removal of
+  `runOrDefer` is not implicated.
+- **Not a stale or re-created connection.** One construction (`constructions: 1`), one object
+  across every logged operation. No remount, no `pcRef` churn.
+
+Reproduced outside the application entirely — two `RTCPeerConnection`s in a blank page, no
+React, no signaling — which isolates the rule:
+
+| Answerer builds its lines with | transceivers before → after `setRemoteDescription(offer)` | associated? |
+| --- | --- | --- |
+| `addTransceiver` × 3, no tracks | 3 → **6** | no |
+| `addTransceiver` × 3 + `replaceTrack` (our exact shape) | 3 → **6** | no |
+| `addTrack` × 2 | 2 → **3** | **yes**, `mid` 0 and 1, `sendrecv` |
+| nothing | 0 → 3 | n/a — the browser's own |
+
+So this is **specified behaviour, not a Chromium quirk**: a remote offer's `m=` section may
+only be matched to a transceiver created by `addTrack()`. One created by `addTransceiver()` is
+reserved for *this* side's own next offer and is deliberately left alone. The sentence in the
+Decision above — "Three transceivers, in a fixed order, **both sides identical**" — asks for
+something a conforming browser will not do, and no browser was consulted before it was
+written.
+
+### What changes
+
+**The wire contract is unchanged.** Three lines, fixed order (audio, camera, screen), all
+`sendrecv`, no renegotiation, single offerer. Everything this ADR actually decided still
+stands, including the part that matters most: the fourth row of the table above was extended
+to confirm that an answerer which creates nothing, then sets its adopted transceivers to
+`sendrecv` and `replaceTrack`s onto them, produces an answer with `a=sendrecv` on **all three
+lines including one carrying no track at all**. Joining with nothing and enabling a device
+later works exactly as decided.
+
+What changes is only **who calls what**:
+
+- **The offerer creates the three lines** with `addTransceiver`, before the first offer,
+  as decided. Unchanged.
+- **The answerer creates nothing.** It adopts the three the offer brings, sets each to
+  `sendrecv`, and attaches whatever local media it has — all of it *before* `createAnswer`,
+  because the answer is built from those directions.
+- **Remote tracks are routed by position, not by object identity.** A line is identified by
+  its index among the connection's *associated* transceivers (those carrying a `mid`), which
+  is what the fixed order actually means on the wire. Identity was never a safe key; it only
+  looked like one from the offerer's side.
+
+"Both sides identical" is therefore **withdrawn** as an implementation rule. The fixed order
+remains the contract, and it remains the thing a future fourth line must append to.
+
+### Why the tests did not catch it
+
+`usePeerConnection.test.ts`'s double returned, from `getTransceivers()`, exactly the objects
+its own `addTransceiver` had handed out. The one behaviour that breaks in a real browser — the
+browser declining to take up your transceiver and building its own — was **unrepresentable**,
+so 804 unit tests passed against a call that delivered no media at all.
+
+The double now models it: a separate list for transceivers it builds while applying a remote
+offer, `mid`s that are null until a line is on the wire, and `getTransceivers()` as the only
+view the hook is allowed to read. Two tests pin the behaviour and were **verified to fail
+against the previous implementation** before being kept.
+
+This is the same shape as the deviations recorded for C3e: a verifier that cannot express the
+failure it exists to catch is not a verifier. Any future change to how lines are established
+needs the double changed with it, or it proves nothing.
+
+### One consequence this ADR under-stated
+
+"An audio-only participant negotiates two video lines that send no media" is written above as
+a cost in bandwidth. It is also a **UI** consequence, and it was missed: a negotiated screen
+line delivers a receiver track on every call whether or not anyone is sharing, so the room
+renders a blank screen tile for the whole lesson.
+
+Gating on `track.muted` was tried and removed: measured against two real peers with nobody
+sharing, the idle screen track reports `muted: false` at 3 s, 8 s and 13 s while `videoWidth`
+stays 0. `event.streams` cannot substitute either — a sender with no track at negotiation time
+carries no msid, and `replaceTrack` never renegotiates one in. Knowing whether a peer is
+actually sharing needs an explicit signal (a signaling message or receiver stats), which is
+C4b's to add along with the surface that consumes it. Recorded in `ISSUES.md` rather than
+guessed at, and called out here because the cost paragraph above should have predicted it.
+
+### And the lobby gate
+
+The Context above says the current UI "hides this by refusing to show the Join button until
+`getUserMedia` resolves, which is a workaround for the defect, not an absence of it", and
+scheduled its removal for the next phase. That was wrong, for a reason worth recording: it
+would have shipped a capability no user could reach and no test could drive — the end-to-end
+proof for this ADR could not be written at all while the door was shut. The gate is removed
+in the same change as the fix. The lobby's layout, its device pickers and its preview remain
+C4b's; the C3e-b gesture gate is untouched, and requesting media is still a real tap.
