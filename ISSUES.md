@@ -16,6 +16,26 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
 
 ## Blocks launch
 
+- **Staging passwords were world-readable on a then-public `master`, and remain in git
+  history.** On 2026-09-08 `kaleem-lms/Kaleem` was public and
+  `curl https://raw.githubusercontent.com/kaleem-lms/Kaleem/master/STATE.md` returned
+  `KaleemC3d!2026` and `KaleemStaging!2026` to an anonymous caller. **The repo has since been
+  made private by its owner** — as of 2026-09-11 `private: true`, and the same anonymous
+  `curl` 404s, so the open window is closed. It is not undone: the strings stay in history at
+  every older commit, and anyone who cloned or scraped while it was open still holds them,
+  exactly as the `.gitleaksignore` rotation record says of the 588a1e35 credentials (ADR-0032).
+  **Do:** rotate the staging passwords for `c3d.student@`, `c3d.teacher@`,
+  `billing.clickthrough@`, `billing.recheck@`, `billing.failcard@` and the two `*.smoke@` users,
+  then keep the new ones out of the repo entirely.
+
+- **`security` (gitleaks) skips on documentation-only changes, and root `*.md` counts as
+  documentation** (ADR-0038). This project's one previous leak was exactly that shape —
+  `portal-snapshot.md`, a root-level `.md`, caught by the first `security` run. Delaying that
+  scan until the next code PR is an unbounded window for the one file shape that has leaked
+  here before. **Do:** drop the `code == 'true'` clause from the `security` job alone, leaving
+  the `verified` clause in place. Costs one job per docs PR; the repo's Actions net spend is
+  $0.00/month (ADR-0038 Correction), so the trade is not close.
+
 - **A deploy drops every live call (C3b).** `scripts/ship.sh` step 8 stops the old signaling
   container with `stop --timeout 30`; room membership is an in-process dict, so every call in
   progress dies with it — the 30s is a SIGTERM grace period, not a drain, and nothing waits for
@@ -257,6 +277,44 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
 
 ## Someday
 
+- **The CI cost model (ADR-0038) has never met an invoice.** Every dollar figure in
+  `docs/superpowers/specs/2026-09-08-ci-cost-optimization-design.md` is run-count times
+  measured per-job minutes times the published per-minute rate — the billing API needs
+  `admin:org`, which this project's token does not have. Read one real month's Actions bill
+  and correct the spec against it.
+- **The artifact-miss path in the CI cost guard is unproven on a real push (ADR-0038).** A
+  push whose tree has no recorded `verified-tree-<hash>` artifact should re-run the full
+  suite, but that has only been checked mechanically (a `gh api` query against a name that
+  does not exist returns 0), never end to end on a real `push` event. The next code change
+  that merges more than 7 days after going green, or after `master` moves underneath its PR,
+  will exercise it on its own — or force it deliberately by deleting the artifact before
+  merging (`docs/runbook/ci.md`).
+- **Dependabot PRs now report green with nothing tested (ADR-0038).** The seven gate jobs and
+  `deploy-staging` all skip for `github.actor == 'dependabot[bot]'` rather than failing at
+  checkout as before — cheaper and no less honest about what was tested, but GitHub counts a
+  skipped required check as satisfied, so this would look mergeable if branch protection is
+  ever enabled. Three real Dependabot PRs are open: #182 (`setup-python` 5→7), #183
+  (`upload-artifact` 4→7), #184 (`setup-node` 6→7). `ci.yml` pins `upload-artifact@v4`, so
+  #183 is a real version upgrade this repo hasn't taken — review it deliberately rather than
+  merging on a green tick that verified nothing.
+- **Staging carries throwaway fixtures from the Phase B and C live checks.** Moved here from
+  `STATE.md` when it was trimmed 303 → 71 lines on 2026-09-08 — these are live artefacts on a
+  shared environment, and losing the record does not remove them, it just means the next person
+  meets them with no context. **Passwords are deliberately NOT recorded here: this repository is
+  public.** They were in `STATE.md` on `master` in plaintext until this commit; see the
+  credential-exposure entry under *Blocks launch*.
+  - **C3d call-check accounts:** `c3d.student@example.com` / `c3d.teacher@example.com`,
+    with a matched Arabic assignment and a recurring slot. **Session
+    id 3 is a permanently joinable lesson** — it was repositioned to `now` on 2026-09-07 09:20
+    so a live check could reach the Lobby, and nothing has moved it back. Clear on the next
+    staging DB reset, or reuse for a future call check rather than rebuilding the fixture.
+  - **Billing click-through accounts:** `billing.clickthrough@` (id 7), `billing.recheck@`
+    (id 8), `billing.failcard@` (id 9), plus two older `*.smoke@` users. Clear on the next
+    staging DB reset.
+  - **One throwaway `CallDiagnostic` row**, written by the 2026-09-07 live check: session 3,
+    `autoplay-blocked`, a synthetic iPhone-Safari `User-Agent` and hand-built redacted stats.
+    Evidence the diagnostics pipeline works, not real user data. Delete on the next staging DB
+    reset, or leave it — the 90-day purge job takes it on 2026-12-06 either way.
 - **The session UI redesign's class-string unit tests are weak proxies for real layout
   (`SessionCard.test.tsx`, `CallStage.test.tsx`/`SelfView.test.tsx`, `Lobby.layout.test.tsx`).**
   They assert things like `toHaveClass("sm:flex-row")` or a logical-property regex match, which

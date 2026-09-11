@@ -2,9 +2,46 @@
 name: ci-cost-optimization
 phase: 0
 modules: []
-status: draft
+status: shipped
 created: 2026-09-08
-closed: null
+closed: 2026-09-08
+---
+
+## ⚠ Correction (2026-09-11): every cost figure below is wrong, and the change stands anyway
+
+**Read this before any number in this document.** This spec's stated target — "get the
+monthly Actions bill down" — was arithmetic on a bill that does not exist, and the figures
+were out by roughly 5×.
+
+The spec records that the real invoice could not be read, because
+`GET /orgs/kaleem-lms/settings/billing/actions` returns `410 This endpoint has been moved`.
+The move was taken as the end of the road. It was not: the replacement,
+`GET /organizations/kaleem-lms/settings/billing/usage`, answers with the `repo` scope this
+project's token already had. What it reports for this repository:
+
+| Month | Actions minutes | Gross | Discount | **Net** |
+| --- | --- | --- | --- | --- |
+| 2026-04 | 115 | $0.69 | $0.69 | **$0.00** |
+| 2026-05 | 114 | $0.68 | $0.68 | **$0.00** |
+| 2026-06 | 351 | $2.11 | $2.11 | **$0.00** |
+| 2026-08 | 72 | $0.43 | $0.43 | **$0.00** |
+| 2026-09 | 2,098 | $12.59 | $12.59 | **$0.00** |
+
+- Modelled baseline ~10,040 min/month vs **2,098 actual** in the month the change landed.
+- Amount actually paid: **$0.00, every month on record** — the included allowance covers it.
+- Overage rate is **$0.006/min**, not the $0.008 used below.
+
+Everything below this banner is left unedited as the record of what was designed and why,
+including the figures now known to be wrong. The *mechanism* is unaffected and was verified on
+a real merge; the justification is rewritten in **ADR-0038 → Correction**, around wall-clock
+and signal plus keeping a now-private repository inside its 2,000-minute allowance.
+
+A first attempt at this correction (2026-09-08) replaced the false premise with a second false
+one — "the repo is public, so runners are free". It was public then and is private now, but
+that was never why the bill was zero. The reading behind it, `billable.total_ms: 0` from
+`actions/runs/<id>/timing`, returns 0 on this repository **while private too**, including on a
+full eight-job 501-second run. That field is not evidence of anything.
+
 ---
 
 ## Goal
@@ -49,6 +86,34 @@ Activity is bursty: the last 30 days as a whole hold only 159 runs, because near
 landed in the final week. The 9,700 figure is the *current* pace, not a historical average.
 It is the right number to design against, because the pace is the working rhythm of the
 project, not an anomaly.
+
+### Correction, added at close: the 14/18-minute baseline was one run, and the job varies 3.5x
+
+The table above quotes a 14-minute PR run and an 18-minute push run from a single sample,
+run `34177257278`. Measured across 11 pre-change runs while building this spec (Task 5):
+
+| | n | median | range |
+| --- | --- | --- | --- |
+| PR run | 6 | **15** | 13–16 |
+| push run | 5 | **18** | 17–19 |
+
+The push figure was correct; the PR figure was one minute low. The cause is `dashboard-lint`'s
+"Tests with coverage" step, which took **83–296 seconds for identical work** — verified
+identical, not assumed: 112 test files passed and coverage read 95.84/91.99/88.14/95.84 in
+both the fastest and the slowest of the 11 runs, against the same `dashboard` submodule
+pointer. That is a 3.5x swing on the single largest job in the suite, worth 2 to 5 billed
+minutes depending on which side of a minute boundary it lands, and the original baseline was
+sampled at the slow end of that range.
+
+Corrected model, same method as below: baseline **~10,040 min/month (~$64)**, after
+**~4,650 min/month (~$21)**. **The 54% headline is unchanged** — the savings in this spec come
+entirely from not running jobs at all, and job-duration variance does not touch that; a slower
+or faster `dashboard-lint` changes the *baseline* cost, not the *fraction* this change removes
+from it. The 14/18 figures and the ~$62/~$19 figures elsewhere in this spec are corrected to
+15/18 and ~$64/~$21 accordingly; where they appear as inline numbers below they are left as
+the values used to design the change, since correcting every occurrence would rewrite
+arithmetic that this document also needs to remain checkable against the run it was computed
+from.
 
 ### The billing figures in this spec are modelled, not read
 
@@ -239,6 +304,20 @@ Both measure external drift, not our own commits; ADR-0030 and the Stripe harnes
 justify them as out-of-merge-path signals, and neither argument depends on a 24-hour period.
 56 billed minutes a week becomes 8.
 
+The Stripe harness's unique value is narrower than "the `past_due` → `unpaid` path," and
+stretching its cadence only stretches detection of that narrower thing. The harness also
+exercises the **local** `past_due` → `unpaid` state machine, not only Stripe's `dahlia` payload
+shape — but that local logic is already covered on every pull request by
+`backend/kaleem/billing/tests/`: `test_invoice_payment_failed_marks_past_due`,
+`test_past_due_is_still_entitled`, `test_unpaid_is_not_entitled`,
+`test_past_due_keeps_access_through_the_provider_retry_schedule`, and
+`test_unpaid_is_still_live_but_no_longer_entitled`. So a regression in the state machine itself
+would still be caught within minutes, on the PR that introduced it, regardless of this cadence
+change. What the weekly move actually stretches detection *for* is the thing nothing else
+covers: whether a real Stripe webhook, shaped by Stripe's own API version, still parses and
+drives that machine correctly. That is the harness's real, narrower job, and it is the reason
+moving it to weekly is an acceptable trade rather than a silent widening of a gap.
+
 ## What this buys, and what it does not
 
 | | now | after |
@@ -255,6 +334,13 @@ justify them as out-of-merge-path signals, and neither argument depends on a 24-
 A 54% cut. The weekly figure is
 `34×1 (docs PR runs) + 50×16 (code PR runs) + 23×1 (docs pushes) + 34×5 (verified pushes) + 8
 (nightlies) = 1,035`, against a measured baseline of 84 PR runs and 57 pushes per week.
+
+**This table's "now" column and dollar figures are the design-time baseline, corrected above.**
+The corrected sample (11 runs, not 1) puts the baseline nearer ~10,040 min/month (~$64) and the
+after-figure nearer ~4,650 min/month (~$21) — see "Correction, added at close" earlier in this
+document. The 54% cut and every per-row minute figure in this table are unaffected: they come
+from not running a job at all, which is a property of `code`/`verified`, not of how long any
+one job happens to take on a given runner.
 
 One soft input: the 43% documentation-only figure is measured over *pull requests*, and the
 split is applied here to *runs*. A branch that gets three pushes produces three runs, and code
@@ -365,3 +451,40 @@ None. The one that was open at drafting — whether the Dependabot short-circuit
 `github.actor` clause or a third `triage` output — resolved on inspection: all seven gate jobs
 already share one identical `if:` expression, so the clause is free and the extra output would
 be indirection for its own sake.
+
+## What shipped verified, and what did not
+
+**Verified, on run `34206968953`** — a `push` to `master` at commit `480b78b`, the first merge
+of the pull request that shipped this change (PR #190). The prediction — merge-ref tree
+`e3bd1f1aa5ddae6d0772bc9e3f7e3636432724f5`, and an unexpired artifact of exactly that name
+(id `10047768648`) already on record — was written down **before** the merge, so this is a
+falsifiable result, not a post-hoc reading:
+
+- `triage`: `code=true`, `tree=e3bd1f1aa5ddae6d0772bc9e3f7e3636432724f5 verified=true`
+- all seven gates: `SKIPPED`
+- `deploy-staging`: `success`, all 14 steps green, including the three image builds, the infra
+  config sync, and the SSH `ship.sh` run
+- staging live afterwards: `app-staging` 200, `api-staging` `/health/ready/` 200,
+  `staging.kaleem.academy` 200, `ws-staging` `/health/live/` 200
+- cost: **4 billed minutes**, against a baseline median of 18 for a `master` push — a 78% cut
+  on this one merge, consistent with the modelled figure
+
+The guard's positive-lookup mechanics (artifact naming and the content-addressed match) were
+also exercised earlier and separately, on that pull request's own `pull_request` run:
+`record-verified-tree` uploaded a tree, and a direct `gh api` query for that same artifact
+name returned 1. That proved the naming and lookup were correct; it did not exercise the
+guard step itself, since that step only runs on `push`. The push above is what closed that gap.
+
+**Not verified, and left open rather than assumed.** The artifact-*miss* path — a code push
+whose tree has no recorded `verified-tree-<hash>` artifact — has never run on a real push. The
+mitigating evidence is real but partial: the guard's `gh api` query was observed, locally,
+returning 0 for a name that does not exist and 1 for one that does; and `verified != 'true'`
+is the same branch every PR run in this session already exercised, because `verified` is the
+empty string there. Neither of those is the specific case of a `push` event where `triage`
+computes a tree, queries for it, gets zero results, and the seven gates then actually run to
+completion. That case is untested. The runbook (`docs/runbook/ci.md`) names the two ordinary
+ways it will occur on its own — the 7-day artifact expiry, and `master` moving under a PR — and
+how to force it deliberately by deleting the artifact before merging. The Dependabot path is
+also untested in both its PR and push forms: three real Dependabot PRs are open (#182, #183
+and #184), and none has been merged since this change shipped, so `github.actor !=
+'dependabot[bot]'` has only been read, never exercised against a real Dependabot event.
