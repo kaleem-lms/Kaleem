@@ -1,7 +1,7 @@
 ---
-current_phase: "C — Scheduling. CLOSED 2026-09-07: C0-C3e (matching, booking+quota, video) all shipped and live. Phase B (billing) CLOSED 2026-09-04. Phase A (identity) closed via ADR-0024, one residual human check outstanding. Roadmap's Phase B happy path is still open: `assessment` and `analytics` were never built. Preview mode has not run."
-active_spec: "none — next phase not yet chosen. Session UI redesign SHIPPED and visually verified on staging 2026-09-08 (ADR-0036). Shared signaling (ADR-0037) SHIPPED and verified live on staging 2026-09-07 — signaling is now one shared service, not per deploy colour."
-active_branch: "docs/ci-cost-optimization-close — docs-only, the hold is LIFTED (justification corrected against the real invoice 2026-09-11), open as a PR into master. Every code repo is on its trunk otherwise. TRUNK-BASED (ADR-0028) — a merge to meta `master` IS a deploy."
+current_phase: "C — Scheduling. RE-OPENED as C4 on 2026-09-11 (call experience redesign: in-call device pickers, join without permission, pre-join toggles, screen share, per-viewer layout). Previously CLOSED 2026-09-07: C0-C3e (matching, booking+quota, video) all shipped and live. Phase B (billing) CLOSED 2026-09-04. Phase A (identity) closed via ADR-0024, one residual human check outstanding. Roadmap's Phase B happy path is still open: `assessment` and `analytics` were never built. Preview mode has not run."
+active_spec: "`docs/superpowers/specs/2026-09-11-call-experience-redesign-design.md` (C4, DRAFT — no code yet; ADR-0039 pre-negotiated transceivers is PROPOSED and gates it). Session UI redesign SHIPPED and visually verified on staging 2026-09-08 (ADR-0036). Shared signaling (ADR-0037) SHIPPED and verified live on staging 2026-09-07 — signaling is now one shared service, not per deploy colour."
+active_branch: "docs/c4-call-experience — spec + ADR-0039, docs-only. (The CI cost branch merged 2026-09-11, PR #191.) Every code repo is on its trunk otherwise. TRUNK-BASED (ADR-0028) — a merge to meta `master` IS a deploy."
 last_green_ci: "meta 480b78b (PR #190, ADR-0038 CI cost change) → master, 2026-09-08. Run 34206968953: triage code=true verified=true, all 7 gates SKIPPED (guard matched the PR's proven tree), deploy-staging SUCCESS, staging confirmed live after. See `docs/runbook/ci.md`."
 ---
 
@@ -37,9 +37,15 @@ allowance, which Sept's usage sits exactly on.
 
 ## ▶ Next actions, in order
 
-1. **Choose the next phase with the user.** Candidates: `assessment` (closes the roadmap's
-   happy path) or `notifications`. Preview mode has not run, so priorities are provisional —
-   do not pick unilaterally.
+0. ⚠ **Rotate `SUBMODULE_TOKEN` — CI's gates cannot run without it.** The nightly Stripe
+   harness has failed since 2026-09-10 at `actions/checkout`: the auth header is set and the
+   server rejects it (401 → "could not read Username"), which is what an expired PAT looks
+   like. Every gate job and `deploy-staging` use that same secret; only `triage` does not. A
+   docs-only PR skips them all, so **CI has been reporting green over a dead credential**.
+   The next code PR will fail at checkout until this is rotated.
+1. **C4 — call experience redesign.** Spec drafted 2026-09-11, ADR-0039 proposed. Next step
+   is the implementation plan (D2), then TDD. Phase choice (`assessment` / `notifications`)
+   is deferred behind this; preview mode still has not run.
 2. Watch C3e-a's `CallDiagnostic` codes for real Safari/iOS traffic — the only verification
    loop that phase has (`journal/2026-W36.md`).
 3. A coturn config-only change does not restart the running relay — close before it bites
