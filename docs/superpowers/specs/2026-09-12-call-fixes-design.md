@@ -2,7 +2,7 @@
 name: call-fixes
 phase: C
 modules: [scheduling, signaling, dashboard]
-status: draft
+status: in-progress
 created: 2026-09-12
 closed: null
 ---
