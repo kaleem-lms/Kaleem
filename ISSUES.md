@@ -176,6 +176,16 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
 
 ## Blocks a phase close
 
+- **`/availability` scrolls sideways at phone width — SC 1.4.10 Reflow (found during
+  design-system v2 P3).** The inline range editor has a hard **376px** minimum, measured
+  identically at 320px and 360px viewports, so at 1.4.10's 320px reference the page
+  overflows by 56px. Measured on `main` before and after the Select convergence — 376 both
+  times — so it is pre-existing and was not introduced by that work. It is a layout fix
+  (the row needs to wrap or the pickers need to stack), not a primitive fix, which is why
+  P3 logged it rather than widening its scope. The 430x932 upright-phone viewport passes,
+  which is why no existing e2e caught it: `session-ui.spec.ts` covers the call routes, and
+  availability has no phone-width spec at all.
+
 - **The inactive colour's WebSocket hostname has no TLS certificate (C3c) — smaller than first
   thought.** Traefik issues via Let's Encrypt's HTTP challenge when a router first appears, so
   while blue was active `ws-green-staging` failed TLS verification and `ws-blue-staging` answered
@@ -694,6 +704,26 @@ proves; all are robustness of an unattended job.
   are out of scope (documented in the spec). Revisit when the matching feature lands.
 
 ### Dashboard
+
+- **No `Sheet` primitive.** `AppShell`'s mobile drawer is the only side-panel in the app, so
+  design-system v2 P2b deliberately left it on raw Radix rather than inventing a primitive for
+  one call site. It takes the shared `bg-overlay` scrim token; only its layout is its own. If a
+  second drawer ever appears, that is the moment to extract one — not before.
+- **`DeviceCheckDialog`'s elevated treatment is either right for every dialog or wrong for this
+  one.** P2b converged it onto the shared `Dialog` and dropped its unargued divergences
+  (`rounded-2xl`, `bg-popover`, `shadow-xl`, a ring instead of a border). The one difference with
+  a stated reason — a blurred scrim, because live video behind it keeps moving through any
+  opacity — survived as the `scrimBlur` prop. Decide whether the elevated look should become a
+  `Dialog` variant, or stay gone.
+- **`focusRing` has no `secondary` surface.** The availability editor's inline range row sits on
+  `bg-secondary` and draws its focus offset in `--background`, so the halo does not match the
+  surface the control is actually on (the mismatch SC 2.4.11 modelling cares about). Adding the
+  surface means adding a `ring` vs `--secondary` pair to `tokens/src/contrast-pairs.json` and
+  cutting a token release, which is why P3 did not do it inline. Pre-existing; P3 preserved the
+  behaviour exactly.
+- **P9 — the 20 raw `<button>` elements outside the primitive.** Explicitly NOT swept by
+  design-system v2 (audit, don't sweep): many are legitimate in-place icon controls. Audit them
+  opportunistically, one at a time, when already in the file.
 
 - `/availability` has no in-component teacher gate — nav hides it and the API 403s, but a
   parent deep-linking lands on the editor then hits a bare 403. Add a route-level gate +

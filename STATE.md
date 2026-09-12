@@ -1,8 +1,8 @@
 ---
-current_phase: "C — Scheduling. **C5 and C6 SHIPPED to staging 2026-09-12** in the two-deploy order the relay requires (meta#201 backend pointer → relay live → meta#202 dashboard pointer). C4 closed 2026-09-11 except its manual phone pass, which C5 supersedes. C0–C3e closed 2026-09-07. Phase B (billing) CLOSED 2026-09-04. Phase A closed via ADR-0024. Roadmap's Phase B happy path still open: `assessment` and `analytics` were never built. Preview mode has not run."
-active_spec: "**`2026-09-12-design-system-v2-design.md`** — ADR-0040 (palette + EN 301 549), ADR-0041 (DTCG tokens). Plan: `plans/2026-09-12-design-system-v2.md`. **Phases 0–5 done: the v2 palette is DEPLOYED.** tokens v0.2.1 tagged, dashboard and marketing re-pinned, override block deleted, `/design-preview` built, three verification gaps closed. **Phase 7 — the component consolidation — is NOT started, and it is the part the original request actually asked for** (no Dialog primitive: 14 files hand-roll Radix; 4 selects at 3 heights; 5 re-implemented Cards; focus ring copy-pasted 12x). C5/C6 remain deployed; each still owes the manual pass on a real phone."
-active_branch: "`fix/infra-ship-hardening` in meta (infra pointer + docs). Design-system v2 merged and DEPLOYED 2026-09-12: tokens#4/#5 (v0.2.0, v0.2.1), dashboard#50/#51, marketing#6/#7, infra#11, meta#204/#205/#206/#207. Dashboard `feat/focus-ring` (phase 7 P1) is STASHED mid-migration, not committed. Three Dependabot PRs still open in meta."
-last_green_ci: "meta#207 -> master 2026-09-12: gates skipped (verified-tree from the PR run), deploy-staging SUCCEEDED on the image build after the Dockerfile `insteadOf` fix, then DIED at ship.sh step 9 on a full disk AFTER tearing down the old colour. Host remediated by hand (73G/0-free -> 7.5G/65G-free; `.active-color` restored to `green`). **Staging is UP and serving the v2 palette on both surfaces** — verified in the deployed CSS (`--background:#fbf5eb`, `--input:#938d83`, `--overlay:#191c1b8c`). ship.sh hardened in infra#11; that fix is NOT on the box until this meta pointer bump deploys. Previous: meta#202 (the C5+C6 dashboard pointer bump) → master, 2026-09-12. PR run 34695702515: all seven gates PASS including e2e with C5 and C6 together for the first time. Master run 34696063499: triage skipped every gate (the tree was already proven by the PR run — ADR-0038 working), deploy-staging SUCCESS. `app-staging.kaleem.academy` and `ws-staging.kaleem.academy/health/live/` both 200 after."
+current_phase: "C — Scheduling, CLOSED. **Design-system v2 is COMPLETE and its spec is closed** (2026-09-12): palette replaced and deployed, primitive layer consolidated, CI gates G1–G7 landed. C5/C6 shipped to staging 2026-09-12. C0–C3e closed 2026-09-07. Phase B (billing) CLOSED 2026-09-04. Phase A closed via ADR-0024. Roadmap's Phase B happy path still open: `assessment` and `analytics` were never built. Preview mode has not run."
+active_spec: "**None — pick the next phase with the user.** `2026-09-12-design-system-v2-design.md` is CLOSED; its outcome section carries what the consolidation found and what was deliberately left alone. ADR-0040 (palette + EN 301 549), ADR-0041 (DTCG tokens). Still owed from it: the staging walk and the Lighthouse a11y re-measure (raise the floor if it now exceeds 0.95 — ADR-0026 ratchet). C5/C6 each still owe the manual pass on a real phone."
+active_branch: "`feat/design-system-v2-phase-7` in meta (dashboard pointer + docs) — THIS IS A DEPLOY when merged. Phase 7 shipped as dashboard #52-#61: focusRing, Dialog+AlertDialog, Select, Skeleton, Card, Meter, PageHeader, target sizes, colour lint. Design-system v2 phases 0-5 deployed earlier the same day: tokens#4/#5 (v0.2.0, v0.2.1), dashboard#50/#51, marketing#6/#7, infra#11, meta#204-#208. Three Dependabot PRs still open in meta."
+last_green_ci: "meta#208 -> master 2026-09-12: deploy-staging SUCCEEDED end to end after the ship.sh hardening (disk precheck, atomic state write, state recorded BEFORE teardown, bounded prune). Verified on the host: `.active-color=blue`, only `kaleem-django-blue-1` running, 64G free, all four staging endpoints 200, and the deployed CSS still serving the v2 palette after the colour flip. Dashboard main is green at #61 (1156 unit tests, 25+ e2e, floors 96.71/93.31/88.7)."
 ---
 
 # kaleem Project State
@@ -42,24 +42,22 @@ allowance, which Sept's usage sits exactly on.
    rest on checks a harness cannot make: that the OS camera indicator really goes out,
    that audio is audible, that a shared screen is legible, and anything at all on Safari
    or iOS. Staging is live and carrying both.
-2. **Fix the CI concurrency group before the next busy merge day** (`ISSUES.md`).
+2. **Close out design-system v2's last two owed items.** The staging walk (log in, one
+   dialog, one form, one session card, the call lobby, in both themes and both
+   directions) and a Lighthouse run via `workflow_dispatch` — **raise the a11y floor** if
+   it now measures above 0.95 (ADR-0026 ratchet). Everything else in that spec is closed.
+   ⚠ Three visible changes landed in phase 7 and deserve the eyes: session rows and the
+   call end screen moved 12px → 16px corners, the dashboard spotlight's title/description
+   gap tightened, and the five auth headings grew to the display rank.
+3. **Fix the CI concurrency group before the next busy merge day** (`ISSUES.md`).
    `ci.yml`'s group is `${{ github.head_ref || github.run_id }}`; on a push `head_ref` is
    empty, so every master run gets a unique group and two `deploy-staging` jobs can
    overlap on the same host. This nearly bit on 2026-09-12 and was avoided by cancelling
    a run by hand.
-3. **Design-system v2 — phase 7: the component consolidation.** Phases 0–5 are done
-   and the v2 palette is live. What remains is the part the original request was
-   actually about: there is **no `Dialog` primitive at all** (14 files hand-roll Radix
-   across two recipes), 4 `<select>` implementations at 3 heights, 5 re-implemented
-   `Card` surfaces, 4 hand-rolled skeletons, and one focus-ring recipe copy-pasted into
-   12 files. Order and rationale in the plan (P1 focusRing first, P8 `CallControlButton`
-   last and deliberately NOT a merge into `Button`). Also still owed from phase 5: the
-   staging walk and the Lighthouse re-measure — if a11y now scores above 0.95, **raise
-   the floor** (ADR-0026 ratchet).
 4. **Then choose the next phase with the user.** `assessment` closes the roadmap's happy
    path — a delivered lesson still leaves no trace — and `notifications` is the other
    candidate. Preview mode has still never run, so priorities remain provisional. Do not
-   pick unilaterally. (Design-system v2 was chosen by the user, not picked here.)
+   pick unilaterally.
 5. A coturn config-only change does not restart the running relay — close before it bites
    again (`ISSUES.md`).
 6. **Blocks launch:** the quota cycle is keyed by an exact `current_period_end`; a
@@ -87,17 +85,21 @@ allowance, which Sept's usage sits exactly on.
 
 ## Recently verified
 
+- **Design-system v2, complete 2026-09-12.** Palette replaced (ADR-0040/0041) and
+  primitives consolidated. The consolidation itself found four defects no gate had
+  caught — a 1.29:1 form boundary, a 20×20 checkbox, a select with no focus ring, and
+  `text-end` mis-aligning Arabic — and measurement overturned three plan assumptions,
+  most notably that `CallControlButton`'s alpha was a defect (it measures 7.15:1, above
+  AAA, and was left alone). Full account: spec outcome + `journal/2026-W37.md`.
+
 - **CI cost optimization (ADR-0038)** — mechanism verified on the real merge; justification
-  corrected against the real invoice 2026-09-11. Full account `journal/2026-W37.md`.
-- **Session UI redesign** verified on staging 2026-09-08: desktop grid, measured reflow, RTL
-  mirroring, Lobby gesture gate, no false diagnostics. Two cosmetic findings logged, not fixed.
-- **Shared signaling (ADR-0037)** verified live 2026-09-07: a room created before a colour
-  flip stayed joinable; mutation-checked (the old colour's host now 404s).
-- **Phase C (C0–C3e)** shipped and verified live 2026-09-05→07: matching, booking+quota, video
-  rooms, signaling, TURN, the call client, diagnostics, and browser hardening. No Safari/iOS
-  device exists in this project — every browser-hardening D9 click-through is a stated
-  deviation, compensated by watching `CallDiagnostic` codes in production. Full account:
-  `journal/2026-W36.md`.
+  corrected against the real invoice 2026-09-11. `journal/2026-W37.md`.
+- **Phase C (C0–C3e, then C4–C6)** shipped and verified live 2026-09-05→12: matching,
+  booking+quota, video rooms, signaling, TURN, the call client, diagnostics, browser
+  hardening, the session UI redesign and the call fixes. Shared signaling (ADR-0037)
+  mutation-checked on a colour flip. No Safari/iOS device exists in this project, so every
+  browser-hardening D9 click-through is a stated deviation, compensated by watching
+  `CallDiagnostic` codes in production. `journal/2026-W36.md`, `journal/2026-W37.md`.
 - **Phase B (billing)** closed 2026-09-04, `past_due`→`unpaid` dunning verified nightly against
   real Stripe test clocks. Leaked credentials from `588a1e35` rotated 2026-09-05;
   `.gitleaksignore` fingerprints stay by design (ADR-0032).
