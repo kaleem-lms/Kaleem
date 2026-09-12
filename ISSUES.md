@@ -297,6 +297,26 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
 - **Availability entry is still one range at a time.** A weekday 9–5 schedule is ~20
   interactions through 96-option selects. C6 added a confirmed copy-to-all and a weekly
   total; a drag-select grid is its own spec.
+- **Two `deploy-staging` jobs can run at once on `master`.** `ci.yml`'s
+  `concurrency.group` is `${{ github.head_ref || github.run_id }}`. On a *push* (which is
+  what a merge to `master` is) `head_ref` is empty, so the group falls back to
+  `run_id` — unique per run — and `cancel-in-progress` never fires. Two merges close
+  together therefore deploy concurrently to the same staging host. Observed 2026-09-12:
+  a second master push started while meta#201's deploy was still running; the race was
+  avoided only by cancelling the second run by hand. **Do:** give pushes a stable group
+  (e.g. `${{ github.workflow }}-${{ github.ref }}`) so a newer deploy supersedes an
+  older one, and decide whether `cancel-in-progress` is right for a deploy (queueing may
+  be safer than cancelling mid-deploy).
+
+- **The shared `Button`'s `sm` size is 40px, under the 44pt touch guidance.**
+  `src/ui/button.tsx`: `sm: "h-10 px-3"`. WCAG 2.2 AA (SC 2.5.8, 24x24) passes, so this
+  is not a baseline violation — but Apple HIG asks for 44pt, and the call route's own
+  e2e enforces 44. `size="sm"` is used on the availability footer, the schedule's past
+  disclosure, the timezone picker and elsewhere, so changing the scale is a repo-wide
+  visual change, not a local fix. Found when a C6 exit control measured 40px in
+  Chromium. **Do:** decide whether `sm` should become `h-11`, or whether `sm` is
+  desktop-only and touch surfaces must use `md`. Either way it wants a decision, not a
+  sweep.
 
 - **The call's idle screen tile relies on a laid-out-but-invisible `<video>` continuing to
   decode, and that is not spec-guaranteed.** C4b gates the shared-screen tile on frames
