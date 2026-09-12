@@ -301,6 +301,15 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Build
         run: pnpm build
+      # The BUILT stylesheet is the only artifact that cannot lie about what
+      # shipped. The source-side colour lint (G2, in `pnpm lint`) can only reject
+      # files it knows to read, and Tailwind v4 scans EVERY file it is given as
+      # text -- so a utility named in a comment becomes a real rule. That leak
+      # reached production CSS twice before this step existed, the second time
+      # from the colour lint's own doc comment. Milliseconds, in a job that has
+      # already built.
+      - name: No palette rules in the built CSS
+        run: node scripts/check-colors.mjs --built
 
   # ADR-0021 has required end-to-end tests since 2026-06-17 and no harness existed
   # until 2026-09-03; ADR-0026 recorded the clause as suspended in the meantime. This
