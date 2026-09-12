@@ -1,7 +1,7 @@
 ---
 current_phase: "C — Scheduling. **C5 and C6 SHIPPED to staging 2026-09-12** in the two-deploy order the relay requires (meta#201 backend pointer → relay live → meta#202 dashboard pointer). C4 closed 2026-09-11 except its manual phone pass, which C5 supersedes. C0–C3e closed 2026-09-07. Phase B (billing) CLOSED 2026-09-04. Phase A closed via ADR-0024. Roadmap's Phase B happy path still open: `assessment` and `analytics` were never built. Preview mode has not run."
-active_spec: "None. C5 (`2026-09-12-call-fixes-design.md`) and C6 (`2026-09-12-schedule-call-audit-fixes-design.md`) are both merged and deployed; what remains of each is the manual pass on a real phone, which no harness here can do. Pick the next phase WITH the user — do not choose one unilaterally."
-active_branch: "None. Everything merged 2026-09-12: backend#51, dashboard#47/#48/#49, meta#199/#200/#201/#202. Only three Dependabot PRs remain open in meta."
+active_spec: "**`2026-09-12-design-system-v2-design.md`** (draft) — replace the palette outright, own it in `@kaleem/tokens`, close the dashboard's component duplication, and repair three pieces of verification that are documented but do not work. ADR-0040 (palette + EN 301 549) and ADR-0041 (DTCG tokens). Plan: `plans/2026-09-12-design-system-v2.md`. **Phase 0 (docs) only so far — no code written.** C5/C6 are merged and deployed; what remains of each is the manual pass on a real phone, which no harness here can do."
+active_branch: "`feat/design-system-v2-spec` in **meta** (docs only). Everything else merged 2026-09-12: backend#51, dashboard#47/#48/#49, meta#199/#200/#201/#202. Three Dependabot PRs still open in meta."
 last_green_ci: "meta#202 (the C5+C6 dashboard pointer bump) → master, 2026-09-12. PR run 34695702515: all seven gates PASS including e2e with C5 and C6 together for the first time. Master run 34696063499: triage skipped every gate (the tree was already proven by the PR run — ADR-0038 working), deploy-staging SUCCESS. `app-staging.kaleem.academy` and `ws-staging.kaleem.academy/health/live/` both 200 after."
 ---
 
@@ -47,13 +47,18 @@ allowance, which Sept's usage sits exactly on.
    empty, so every master run gets a unique group and two `deploy-staging` jobs can
    overlap on the same host. This nearly bit on 2026-09-12 and was avoided by cancelling
    a run by hand.
-3. **Decide the `Button` `sm` size** (`ISSUES.md`): `h-10` is 40px, under the 44pt the
-   call route's own e2e enforces, and `sm` is used across availability, the schedule and
-   the timezone picker. A decision about the scale, not a sweep.
+3. **Design-system v2 — phase 1: design the palette.** Phase 0 (spec, ADR-0040/0041, doc
+   repair) is done. Phase 1 is design judgement, not engineering, and it is gated on two
+   decisions: the **`Button` `sm` size** (was next-action #3 — now open question 1 of the
+   spec; `h-10` is 40px, under the 44pt the call route's own e2e enforces, used across
+   availability, the schedule and the timezone picker — a decision about the scale, not a
+   sweep), and **whether `--accent` gold stays banned as a text colour**, which changes
+   what the contrast manifest declares. Then phases 2→5 in strict PR order:
+   `tokens` → `dashboard` → `marketing` → one meta pointer PR. **Only the meta PR deploys.**
 4. **Then choose the next phase with the user.** `assessment` closes the roadmap's happy
    path — a delivered lesson still leaves no trace — and `notifications` is the other
    candidate. Preview mode has still never run, so priorities remain provisional. Do not
-   pick unilaterally.
+   pick unilaterally. (Design-system v2 was chosen by the user, not picked here.)
 5. A coturn config-only change does not restart the running relay — close before it bites
    again (`ISSUES.md`).
 6. **Blocks launch:** the quota cycle is keyed by an exact `current_period_end`; a
