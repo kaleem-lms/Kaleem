@@ -136,23 +136,6 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
   `email_changed_message.txt` (ADR-0023 violation). Currently unreachable: `RegisterView`
   raises `ValidationError` for duplicates and we do not use allauth's native signup/change
   flows. **Override these before enabling any allauth-native signup or social-auth path.**
-- **AA contrast failures live only as dashboard-local overrides; the shared
-  `@kaleem/tokens` package still ships the failing values.** Anything else consuming the
-  package (marketing) inherits them. See the token-promotion entry under "Blocks a phase
-  close" for the full list — promote the package, don't just keep the overrides.
-  **Being closed by ADR-0040** (`docs/superpowers/plans/2026-09-12-design-system-v2.md`),
-  which replaces the palette outright and deletes the override block rather than promoting
-  it value-by-value. Do not fix this entry separately — the two would collide.
-- **`docs/**` is gitleaks-exempt regardless of file type, so an executable file committed
-  under `docs/` is never secret-scanned.** ADR-0038 noted the risk for root `*.md` (the
-  shape of this project's one previous leak). The same hole is one level deeper and wider:
-  `classify-changes.sh` classifies on *path*, not extension, so
-  `docs/superpowers/specs/assets/*.mjs` counts as docs and the `security` job skips.
-  **Demonstrated, not theorised** — meta#205 added a `.mjs` bench under `docs/` and the
-  gitleaks job skipped on a green run. Low severity today (the exempt paths hold prose and
-  one hand-written script), but the exemption should key on extension as well as path, or
-  `docs/**/*.{mjs,js,ts,sh,py}` should force `code=true`. (Spotted 2026-09-12; not fixed in
-  passing, D10.)
 - **EN 301 549 clause 7: no captions or audio description for live lessons.** ADR-0040
   adopts EN 301 549, and for the design system its delta over WCAG 2.2 AA is ~zero
   (clause 9 incorporates WCAG by reference). **Clause 7 is the one with real teeth** and
@@ -255,32 +238,6 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
 - **The spec requires `display_amount`/`currency` "validated against the Stripe Price on
   save"; there is no `clean()` or admin validation.** The runbook says keep them in lockstep
   by hand. Either implement the validation or amend the spec — right now the spec is wrong.
-- **Promote the dashboard token overrides into `@kaleem/tokens`.** These values live in the
-  dashboard's own `@theme`/cascade (`src/index.css`) rather than the shared package, because
-  the package is consumed as a pinned git tag baked into `node_modules`
-  (`github:…#v0.1.1`) — changing it needs publish → re-pin → reinstall → Docker rebuild,
-  which also breaks live HMR verification. On the next tokens release:
-  - *layout:* `--text-display` only. **AMENDED 2026-09-12 (ADR-0040):** the content-width
-    scale (`--container-content/narrow`, `--card-min`) is **no longer for promotion** and
-    stays dashboard-local. Content width is surface-specific — the dashboard's 88rem authed
-    shell has nothing to do with marketing's page width, and one shared value forces a
-    second name the moment they disagree. `--text-display` still moves, because it is
-    typography and becomes a rung of the real type scale.
-  - *color/elevation:* dark `--primary` / `--primary-foreground` (deeper green so the filled
-    CTA dominates), lifted light `--shadow-sm`, neutral dark `--shadow-sm/md/lg`.
-  - *contrast (AA gaps):* light `--muted-foreground` `#62736C`→`#55655F` (secondary text on
-    `bg-muted` pills was 4.14:1 on `#EFE9DB`); `--input` light `#E0D9C8`→`#968B71` and dark
-    `#2A3A34`→`#5E766C` (field-boundary affordance was ~1.4:1, WCAG 1.4.11 wants 3:1 —
-    `--border` card hairlines are exempt); dark `--success-foreground` `#07302A`→`#052621`
-    (label was exactly on the 4.5:1 line).
-  - **SUPERSEDED IN APPROACH 2026-09-12 by ADR-0040.** The colour and elevation values above
-    are not promoted one-by-one: the palette is replaced outright and
-    `dashboard/src/index.css:29-64` is deleted in full. Those four colour overrides were
-    computed against surfaces that will no longer exist (`--muted-foreground: #55655F` was
-    tuned to clear 4.5:1 on `#EFE9DB`), so a surviving override would be a silently wrong
-    value. The elevation four are fixed properly by making shadows a per-theme token —
-    today they are defined only in `:root`, which is why the dashboard had to restate all
-    three in `.dark`. Keep this entry for the diagnosis; execute the plan, not the list.
 - **`TeacherProfile.availability` is a dead JSONField that duplicates
   `scheduling.WeeklyAvailability`** and violates rule #3 (no role-specific data as JSON blobs
   on a profile). Nothing reads it — availability has lived in `scheduling` since that module
@@ -774,6 +731,22 @@ proves; all are robustness of an unattended job.
   and `bg-background/70` (`DeviceCheckDialog.tsx:72`). A per-theme `--overlay` token lands
   with the `Dialog` primitive — 40% black reads completely differently over cream than over
   near-black, so one value for both themes was never right either.
+- **A `secondary` button is nearly invisible as a SURFACE against the page.**
+  `--secondary` on `--background` measures **1.09:1** in light (it was 1.13:1 on
+  v0.1.1, so this is pre-existing and only marginally worse, not a v2 regression);
+  dark is 1.75:1. `Button variant="secondary"` carries no border, so on a page
+  background the control has no identifiable boundary — arguably SC 1.4.11, which
+  wants 3:1 for a UI component boundary. Text contrast is fine (11:1+), and axe does
+  NOT catch this: its colour-contrast rule is text-only. On `--card` it reads better.
+  **Do:** decide between giving `secondary` a border and darkening the token — a
+  decision about the scale, not a sweep. (Spotted 2026-09-12 in the /design-preview
+  visual pass.)
+- **`StatusChip tone="warning"` paints `bg-destructive`.** A chip literally named
+  "warning" renders in the destructive colour, while the `--warning` token — which
+  passes AA at 4.74:1 in light — goes completely unused. Colour conveying the wrong
+  severity. Pre-existing (`src/ui/status-chip.tsx`); visible now that the preview
+  route renders all three tones side by side. Trivial fix, but it changes what users
+  see, so it is a decision not a drive-by. (Spotted 2026-09-12.)
 - **20 raw `<button>` elements live outside the `Button` primitive.** Audit, do not sweep:
   many are legitimate in-place icon controls that are not `Button` variants, and a blanket
   conversion is the D10 refactoring spree. Convert only true duplicates, opportunistically,

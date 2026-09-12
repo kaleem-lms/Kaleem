@@ -1,7 +1,7 @@
 ---
 current_phase: "C — Scheduling. **C5 and C6 SHIPPED to staging 2026-09-12** in the two-deploy order the relay requires (meta#201 backend pointer → relay live → meta#202 dashboard pointer). C4 closed 2026-09-11 except its manual phone pass, which C5 supersedes. C0–C3e closed 2026-09-07. Phase B (billing) CLOSED 2026-09-04. Phase A closed via ADR-0024. Roadmap's Phase B happy path still open: `assessment` and `analytics` were never built. Preview mode has not run."
-active_spec: "**`2026-09-12-design-system-v2-design.md`** — replace the palette outright, own it in `@kaleem/tokens`, close the dashboard's component duplication, and repair three pieces of verification that are documented but do not work (a contrast test mirroring 26 hex literals, a `tokens` repo with no CI at all, and a `/design-preview` route that does not exist). ADR-0040 (palette + EN 301 549) and ADR-0041 (DTCG tokens). Plan: `plans/2026-09-12-design-system-v2.md`. **Phases 0 and 1 done — still no code in any submodule.** Next is phase 2 (`tokens` repo). C5/C6 remain merged and deployed; what remains of each is the manual pass on a real phone, which no harness here can do."
-active_branch: "`feat/design-system-v2-palette` in **meta** (docs only). Everything else merged 2026-09-12: backend#51, dashboard#47/#48/#49, meta#199/#200/#201/#202/#204. Three Dependabot PRs still open in meta."
+active_spec: "**`2026-09-12-design-system-v2-design.md`** — ADR-0040 (palette + EN 301 549), ADR-0041 (DTCG tokens). Plan: `plans/2026-09-12-design-system-v2.md`. **Phases 0–5 done: the v2 palette is DEPLOYED.** tokens v0.2.1 tagged, dashboard and marketing re-pinned, override block deleted, `/design-preview` built, three verification gaps closed. **Phase 7 — the component consolidation — is NOT started, and it is the part the original request actually asked for** (no Dialog primitive: 14 files hand-roll Radix; 4 selects at 3 heights; 5 re-implemented Cards; focus ring copy-pasted 12x). C5/C6 remain deployed; each still owes the manual pass on a real phone."
+active_branch: "None once meta#206 lands. Design-system v2 merged 2026-09-12: tokens#4/#5 (tagged v0.2.0, v0.2.1), dashboard#50, marketing#6, meta#204/#205/#206. Three Dependabot PRs still open in meta."
 last_green_ci: "meta#202 (the C5+C6 dashboard pointer bump) → master, 2026-09-12. PR run 34695702515: all seven gates PASS including e2e with C5 and C6 together for the first time. Master run 34696063499: triage skipped every gate (the tree was already proven by the PR run — ADR-0038 working), deploy-staging SUCCESS. `app-staging.kaleem.academy` and `ws-staging.kaleem.academy/health/live/` both 200 after."
 ---
 
@@ -47,16 +47,15 @@ allowance, which Sept's usage sits exactly on.
    empty, so every master run gets a unique group and two `deploy-staging` jobs can
    overlap on the same host. This nearly bit on 2026-09-12 and was avoided by cancelling
    a run by hand.
-3. **Design-system v2 — phase 2: the `tokens` repo.** Phases 0 (spec, ADR-0040/0041, doc
-   repair) and 1 (the palette) are **done**. The palette is derived and verified — 50
-   pairs, both themes, 0 failures, bench at `specs/assets/2026-09-12-palette-v2-bench.mjs`.
-   Both blocking decisions are closed: `Button` `sm` keeps its 40px ink with a 44px
-   pseudo-element hit area (this closes what was next-action #3), and gold stays banned as
-   a text colour. **Phase 2 starts by giving the `tokens` repo its first CI workflow** — it
-   has no `.github/` at all, so nothing in that package has ever been checked
-   automatically, and every later step is unverified until it exists. Then phases 3→5 in
-   strict PR order: `tokens` → `dashboard` → `marketing` → **one** meta pointer PR
-   carrying all three. **Only the meta PR deploys** — merge it between lessons.
+3. **Design-system v2 — phase 7: the component consolidation.** Phases 0–5 are done
+   and the v2 palette is live. What remains is the part the original request was
+   actually about: there is **no `Dialog` primitive at all** (14 files hand-roll Radix
+   across two recipes), 4 `<select>` implementations at 3 heights, 5 re-implemented
+   `Card` surfaces, 4 hand-rolled skeletons, and one focus-ring recipe copy-pasted into
+   12 files. Order and rationale in the plan (P1 focusRing first, P8 `CallControlButton`
+   last and deliberately NOT a merge into `Button`). Also still owed from phase 5: the
+   staging walk and the Lighthouse re-measure — if a11y now scores above 0.95, **raise
+   the floor** (ADR-0026 ratchet).
 4. **Then choose the next phase with the user.** `assessment` closes the roadmap's happy
    path — a delivered lesson still leaves no trace — and `notifications` is the other
    candidate. Preview mode has still never run, so priorities remain provisional. Do not

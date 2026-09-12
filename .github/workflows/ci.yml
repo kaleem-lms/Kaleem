@@ -601,6 +601,14 @@ jobs:
           git config --global url."https://x-access-token:${{ secrets.TOKENS_REPO_TOKEN }}@github.com/".insteadOf "git@github.com:"
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+      # `astro build` does NOT type-check, which marketing/src/layouts/Layout.astro
+      # documented by experiment and this job made true for three months: it ran
+      # build only. Re-verified 2026-09-12 in both directions -- with a bogus prop
+      # on <Layout>, `astro build` still exits 0 while `astro check` reports the
+      # ts(2322). It catches TypeScript and template errors; it says NOTHING about
+      # the palette (ADR-0040).
+      - name: Type-check
+        run: pnpm check
       - name: Build
         run: pnpm build
 
