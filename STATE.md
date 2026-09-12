@@ -1,7 +1,7 @@
 ---
-current_phase: "C — Scheduling. C4 (call experience redesign) CODE-COMPLETE 2026-09-11 — C4a the capability, C4b the UI, both on the submodule trunks. Only the D9 manual phone pass remains. Previously CLOSED 2026-09-07: C0-C3e (matching, booking+quota, video) all shipped and live. Phase B (billing) CLOSED 2026-09-04. Phase A (identity) closed via ADR-0024, one residual human check outstanding. Roadmap's Phase B happy path is still open: `assessment` and `analytics` were never built. Preview mode has not run."
-active_spec: "`docs/superpowers/specs/2026-09-11-call-experience-redesign-design.md` — C4a and C4b both shipped. ADR-0039 ACCEPTED and amended after measurement (the answerer adopts the offer's lines; it cannot pre-create its own). No spec is open."
-active_branch: "chore/c4b-pointer — the C4b pointer bump, open. Everything else is merged: dashboard#43/#44/#45/#46, backend#50, meta #191-#195."
+current_phase: "C — Scheduling. **C5 (call fixes found on a real phone) code-complete 2026-09-12**, in three PRs sequenced by a deploy constraint: backend#51 (the `media-state` relay) must deploy BEFORE dashboard#47, and #48 is stacked on #47. C4 closed 2026-09-11 except its manual phone pass, which C5 supersedes. C0–C3e closed 2026-09-07. Phase B (billing) CLOSED 2026-09-04. Phase A closed via ADR-0024. Roadmap's Phase B happy path still open: `assessment` and `analytics` were never built. Preview mode has not run."
+active_spec: "`docs/superpowers/specs/2026-09-12-call-fixes-design.md` (C5) — status in-progress, three PRs open and unmerged. Plan: `docs/superpowers/plans/2026-09-12-call-fixes.md`."
+active_branch: "Three open, merge in THIS order: backend `feat/media-state-relay` (#51) → deploy → dashboard `feat/call-fixes-behaviour` (#47) → dashboard `feat/call-controls-redesign` (#48). Meta `docs/c5-call-fixes-spec` (#198) carries the spec, plan and runbook."
 last_green_ci: "meta 480b78b (PR #190, ADR-0038 CI cost change) → master, 2026-09-08. Run 34206968953: triage code=true verified=true, all 7 gates SKIPPED (guard matched the PR's proven tree), deploy-staging SUCCESS, staging confirmed live after. See `docs/runbook/ci.md`."
 ---
 
@@ -37,23 +37,31 @@ allowance, which Sept's usage sits exactly on.
 
 ## ▶ Next actions, in order
 
-1. **The D9 manual pass for C4, on a real phone.** Portrait and landscape, light and dark,
-   English and Arabic. Everything else in C4's Definition of Done is met; this is the only
-   step no harness here can do. ⚠ Nothing in C4 is verified on Safari or iOS — no Apple
-   device exists in this project, a standing deviation (see `journal/2026-W36.md`).
-2. **Then choose the next phase with the user.** `assessment` closes the roadmap's happy path
-   — a delivered lesson still leaves no trace — and `notifications` is the other candidate.
-   Preview mode has still never run, so priorities remain provisional. Do not pick unilaterally.
-3. Watch C3e-a's `CallDiagnostic` codes for real Safari/iOS traffic — the only verification
-   loop that phase has (`journal/2026-W36.md`). C4 added `screenshare-failed` and
-   `line-mismatch`; the second fires only when two peers' media lines disagree, which is the
-   mismatched-bundle deploy window ADR-0039 names and nothing exercises.
-4. A coturn config-only change does not restart the running relay — close before it bites
+1. **Merge C5 in order, and do not collapse the steps.** `signaling/app.py` closes the
+   socket on a message type it does not recognise, so a dashboard bundle that ships ahead
+   of the relay drops the lesson it is in, the first time anyone toggles a camera.
+   backend#51 merges → meta pointer bump → `deploy-staging` → **confirm the new relay is
+   live** → then dashboard#47, then #48. `docs/runbook/signaling.md` has the rule in its
+   own section now.
+2. **The manual pass, on the iPhone C5 came from.** Portrait and landscape, light and
+   dark, English and Arabic. Specifically unprovable by any harness here: that the OS
+   camera indicator really goes out when the camera is switched off, that a shared screen
+   is legible, and that audio is audible. Fake media proves plumbing only.
+3. **Decide whether the Safari/iOS deviation can close.** The capture that started C5 is
+   from an iOS device. W36 records a standing D9 deviation that nothing in C3e or C4 is
+   verifiable on Safari or iOS because no Apple device exists in this project, and
+   C3e-a's `CallDiagnostic` codes have had no real reporter for that reason. If that
+   device is available for testing, that changes. It is the user's call.
+4. **Then choose the next phase with the user.** `assessment` closes the roadmap's happy
+   path — a delivered lesson still leaves no trace — and `notifications` is the other
+   candidate. Preview mode has still never run, so priorities remain provisional. Do not
+   pick unilaterally.
+5. A coturn config-only change does not restart the running relay — close before it bites
    again (`ISSUES.md`).
-5. **Blocks launch:** the quota cycle is keyed by an exact `current_period_end`; a mid-cycle
-   rewrite would hand out a second allowance.
-6. **Someday:** force the artifact-miss path once a code change merges >7 days after going
-   green (`ISSUES.md`).
+6. **Blocks launch:** the quota cycle is keyed by an exact `current_period_end`; a
+   mid-cycle rewrite would hand out a second allowance.
+7. **Someday:** force the artifact-miss path once a code change merges >7 days after
+   going green (`ISSUES.md`).
 
 ## Standing warnings
 
