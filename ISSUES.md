@@ -277,6 +277,16 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
 
 ## Someday
 
+- **The shared `Button`'s `sm` size is 40px, under the 44pt touch guidance.**
+  `src/ui/button.tsx`: `sm: "h-10 px-3"`. WCAG 2.2 AA (SC 2.5.8, 24x24) passes, so this
+  is not a baseline violation — but Apple HIG asks for 44pt, and the call route's own
+  e2e enforces 44. `size="sm"` is used on the availability footer, the schedule's past
+  disclosure, the timezone picker and elsewhere, so changing the scale is a repo-wide
+  visual change, not a local fix. Found when a C6 exit control measured 40px in
+  Chromium. **Do:** decide whether `sm` should become `h-11`, or whether `sm` is
+  desktop-only and touch surfaces must use `md`. Either way it wants a decision, not a
+  sweep.
+
 - **The call's idle screen tile relies on a laid-out-but-invisible `<video>` continuing to
   decode, and that is not spec-guaranteed.** C4b gates the shared-screen tile on frames
   (`useVideoFrames`), which means the `<video>` must be mounted and decoding before anyone
