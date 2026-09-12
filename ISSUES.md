@@ -16,6 +16,33 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
 
 ## Blocks launch
 
+- **`text-primary` links fail AA in dark mode wherever they sit on a card — measured LIVE on
+  staging 2026-09-12.** The auth pages put `text-primary underline` links inside
+  `AuthLayout`'s Card, and dark `--primary` (`#50A083`) on dark `--card` (`#2A302E`) measures
+  **4.29:1**, under 1.4.3's 4.5. Confirmed by a real-browser axe run against
+  `app-staging.kaleem.academy` on `/login` (2 nodes), `/register`, `/forgot-password` and
+  `/verify-pending`.
+
+  **Pre-existing, not a phase-7 regression** — the links were `text-primary` before P1 (commit
+  `9911a71`). It survived the whole palette replacement for the reason
+  `tokens/src/contrast-pairs.json` states in its own `$limits`: *"Declared pairs only. A
+  component pairing two tokens nobody listed here still passes."* `primary`-as-text is declared
+  against no surface at all.
+
+  | dark `--primary` `#50A083` on | ratio | verdict |
+  | --- | --- | --- |
+  | `--background` `#191C1B` | 5.47 | passes |
+  | `--card` `#2A302E` | **4.29** | **fails 1.4.3** |
+  | `--secondary` `#3E4542` | **3.14** | fails badly — do not use |
+
+  **Two candidate fixes, and it is a palette decision, so it is the owner's:**
+  (a) lighten dark `--primary` until it clears 4.5 on `card` — but `--primary` is also a
+  SURFACE (`bg-primary` + `primary-foreground`), so that pair moves too; or (b) add a
+  dedicated `--primary-text` token used only for text, leaving every existing colour alone.
+  (b) is additive and lower-risk, and has precedent: `docs/architecture/design-system.md`
+  already proposes exactly that shape for `--accent`. **Either way, declare the pair in
+  `contrast-pairs.json`** — otherwise the next palette change re-opens it silently.
+
 - **Staging passwords were world-readable on a then-public `master`, and remain in git
   history.** On 2026-09-08 `kaleem-lms/Kaleem` was public and
   `curl https://raw.githubusercontent.com/kaleem-lms/Kaleem/master/STATE.md` returned
@@ -640,6 +667,10 @@ Measured 2026-09-04 by the first run (ADR-0030). The floors in `.lighthouserc.js
 just below these, so none of them is red today — each is what stops a category reaching
 100.
 
+- **`app-staging` performance sits ON its floor.** Measured 2026-09-12: 0.94 / 0.95 / 0.95
+  across three runs against a 0.95 floor. The assertion passes on the median, but one run in
+  three is already under it — one regression from a flaky nightly. The cause is known and
+  unaddressed: a single 862 KB JS chunk, warned about at every build.
 - **Marketing SEO should now measure higher than its floor.** The home page's missing
   `<meta name="description">` is fixed (marketing #5), so the next nightly re-measures
   SEO on `staging.kaleem.academy`. Raise the `.lighthouserc.json` SEO floor to the new
@@ -649,8 +680,17 @@ just below these, so none of them is red today — each is what stops a category
   build. Measured 2026-09-04 — deleting a required prop built clean. `Layout.astro`'s
   `description` guard is therefore a runtime throw, which is a workaround for the missing
   check, not a substitute for it. Add `astro check` to the job and the throw can go.
-- **`app-staging` login page: colour contrast fails** (a11y 96). Same root cause as the
-  `@kaleem/tokens` contrast entry under "Blocks launch" — fix there, not here.
+- ~~**`app-staging` login page: colour contrast fails** (a11y 96).~~ **CLOSED 2026-09-12.**
+  Re-measured after the design-system v2 palette deployed: accessibility is **1.00** on both
+  `app-staging.kaleem.academy/login` and `staging.kaleem.academy`, 3 of 3 runs each. The
+  `.lighthouserc.json` a11y floor is raised 0.95 → **1.00** accordingly (ADR-0026 ratchet).
+  ⚠ A floor of 1.00 has no headroom by construction: any new Lighthouse a11y finding turns the
+  nightly red immediately. That is the intent — the floor was raised to the measured value,
+  not to something comfortable.
+  ⚠ **Lighthouse 1.00 is not a clean bill of health.** It is a weighted subset of automated
+  audits, run against the DEFAULT theme. A real-browser axe sweep of the same pages on the same
+  day found a live 1.4.3 failure on `text-primary` links in dark mode (see "Blocks launch")
+  that Lighthouse scored 1.00 straight through.
 - **`app-staging`: browser errors logged to the console, and `robots.txt` is invalid**
   (best-practices 78, SEO 82). The dashboard has no `robots.txt` at all, which for an
   authenticated app is arguably fine but currently reads as a failure rather than a
@@ -704,6 +744,14 @@ proves; all are robustness of an unattended job.
   are out of scope (documented in the spec). Revisit when the matching feature lands.
 
 ### Dashboard
+
+- **The touch-target sweep does not model SC 2.5.8's *inline* exception.** The criterion exempts
+  a target "in a sentence or whose size is constrained by the line-height of non-target text".
+  `e2e/touch-targets.spec.ts` has no such carve-out, which is fine on `/design-preview` (no
+  inline links) but would flag the real auth pages: `/register`'s "already have an account?"
+  link measures 148x21 and is a legitimate inline exemption, not a failure. If the sweep is
+  ever pointed at real routes, teach it the exception first or it will report false failures
+  and get muted.
 
 - **No `Sheet` primitive.** `AppShell`'s mobile drawer is the only side-panel in the app, so
   design-system v2 P2b deliberately left it on raw Radix rather than inventing a primitive for
