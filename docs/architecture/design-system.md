@@ -39,7 +39,7 @@ and import in their Tailwind v4 entry CSS:
     @import "@kaleem/tokens/theme.css";
 
 To change the brand: edit the tokens repo, commit, tag `vX.Y.Z`, push the tag; then bump
-the dependency ref in each consumer and reinstall. Current release: **v0.2.1**.
+the dependency ref in each consumer and reinstall. Current release: **v0.2.2**.
 
 ### Rule: tokens are shared, components are not
 
@@ -124,14 +124,30 @@ symmetric negative insets (which mirror under RTL for free):
 a 1px border, so `-inset-0.5` yields a 22px target, not 24 — it needs `-inset-[3px]`.
 This is why the gate hit-tests rather than measuring geometry.
 
+**SC 2.5.8's `inline` exception is implemented, not ignored.** The criterion exempts a
+target "in a sentence, or whose size is otherwise constrained by the line-height of
+non-target text" — detected structurally (inline-level, with non-target text in the parent).
+It does **not** cover a link that is the sole content of its paragraph: nothing constrains
+that one, so it must be enlarged. Those use `inlineTapTarget` (19px ink → 25px target).
+
 `e2e/touch-targets.spec.ts` sweeps every enabled control on `/design-preview` at desktop
 and phone widths using `elementFromPoint` — **`boundingBox()` returns the painted box and
 cannot see a pseudo-element at all**, so a geometry-based gate would fail both controls
-while they are correct. The gate is 24×24 (what WCAG 2.2 AA requires); 44×44 is the
+while they are correct. It also sweeps the four real auth routes, which is where the
+standalone-link failures were found; `/design-preview` renders primitives, not pages, and
+has no inline links at all. The gate is 24×24 (what WCAG 2.2 AA requires); 44×44 is the
 project preference and is met by everything not deliberately dense. A second test asserts
 the dense controls accept *more* than they paint, so deleting the expansion cannot pass.
 
 ### Color-usage guardrails
+
+- **A SURFACE colour is not a text colour.** `--primary` is the filled emerald behind a
+  button; painted as text it measures **4.29:1 on `--card`** and 3.14:1 on `--secondary` in
+  dark, under 1.4.3's 4.5. That shipped on every auth page. Use **`--primary-text`**
+  (`text-primary-text`) for emerald text — v0.2.2, chosen to clear 4.5:1 on background, card,
+  popover, secondary and muted in both themes. Light is unchanged: it is the same emerald.700
+  `--primary` already had there. `scripts/check-colors.mjs` rejects the surface colours used
+  as text, with the wordmark's decorative "." annotated as the one exemption.
 
 - **`--accent` (gold) is a surface/decoration color, not a text color.** In v2 it measures
   **3.05:1 in light** (needs 4.5) and **7.28:1 in dark**. The ban is a light-mode constraint
@@ -169,3 +185,19 @@ step (ADR-0028).
 contrast gate, unit tests, and a mutation step that breaks a token value on purpose and
 fails if the gate stays green. `smoke.test.mjs` is gone — it scraped CSS with a regex and
 was superseded by real structural parity between the light and dark token trees.
+
+## What each a11y gate cannot see
+
+Four gates run, and every real failure so far slipped through at least three of them. The
+useful question is not "is it green" but "which gate could possibly have caught this".
+
+| Gate | Sees | Blind to |
+| --- | --- | --- |
+| Token contrast (`tokens` CI + `a11y.test.tsx`) | every **declared** pair, both themes | a pair nobody declared — how `--primary`-as-text shipped at 4.29:1 |
+| jsdom axe (`design-preview.test.tsx`) | roles, names, labels, ARIA | **colour contrast** (axe disables it without a renderer); also maps `<header>` in `<main>` to `banner`, which real browsers do not |
+| Browser axe (`design-preview.spec.ts`, `identity.spec.ts`) | contrast **as rendered**, composited alpha, real cascade | anything not on a swept route — the preview renders primitives, not pages |
+| Lighthouse (nightly) | a weighted subset, **default theme only** | dark mode entirely. It scored 1.00 on pages with a live 1.4.3 dark failure |
+
+**The pattern:** a gate proves the thing it measures, and every one of them is narrower than
+"the UI is accessible". Adding a route to a sweep is usually worth more than tightening a
+threshold.

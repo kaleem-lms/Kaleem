@@ -76,7 +76,12 @@ try {
 	);
 }
 
-const gitlink = git(["ls-tree", "HEAD", "tokens"]).split(/\s+/)[2];
+// Read the INDEX, not HEAD. In CI the two are identical (the runner checks out
+// the commit), but locally HEAD is the PREVIOUS commit — so a HEAD-based check
+// fails on a correctly staged pointer bump and passes on an unstaged one, which
+// is exactly backwards for a pre-commit check. It caught its own author this way
+// on the v0.2.2 bump.
+const gitlink = git(["ls-files", "-s", "tokens"]).split(/\s+/)[1];
 if (gitlink !== tagged) {
 	fail(
 		`The tokens submodule pointer and the package pin disagree.\n\n` +

@@ -42,33 +42,28 @@ allowance, which Sept's usage sits exactly on.
    rest on checks a harness cannot make: that the OS camera indicator really goes out,
    that audio is audible, that a shared screen is legible, and anything at all on Safari
    or iOS. Staging is live and carrying both.
-2. **Fix the live 1.4.3 failure the staging walk found** (`ISSUES.md` → Blocks launch).
-   `text-primary` links on a Card measure **4.29:1** in dark mode, and every auth page
-   carries them. Pre-existing, not a phase-7 regression. It needs a palette decision:
-   lighten dark `--primary`, or add an additive `--primary-text`. **Declare the pair in
-   `contrast-pairs.json` either way**, or the next palette change re-opens it silently.
-3. **Finish the staging walk's authenticated half.** It could not run: every staging
+2. **Finish the staging walk's authenticated half.** Still blocked: every staging
    credential in `ISSUES.md` is refused, consistent with the rotation already tracked
    there. `Dialog`, `Skeleton` and `Meter` are therefore unverified on staging. The
-   unauthenticated half passed — v2 palette live in both themes, RTL flips, one `h1` and
-   one `banner` per auth page, and Lighthouse a11y **1.00** (floor raised to match).
-   ⚠ Three visible phase-7 changes deserve human eyes: session rows and the call end
-   screen moved 12px → 16px corners, the dashboard spotlight's title/description gap
-   tightened, and the five auth headings grew to the display rank.
-4. **Fix the CI concurrency group before the next busy merge day** (`ISSUES.md`).
-   `ci.yml`'s group is `${{ github.head_ref || github.run_id }}`; on a push `head_ref` is
-   empty, so every master run gets a unique group and two `deploy-staging` jobs can
-   overlap on the same host. This nearly bit on 2026-09-12 and was avoided by cancelling
-   a run by hand.
-5. **Then choose the next phase with the user.** `assessment` closes the roadmap's happy
+   unauthenticated half passes — v2 palette live in both themes, RTL flips, one `h1` and
+   one `banner` per auth page, Lighthouse a11y **1.00** (floor raised to match).
+   ⚠ Visible changes from phase 7 + the a11y fixes deserve human eyes: 12px → 16px corners
+   on session rows and the call end screen, a tightened spotlight gap, auth headings at
+   display rank, **emerald links lighter in dark mode**, and **the topbar wordmark hidden
+   below `sm`**.
+3. **Rotate the staging passwords** (`ISSUES.md` → Blocks launch). They were
+   world-readable on a then-public master and are still in history; they are ALSO simply
+   wrong now — every documented credential is refused — so the rotation and the blocked
+   walk above are one task, not two.
+4. **Then choose the next phase with the user.** `assessment` closes the roadmap's happy
    path — a delivered lesson still leaves no trace — and `notifications` is the other
    candidate. Preview mode has still never run, so priorities remain provisional. Do not
    pick unilaterally.
-6. A coturn config-only change does not restart the running relay — close before it bites
+5. A coturn config-only change does not restart the running relay — close before it bites
    again (`ISSUES.md`).
-7. **Blocks launch:** the quota cycle is keyed by an exact `current_period_end`; a
+6. **Blocks launch:** the quota cycle is keyed by an exact `current_period_end`; a
    mid-cycle rewrite would hand out a second allowance.
-8. **Someday:** force the artifact-miss path once a code change merges >7 days after
+7. **Someday:** force the artifact-miss path once a code change merges >7 days after
    going green (`ISSUES.md`).
 
 ## Standing warnings
@@ -97,6 +92,12 @@ allowance, which Sept's usage sits exactly on.
   `text-end` mis-aligning Arabic — and measurement overturned three plan assumptions,
   most notably that `CallControlButton`'s alpha was a defect (it measures 7.15:1, above
   AAA, and was left alone). Full account: spec outcome + `journal/2026-W37.md`.
+- **Four real accessibility failures fixed 2026-09-13**, each found by a gate that another
+  gate was blind to: `--primary` used as text (4.29:1 on cards in dark → new `--primary-text`
+  token, v0.2.2, pair now DECLARED); the app topbar overflowing at 320px on **every** authed
+  route (SC 1.4.10); standalone auth links at 19px (SC 2.5.8); and the focus ring offsetting
+  against the wrong surface in a `bg-secondary` well. New gates: auth-route contrast in both
+  themes, reflow at 320/360/430, and the target sweep pointed at real routes.
 - **Lighthouse re-measured 2026-09-12 after the palette deployed: accessibility 1.00** on both
   staging URLs, 3/3 runs each, up from 0.96. The `.lighthouserc.json` a11y floor is raised to
   1.00. It is not a clean bill of health — an axe sweep the same day found a live 1.4.3 failure
