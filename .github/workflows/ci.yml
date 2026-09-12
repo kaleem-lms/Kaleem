@@ -11,9 +11,22 @@ on:
   push:
     branches: [master, main]
 
+# On a PULL REQUEST, `head_ref` is the branch, so pushes to one branch share a
+# group and a superseded run is cancelled. On a PUSH, `head_ref` is EMPTY — the
+# old fallback was `run_id`, which is unique per run, so every master run got its
+# own group and two `deploy-staging` jobs could run against the same host at once.
+# That nearly happened on 2026-09-12 and was avoided by cancelling a run by hand.
+# `github.ref` is the correct fallback: all master runs then share one group.
+#
+# CANCELLATION IS DELIBERATELY OFF FOR PUSHES. Sharing a group is only half the
+# fix — with `cancel-in-progress: true`, a second merge would KILL a deploy
+# mid-flight, and `ship.sh` has a window where it has torn the old colour down
+# and not yet brought the new one up. That is the shape of the 2026-09-12
+# incident, which left `.active-color` empty. `false` makes the second run WAIT
+# instead, which is what serialising a deploy means.
 concurrency:
-  group: ${{ github.head_ref || github.run_id }}
-  cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 # The artifact lookup in `triage` reads the Actions API. Declaring permissions
 # explicitly also drops the token from the repo-default (write) to the least

@@ -16,32 +16,23 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
 
 ## Blocks launch
 
-- **`text-primary` links fail AA in dark mode wherever they sit on a card — measured LIVE on
-  staging 2026-09-12.** The auth pages put `text-primary underline` links inside
-  `AuthLayout`'s Card, and dark `--primary` (`#50A083`) on dark `--card` (`#2A302E`) measures
-  **4.29:1**, under 1.4.3's 4.5. Confirmed by a real-browser axe run against
-  `app-staging.kaleem.academy` on `/login` (2 nodes), `/register`, `/forgot-password` and
-  `/verify-pending`.
+- ~~**`text-primary` links fail AA in dark mode wherever they sit on a card.**~~ **FIXED
+  2026-09-13** in `@kaleem/tokens` v0.2.2 + dashboard #63. The root cause was not a bad
+  value but an **undeclared pair**: `--primary` is a SURFACE colour, and nothing asserted it
+  as text, so 4.29:1 on `--card` and 3.14:1 on `--secondary` shipped on every auth page.
 
-  **Pre-existing, not a phase-7 regression** — the links were `text-primary` before P1 (commit
-  `9911a71`). It survived the whole palette replacement for the reason
-  `tokens/src/contrast-pairs.json` states in its own `$limits`: *"Declared pairs only. A
-  component pairing two tokens nobody listed here still passes."* `primary`-as-text is declared
-  against no surface at all.
+  `--primary-text` is the emerald chosen to clear 4.5:1 on every surface a link can land on
+  (light: emerald.700 — the same value `--primary` already had, so light did not change;
+  dark: emerald.300). The pair is now **declared** against background, card, popover,
+  secondary and muted, and mutation-checked: pointing it back at emerald.500 reproduces the
+  exact four failures.
 
-  | dark `--primary` `#50A083` on | ratio | verdict |
-  | --- | --- | --- |
-  | `--background` `#191C1B` | 5.47 | passes |
-  | `--card` `#2A302E` | **4.29** | **fails 1.4.3** |
-  | `--secondary` `#3E4542` | **3.14** | fails badly — do not use |
-
-  **Two candidate fixes, and it is a palette decision, so it is the owner's:**
-  (a) lighten dark `--primary` until it clears 4.5 on `card` — but `--primary` is also a
-  SURFACE (`bg-primary` + `primary-foreground`), so that pair moves too; or (b) add a
-  dedicated `--primary-text` token used only for text, leaving every existing colour alone.
-  (b) is additive and lower-risk, and has precedent: `docs/architecture/design-system.md`
-  already proposes exactly that shape for `--accent`. **Either way, declare the pair in
-  `contrast-pairs.json`** — otherwise the next palette change re-opens it silently.
+  Three gates were blind to it, each for a different reason, and all three are now closed:
+  the token gate proves declared pairs (now declares it); the browser-axe sweep ran only on
+  `/design-preview`, which renders primitives rather than pages (now sweeps the four real
+  auth routes in **both themes**); and Lighthouse audits the default theme only, scoring
+  these same pages 1.00 the same day (the new sweep is explicitly dark-first). A source lint
+  also now rejects the primary/accent SURFACE colours used as text.
 
 - **Staging passwords were world-readable on a then-public `master`, and remain in git
   history.** On 2026-09-08 `kaleem-lms/Kaleem` was public and
@@ -203,15 +194,15 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
 
 ## Blocks a phase close
 
-- **`/availability` scrolls sideways at phone width — SC 1.4.10 Reflow (found during
-  design-system v2 P3).** The inline range editor has a hard **376px** minimum, measured
-  identically at 320px and 360px viewports, so at 1.4.10's 320px reference the page
-  overflows by 56px. Measured on `main` before and after the Select convergence — 376 both
-  times — so it is pre-existing and was not introduced by that work. It is a layout fix
-  (the row needs to wrap or the pickers need to stack), not a primitive fix, which is why
-  P3 logged it rather than widening its scope. The 430x932 upright-phone viewport passes,
-  which is why no existing e2e caught it: `session-ui.spec.ts` covers the call routes, and
-  availability has no phone-width spec at all.
+- ~~**`/availability` scrolls sideways at phone width — SC 1.4.10 Reflow.**~~ **FIXED
+  2026-09-13** (dashboard #64), and the diagnosis in this entry was wrong twice over. It was
+  not the availability editor, and it was not one page: measuring PER ELEMENT instead of per
+  page found the app shell's **topbar** — a non-wrapping row of hamburger + wordmark + a
+  211px control cluster summing to 376px — so **every authed route** overflowed at 320px.
+  The wordmark is now hidden below `sm`; it gives way because it is the only thing in that
+  row carrying no function. `e2e/reflow.spec.ts` sweeps five routes at 320/360/430 and
+  reports the widest element, not just the page width, so the next regression arrives as a
+  diagnosis rather than a hunt.
 
 - **The inactive colour's WebSocket hostname has no TLS certificate (C3c) — smaller than first
   thought.** Traefik issues via Let's Encrypt's HTTP challenge when a router first appears, so
@@ -334,26 +325,20 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
 - **Availability entry is still one range at a time.** A weekday 9–5 schedule is ~20
   interactions through 96-option selects. C6 added a confirmed copy-to-all and a weekly
   total; a drag-select grid is its own spec.
-- **Two `deploy-staging` jobs can run at once on `master`.** `ci.yml`'s
-  `concurrency.group` is `${{ github.head_ref || github.run_id }}`. On a *push* (which is
-  what a merge to `master` is) `head_ref` is empty, so the group falls back to
-  `run_id` — unique per run — and `cancel-in-progress` never fires. Two merges close
-  together therefore deploy concurrently to the same staging host. Observed 2026-09-12:
-  a second master push started while meta#201's deploy was still running; the race was
-  avoided only by cancelling the second run by hand. **Do:** give pushes a stable group
-  (e.g. `${{ github.workflow }}-${{ github.ref }}`) so a newer deploy supersedes an
-  older one, and decide whether `cancel-in-progress` is right for a deploy (queueing may
-  be safer than cancelling mid-deploy).
+- ~~**Two `deploy-staging` jobs can run at once on `master`.**~~ **FIXED 2026-09-13.** The
+  group is now `${{ github.workflow }}-${{ github.head_ref || github.ref }}`, so all master
+  runs share one. **`cancel-in-progress` is deliberately OFF for pushes** — the entry above
+  asked whether cancelling was right for a deploy, and it is not: `ship.sh` has a window
+  where the old colour is down and the new one is not yet up, and killing a run inside it is
+  the exact shape of the 2026-09-12 incident that left `.active-color` empty. Pushes queue;
+  pull requests still cancel superseded runs.
 
-- **The shared `Button`'s `sm` size is 40px, under the 44pt touch guidance.**
-  `src/ui/button.tsx`: `sm: "h-10 px-3"`. WCAG 2.2 AA (SC 2.5.8, 24x24) passes, so this
-  is not a baseline violation — but Apple HIG asks for 44pt, and the call route's own
-  e2e enforces 44. `size="sm"` is used on the availability footer, the schedule's past
-  disclosure, the timezone picker and elsewhere, so changing the scale is a repo-wide
-  visual change, not a local fix. Found when a C6 exit control measured 40px in
-  Chromium. **Do:** decide whether `sm` should become `h-11`, or whether `sm` is
-  desktop-only and touch surfaces must use `md`. Either way it wants a decision, not a
-  sweep.
+- ~~**The shared `Button`'s `sm` size is 40px, under the 44pt touch guidance.**~~ **CLOSED
+  2026-09-13** (ADR-0040 decision (c), implemented in phase 7 P8). The ink stays 40px and the
+  TARGET is 44px via a pseudo-element, because SC 2.5.8 measures the region that accepts a
+  pointer, not the painted box — so dense table rows keep their density. `Checkbox` got the
+  same treatment (20px ink, 24px target) after the sweep found it genuinely under the
+  minimum. Verified by hit-testing in `e2e/touch-targets.spec.ts`, not by measuring geometry.
 
 - **The call's idle screen tile relies on a laid-out-but-invisible `<video>` continuing to
   decode, and that is not spec-guaranteed.** C4b gates the shared-screen tile on frames
@@ -745,13 +730,15 @@ proves; all are robustness of an unattended job.
 
 ### Dashboard
 
-- **The touch-target sweep does not model SC 2.5.8's *inline* exception.** The criterion exempts
-  a target "in a sentence or whose size is constrained by the line-height of non-target text".
-  `e2e/touch-targets.spec.ts` has no such carve-out, which is fine on `/design-preview` (no
-  inline links) but would flag the real auth pages: `/register`'s "already have an account?"
-  link measures 148x21 and is a legitimate inline exemption, not a failure. If the sweep is
-  ever pointed at real routes, teach it the exception first or it will report false failures
-  and get muted.
+- ~~**The touch-target sweep does not model SC 2.5.8's *inline* exception.**~~ **FIXED
+  2026-09-13** (dashboard #65) — and the fix reversed the finding. The sweep now implements
+  the exception structurally (inline-level, with non-target text in the parent), then was
+  pointed at the four real auth routes, where it reported the standalone links as failures
+  anyway. **It was right and this entry was wrong:** those links are the SOLE content of
+  their own paragraph, so no non-target text constrains their height and the exception does
+  not apply — which is precisely when 2.5.8 requires the target to be enlarged. All are now
+  19px of ink inside a 25px target via `inlineTapTarget`, the same pseudo-element technique
+  as `Button size="sm"` and `Checkbox`.
 
 - **No `Sheet` primitive.** `AppShell`'s mobile drawer is the only side-panel in the app, so
   design-system v2 P2b deliberately left it on raw Radix rather than inventing a primitive for
