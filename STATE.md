@@ -37,13 +37,19 @@ allowance, which Sept's usage sits exactly on.
 
 ## ▶ Next actions, in order
 
-0. **C6 (the audit fixes) is code-complete and stacked on #48.** Unit suite 1082 green,
-   biome/tsc clean, coverage ratcheted to 96.53/93.08/88.35 by the config's own two-unit
-   rule, and the availability e2e (6 flows, 3 new) verified against the local stack
-   including a mutation check. It changes nothing about the C5 merge order below — it
-   simply goes last, after #48. **Read the journal entry before reviewing it:** the
-   audit's headline P0 was overstated and the first two versions of its own test proved
-   nothing; both are recorded rather than quietly corrected.
+0. **C6 (the audit fixes) is code-complete, stacked on #48, and fully verified.** Unit
+   suite 1099 green, biome/tsc clean, coverage 96.57/93.31/88.92 against ratcheted floors
+   of 96.53/93.08/88.35, and **the whole e2e suite run serially against the local stack:
+   61/61**, on a fresh seed and a restarted relay. It changes nothing about the C5 merge
+   order below — it simply goes last, after #48.
+   **Read the journal entry before reviewing it.** Three things in it are worth more than
+   the diff: the audit's headline P0 was overstated (React Query structurally shares
+   results, so an unchanged refetch cannot overwrite anything); C6 itself introduced a
+   silent data corruption — the availability page rewrote a teacher's stored timezone to
+   the browser's, moving every hour they had declared, found only because
+   `matching.spec.ts` went red three specs later; and **three separate regression tests
+   passed against builds that still had their bug**, each for a different reason. Nothing
+   here is trustworthy that has not been seen to fail.
 1. **Merge C5 in order, and do not collapse the steps.** `signaling/app.py` closes the
    socket on a message type it does not recognise, so a dashboard bundle that ships ahead
    of the relay drops the lesson it is in, the first time anyone toggles a camera.
