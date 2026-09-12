@@ -59,8 +59,22 @@ because both pull the same tokens.
   persists `localStorage["kaleem-locale"]`. Full RTL UI is supported; layout relies on
   logical/`rtl:` classes, not physical left/right.
 - **Verification gate**: `src/test/a11y.test.tsx` runs axe (LTR + RTL) and asserts WCAG AA
-  contrast (≥ 4.5:1) on key token pairings in **both** themes. The `/design-preview` route
-  renders the 3-mode login (light/dark/RTL) for manual + automated checks.
+  contrast (≥ 4.5:1) on key token pairings in **both** themes.
+
+  Two caveats, both load-bearing and both being fixed by ADR-0040/0041:
+  1. **The contrast tables hand-mirror hex literals** copied from the token files. The
+     file's own comment (L58-63) records a drift that made the gate pass while testing
+     nothing. Until the derived gate lands, treat a green contrast run as weaker evidence
+     than it looks.
+  2. **axe runs against one sample tree only** (`AuthLayout` + `Field` + `Input` +
+     `Button`) — no other component or route is scanned. And jsdom axe cannot evaluate
+     `color-contrast` at all, so the axe half and the contrast half prove unrelated
+     things.
+
+- **`/design-preview` is PLANNED, not built.** An earlier version of this document
+  described it as existing; `dashboard/src/routes/` has no such file. It lands in phase 3
+  of `docs/superpowers/plans/2026-09-12-design-system-v2.md`, where it is the primary
+  mitigation for an atomic palette swap.
 
 ### Color-usage guardrails
 
@@ -89,5 +103,10 @@ have no workflows). `@kaleem/tokens` is a private git dependency, so:
   never persisted in a committed layer.
 
 `TOKENS_REPO_TOKEN` (read access to `kaleem-lms/tokens`) must exist as a secret on the
-**meta repo** (or org-level). CI runs on PRs to / pushes on `master`/`main`; the
-develop→master promotion is what exercises the build + staging deploy.
+**meta repo** (or org-level). CI runs on PRs to / pushes on `master`/`main`. A **merge to
+the meta trunk is the staging deploy** — there is no `develop` branch and no promotion
+step (ADR-0028).
+
+**The `tokens` repo itself has no CI yet** (no `.github/` directory), so `smoke.test.mjs`
+has never run automatically. ADR-0041 adds the package's first workflow as its first
+step.

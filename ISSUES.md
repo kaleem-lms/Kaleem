@@ -140,6 +140,15 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
   `@kaleem/tokens` package still ships the failing values.** Anything else consuming the
   package (marketing) inherits them. See the token-promotion entry under "Blocks a phase
   close" for the full list — promote the package, don't just keep the overrides.
+  **Being closed by ADR-0040** (`docs/superpowers/plans/2026-09-12-design-system-v2.md`),
+  which replaces the palette outright and deletes the override block rather than promoting
+  it value-by-value. Do not fix this entry separately — the two would collide.
+- **EN 301 549 clause 7: no captions or audio description for live lessons.** ADR-0040
+  adopts EN 301 549, and for the design system its delta over WCAG 2.2 AA is ~zero
+  (clause 9 incorporates WCAG by reference). **Clause 7 is the one with real teeth** and
+  kaleem cannot currently meet it: the call carries no captioning. Belongs to the call
+  feature, needs its own spec, deliberately out of scope for the design-system work.
+  Logged here rather than left unstated so "EN 301 549 conformant" is never claimed flat.
 - **Throwaway users in the staging DB.** `stg.smoke@example.com`, `ses.smoke@example.com`,
   and `c0.subjects.check@example.com` (a child of `billing.clickthrough@`, created
   2026-09-05 while verifying C0 and left unverified — it cannot log in). Clear via
@@ -241,7 +250,12 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
   the package is consumed as a pinned git tag baked into `node_modules`
   (`github:…#v0.1.1`) — changing it needs publish → re-pin → reinstall → Docker rebuild,
   which also breaks live HMR verification. On the next tokens release:
-  - *layout:* content-width scale (`--container-page/narrow/wide`) + `--text-display`.
+  - *layout:* `--text-display` only. **AMENDED 2026-09-12 (ADR-0040):** the content-width
+    scale (`--container-content/narrow`, `--card-min`) is **no longer for promotion** and
+    stays dashboard-local. Content width is surface-specific — the dashboard's 88rem authed
+    shell has nothing to do with marketing's page width, and one shared value forces a
+    second name the moment they disagree. `--text-display` still moves, because it is
+    typography and becomes a rung of the real type scale.
   - *color/elevation:* dark `--primary` / `--primary-foreground` (deeper green so the filled
     CTA dominates), lifted light `--shadow-sm`, neutral dark `--shadow-sm/md/lg`.
   - *contrast (AA gaps):* light `--muted-foreground` `#62736C`→`#55655F` (secondary text on
@@ -249,6 +263,14 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
     `#2A3A34`→`#5E766C` (field-boundary affordance was ~1.4:1, WCAG 1.4.11 wants 3:1 —
     `--border` card hairlines are exempt); dark `--success-foreground` `#07302A`→`#052621`
     (label was exactly on the 4.5:1 line).
+  - **SUPERSEDED IN APPROACH 2026-09-12 by ADR-0040.** The colour and elevation values above
+    are not promoted one-by-one: the palette is replaced outright and
+    `dashboard/src/index.css:29-64` is deleted in full. Those four colour overrides were
+    computed against surfaces that will no longer exist (`--muted-foreground: #55655F` was
+    tuned to clear 4.5:1 on `#EFE9DB`), so a surviving override would be a silently wrong
+    value. The elevation four are fixed properly by making shadows a per-theme token —
+    today they are defined only in `:root`, which is why the dashboard had to restate all
+    three in `.dark`. Keep this entry for the diagnosis; execute the plan, not the list.
 - **`TeacherProfile.availability` is a dead JSONField that duplicates
   `scheduling.WeeklyAvailability`** and violates rule #3 (no role-specific data as JSON blobs
   on a profile). Nothing reads it — availability has lived in `scheduling` since that module
@@ -737,7 +759,17 @@ proves; all are robustness of an unattended job.
   hidden entirely for a lapsed user; `useDateFormatter` builds a fresh `Intl.DateTimeFormat`
   per call.
 - The cancel dialog's `bg-black/40` overlay is a non-token colour, carried over from
-  `RemoveEmailDialog`. Fix both call sites in a token audit.
+  `RemoveEmailDialog`. Fix both call sites in a token audit. **Scoped into ADR-0040**: the
+  full count is **14 sites**, not two, plus divergent `bg-black/60` (`CallControls.tsx:164`)
+  and `bg-background/70` (`DeviceCheckDialog.tsx:72`). A per-theme `--overlay` token lands
+  with the `Dialog` primitive — 40% black reads completely differently over cream than over
+  near-black, so one value for both themes was never right either.
+- **20 raw `<button>` elements live outside the `Button` primitive.** Audit, do not sweep:
+  many are legitimate in-place icon controls that are not `Button` variants, and a blanket
+  conversion is the D10 refactoring spree. Convert only true duplicates, opportunistically,
+  when already in the file. The clearest real duplicate is `ExitToSchedule.tsx:33`, a
+  fully hand-rolled pill (h-11, rounded-full, own ring, own focus recipe).
+  (Spotted 2026-09-12 during the design-system v2 audit; deliberately left out of that plan.)
 - The room route (C3d) has two `<h1>`s at once during the Lobby state: its own `sr-only`
   "Lesson room" plus `Lobby.tsx`'s visible "Get ready for your lesson". Demote `Lobby`'s to
   `<h2>` once something touches that file again.
