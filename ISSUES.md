@@ -277,6 +277,27 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
 
 ## Someday
 
+- **The weekly-slot picker names a time and nothing else.** `SlotOption` carries only
+  `weekday`/`start_time`/`starts_at`, so the cards a student chooses their standing weekly
+  time from cannot show the teacher, the subject or the duration — there is nothing on the
+  wire to show. Found in the C6 audit; closing it needs an API change, which put it out of
+  that spec's scope. **Do:** add teacher/subject to the slot-options payload, then put them
+  on the card.
+- **No speaker/output-device selection anywhere in the call.** A student whose audio is
+  routed to the wrong output has no control in kaleem at all. `setSinkId` would cover it on
+  Chromium and is unsupported on the browser that needs it most. Found in the C6 audit and
+  left out as a feature rather than a fix.
+- **`CallSettingsMenu` and `DevicePickerButton` are hand-rolled popovers.** Near-identical
+  focus/dismiss logic in two files, neither trapping focus, while `CancelSessionDialog`
+  three directories away uses Radix correctly. C6 fixed their behavioural gaps (touch
+  dismissal, focus restore) and deliberately left the structural rewrite alone per D10.
+- **The schedule is a forward-only list with a history disclosure, not a calendar.** C6
+  made past lessons reachable, which was the defect; a week or month view is a feature and
+  needs its own spec.
+- **Availability entry is still one range at a time.** A weekday 9–5 schedule is ~20
+  interactions through 96-option selects. C6 added a confirmed copy-to-all and a weekly
+  total; a drag-select grid is its own spec.
+
 - **The call's idle screen tile relies on a laid-out-but-invisible `<video>` continuing to
   decode, and that is not spec-guaranteed.** C4b gates the shared-screen tile on frames
   (`useVideoFrames`), which means the `<video>` must be mounted and decoding before anyone

@@ -1,7 +1,7 @@
 ---
 current_phase: "C — Scheduling. **C5 (call fixes found on a real phone) code-complete 2026-09-12**, in three PRs sequenced by a deploy constraint: backend#51 (the `media-state` relay) must deploy BEFORE dashboard#47, and #48 is stacked on #47. C4 closed 2026-09-11 except its manual phone pass, which C5 supersedes. C0–C3e closed 2026-09-07. Phase B (billing) CLOSED 2026-09-04. Phase A closed via ADR-0024. Roadmap's Phase B happy path still open: `assessment` and `analytics` were never built. Preview mode has not run."
-active_spec: "`docs/superpowers/specs/2026-09-12-call-fixes-design.md` (C5) — status in-progress, three PRs open and unmerged. Plan: `docs/superpowers/plans/2026-09-12-call-fixes.md`."
-active_branch: "Three open, merge in THIS order: backend `feat/media-state-relay` (#51) → deploy → dashboard `feat/call-fixes-behaviour` (#47) → dashboard `feat/call-controls-redesign` (#48). Meta `docs/c5-call-fixes-spec` (#198) carries the spec, plan and runbook."
+active_spec: "`docs/superpowers/specs/2026-09-12-schedule-call-audit-fixes-design.md` (C6) — in-progress, code complete on `feat/c6-audit-fixes`, stacked on C5's unmerged chain. Plan: `docs/superpowers/plans/2026-09-12-schedule-call-audit-fixes.md`. C5's own spec (`2026-09-12-call-fixes-design.md`) is still open in three unmerged PRs."
+active_branch: "FOUR open now, merge in THIS order: backend `feat/media-state-relay` (#51) → deploy → dashboard `feat/call-fixes-behaviour` (#47) → dashboard `feat/call-controls-redesign` (#48) → dashboard `feat/c6-audit-fixes` (C6, stacked on #48). Meta: `docs/c5-plan-and-journal` (#199) and `docs/c6-audit-fixes-spec` carry the docs."
 last_green_ci: "meta 480b78b (PR #190, ADR-0038 CI cost change) → master, 2026-09-08. Run 34206968953: triage code=true verified=true, all 7 gates SKIPPED (guard matched the PR's proven tree), deploy-staging SUCCESS, staging confirmed live after. See `docs/runbook/ci.md`."
 ---
 
@@ -37,6 +37,13 @@ allowance, which Sept's usage sits exactly on.
 
 ## ▶ Next actions, in order
 
+0. **C6 (the audit fixes) is code-complete and stacked on #48.** Unit suite 1082 green,
+   biome/tsc clean, coverage ratcheted to 96.53/93.08/88.35 by the config's own two-unit
+   rule, and the availability e2e (6 flows, 3 new) verified against the local stack
+   including a mutation check. It changes nothing about the C5 merge order below — it
+   simply goes last, after #48. **Read the journal entry before reviewing it:** the
+   audit's headline P0 was overstated and the first two versions of its own test proved
+   nothing; both are recorded rather than quietly corrected.
 1. **Merge C5 in order, and do not collapse the steps.** `signaling/app.py` closes the
    socket on a message type it does not recognise, so a dashboard bundle that ships ahead
    of the relay drops the lesson it is in, the first time anyone toggles a camera.
