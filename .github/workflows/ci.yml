@@ -234,6 +234,15 @@ jobs:
           # `pnpm install` with a bare exit 128 against the private tokens repo.
           git config --global url."https://x-access-token:${{ secrets.TOKENS_REPO_TOKEN }}@github.com/".insteadOf "https://github.com/"
           git config --global --add url."https://x-access-token:${{ secrets.TOKENS_REPO_TOKEN }}@github.com/".insteadOf "git@github.com:"
+      # G3. A STEP, not a job: GitHub bills a one-minute floor per job, and this
+      # takes milliseconds. It runs from the repo root because it is the only
+      # place that can see BOTH the package pin and the tokens submodule -- which
+      # are independent, and whose drift ships the old palette while the tree
+      # looks coherent (audit finding T5, and again in the dev container on
+      # 2026-09-12).
+      - name: Token pin agrees with the submodule (G3)
+        working-directory: .
+        run: node scripts/check-token-pin.mjs
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       - name: TypeScript check

@@ -123,40 +123,40 @@ steps are independent of each other except where noted.
 
 ### Phase 6 — CI gates
 
-48. [ ] Colour lint: hex in `.tsx` **and** `bg-black/`-class utilities that contain no
+48. [x] Colour lint: hex in `.tsx` **and** `bg-black/`-class utilities that contain no
         hex. Annotated allowlist for `button.tsx`'s legitimate `color-mix` hover recipe.
-49. [ ] Pin ↔ submodule consistency check. Catches the drift that produced the
+49. [x] Pin ↔ submodule consistency check. Catches the drift that produced the
         `0.1.0`/`v0.1.1` mismatch, a half-done pointer bump, and a committed `link:`.
-50. [ ] Both as **steps in `dashboard-lint`**, not new jobs — GitHub bills a one-minute
+50. [x] Both as **steps in `dashboard-lint`**, not new jobs — GitHub bills a one-minute
         floor per job, and steps need none of the `needs: triage` boilerplate nor changes
         to `record-verified-tree.needs` / `deploy-staging.needs`.
-51. [ ] Mutation-check both: introduce a violation of each, watch CI go red.
+51. [x] Mutation-check both: introduce a violation of each, watch CI go red.
 
 ### Phase 7 — Primitives (one primitive + tests + migration per PR)
 
-52. [ ] **P1** `focusRing` in `src/ui/styles.ts`; migrate all 12 copies. Zero visual
+52. [x] **P1** `focusRing` in `src/ui/styles.ts`; migrate all 12 copies. Zero visual
         change. First, because P8 depends on it.
-53. [ ] **P2a** `Dialog` primitive, fully tested, using `bg-overlay`.
-54. [ ] **P2a** migrate three identity dialogs (`RemoveEmailDialog`, `SetPrimaryDialog`,
+53. [x] **P2a** `Dialog` primitive, fully tested, using `bg-overlay`.
+54. [x] **P2a** migrate three identity dialogs (`RemoveEmailDialog`, `SetPrimaryDialog`,
         `SetChildPasswordDialog`) — simplest, best-tested, no e2e dependency.
-55. [ ] **P2b** migrate the five e2e-covered dialogs. Preserve every `role` and
+55. [x] **P2b** migrate the five e2e-covered dialogs. Preserve every `role` and
         accessible name; the e2e suite is the detector.
-56. [ ] **P2b** migrate the remaining six.
-57. [ ] **P3** converge the three rogue selects onto `ui/select.tsx` (after open question
+56. [x] **P2b** migrate the remaining six.
+57. [x] **P3** converge the three rogue selects onto `ui/select.tsx` (after open question
         3). Keep it a native `<select>`.
-58. [ ] **P4** `Skeleton`; migrate four sites. Consume `--duration-*` to make the motion
+58. [x] **P4** `Skeleton`; migrate four sites. Consume `--duration-*` to make the motion
         tokens live.
-59. [ ] **P5** converge five hand-rolled `Card` surfaces; delete `CardFooter` and
+59. [x] **P5** converge five hand-rolled `Card` surfaces; delete `CardFooter` and
         `CardAction`. Deleting dead exported functions **raises** function coverage —
         bank that headroom here, before a PR that costs functions.
-60. [ ] **P6** `Meter`; migrate both sites **keeping both roles**. `meter` for a mic
+60. [x] **P6** `Meter`; migrate both sites **keeping both roles**. `meter` for a mic
         level, `progressbar` for quota consumed — both are correct.
-61. [ ] **P7** converge the five duplicated auth `<h1>`s onto the type scale. **Visible
+61. [x] **P7** converge the five duplicated auth `<h1>`s onto the type scale. **Visible
         design change** — needs the D9 click-through. Leave the wordmark alone; it is
         explicitly exempt.
-62. [ ] **P8** `CallControlButton`: source `focusRing` and the shared size scale, map
+62. [x] **P8** `CallControlButton`: source `focusRing` and the shared size scale, map
         `TONE_CLASS` to tokens. **Not a merge into `Button`.**
-63. [ ] Touch-target sweep in the `e2e` job, **after open question 1**. Before that
+63. [x] Touch-target sweep in the `e2e` job, **after open question 1**. Before that
         decision it goes red everywhere and teaches nothing.
 
 ## Risks

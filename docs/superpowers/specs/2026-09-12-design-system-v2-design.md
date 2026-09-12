@@ -2,9 +2,9 @@
 name: design-system-v2
 phase: D
 modules: [platform]
-status: draft
+status: closed
 created: 2026-09-12
-closed: null
+closed: 2026-09-12
 ---
 
 ## Goal
@@ -382,3 +382,47 @@ Resolved and remaining. Each is a decision, not a sweep.
 6. The auth-heading convergence is a **visible design change** (1.5rem → 1.875rem across
    five routes), not a refactor. It needs the D9 click-through and should be called that
    in the journal.
+
+---
+
+## Outcome (closed 2026-09-12)
+
+Both halves shipped. The palette was replaced and deployed (phases 0–5); the
+primitive layer was consolidated in phase 7 across dashboard PRs #52–#61, and the
+CI gates G2/G3 landed with it.
+
+**What the consolidation found, which is the case for doing it at all.** Comparing
+duplicate implementations surfaced four defects that no gate had caught, because
+each gate proves something narrower than "the UI is right":
+
+| Defect | Criterion | Measured |
+| --- | --- | --- |
+| Availability selects bordered with `--border`, the decorative hairline | 1.4.11 | 1.29:1 light / 1.75:1 dark (needs 3:1) |
+| `Checkbox` target | 2.5.8 | 20×20 (needs 24×24) |
+| One select at h-9 with no focus indicator | 2.4.11 | — |
+| `Select` aligned `text-end`, which is LEFT under `dir=rtl` | — | Arabic text pushed off its reading edge |
+
+The contrast gate could not have found the first: it proves *declared pairs*, and
+nobody declares "hairline used as a form boundary". That limitation was written
+into the spec from the start and is exactly what showed up.
+
+**Three plan assumptions that measurement overturned**, recorded because the plan
+was wrong in a useful way each time:
+
+1. `CallControlButton`'s `bg-secondary/95` was expected to be a latent defect.
+   Measured worst case **7.15:1** over white video — above AAA. Not changed.
+2. A colour-lint allowlist was budgeted for. Phase 7 left the tree clean, so G2
+   ships with **no allowlist**.
+3. The `sm` hit-area expansion needed 3px, not the 2px the arithmetic suggested:
+   a pseudo-element insets from the *padding* box.
+
+**Restraint is part of the outcome.** Six things that look duplicated were left
+separate on purpose, each with the reason written where someone will next be
+tempted: `AlertDialog` vs `Dialog`, `meter` vs `progressbar`, live-status pulses
+vs `Skeleton`, `CallControlButton`, the `AppShell` drawer, and `VideoTile`'s
+video surfaces.
+
+**Known gaps, tracked in `ISSUES.md` rather than silently closed:** EN 301 549
+clause 7 (captions/audio description) is out of scope and unbuilt; `/availability`
+overflows at 320px (SC 1.4.10, pre-existing); there is no `Sheet` primitive; and
+`focusRing` has no `secondary` surface, which needs a token release.

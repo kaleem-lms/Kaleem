@@ -88,6 +88,49 @@ because both pull the same tokens.
   portals to `document.body` — so seeing the whole surface together is the only way to
   review one. It is the target of both axe sweeps.
 
+### The primitive layer after phase 7
+
+`src/ui/` is the canonical set. Phase 7 (2026-09-12) removed the reasons features had
+to hand-roll:
+
+| Primitive | Replaced | The decision worth remembering |
+| --- | --- | --- |
+| `focusRing(surface)` | 14 copies in 5 forms | The surface is a **parameter**. `ring-offset-2` paints a gap in the *offset* colour, so the offset must be the surface the control sits on — a constant would silently break the one control inside a popover. |
+| `Dialog` + `AlertDialog` | 13 files, 2 centring recipes | **Two flavours, not one.** `alertdialog` interrupts for a decision and Radix refuses outside-dismissal for it. A grid positioner replaced transform-centring: RTL is free, the panel can animate, and a too-tall panel scrolls instead of clipping at both ends (1.4.10). |
+| `Select` | 4 impls at 3 heights | Stays a **native `<select>`** (ARIA in HTML). Density is a caller's choice; the 44px height and the `--input` boundary are not. |
+| `Skeleton` | 3 hand-rolled blocks | Always `aria-hidden` — it announces nothing. The loading announcement is a **separate** `sr-only` `Spinner`. Not every pulse is a skeleton: `StatusChip`'s dot and `WaitingForPeer`'s avatar are live-status affordances on loaded content. |
+| `Card` (+ `as`) | 4 hand-rolled surfaces | **One radius, local density.** `as` exists because a session row must be an `<li>`. `CardFooter`/`CardAction` deleted — zero call sites. |
+| `Meter` | 2 impls | **Both roles kept.** `progressbar` = a task completing; `meter` = a measurement. `role` is required with no default. |
+| `PageHeader` | 5 auth headings | Its `<header>` is *not* a second banner: HTML-AAM scopes `banner` to headers outside `main`. Verified in Chromium; jsdom reports it wrongly. |
+
+**Not folded in, deliberately.** `CallControlButton` keeps its own component: round
+controls in a round bar, 48px for one-handed use, and `tone` ≠ `variant` because
+`destructive` once coloured both "camera off" and "leave lesson". Those came from
+real-device feedback. Its `bg-secondary/95` was **measured** before being kept — worst
+case 7.15:1 over white video, above AAA — so the alpha is not a defect.
+
+### Target size (SC 2.5.8)
+
+The criterion measures the **target** — the region that accepts a pointer — not the ink.
+Two controls deliberately paint smaller than they accept, via a pseudo-element with
+symmetric negative insets (which mirror under RTL for free):
+
+| Control | Ink | Target |
+| --- | --- | --- |
+| `Button size="sm"` | 40px | 44px |
+| `Checkbox` | 20px | 24px |
+
+⚠ A pseudo-element insets from the **padding** box. `Checkbox` is a border-box 20px with
+a 1px border, so `-inset-0.5` yields a 22px target, not 24 — it needs `-inset-[3px]`.
+This is why the gate hit-tests rather than measuring geometry.
+
+`e2e/touch-targets.spec.ts` sweeps every enabled control on `/design-preview` at desktop
+and phone widths using `elementFromPoint` — **`boundingBox()` returns the painted box and
+cannot see a pseudo-element at all**, so a geometry-based gate would fail both controls
+while they are correct. The gate is 24×24 (what WCAG 2.2 AA requires); 44×44 is the
+project preference and is met by everything not deliberately dense. A second test asserts
+the dense controls accept *more* than they paint, so deleting the expansion cannot pass.
+
 ### Color-usage guardrails
 
 - **`--accent` (gold) is a surface/decoration color, not a text color.** In v2 it measures
@@ -122,6 +165,7 @@ have no workflows). `@kaleem/tokens` is a private git dependency, so:
 the meta trunk is the staging deploy** — there is no `develop` branch and no promotion
 step (ADR-0028).
 
-**The `tokens` repo itself has no CI yet** (no `.github/` directory), so `smoke.test.mjs`
-has never run automatically. ADR-0041 adds the package's first workflow as its first
-step.
+**The `tokens` repo has its own CI as of v0.2.0** (ADR-0041): `build.mjs --check`, the
+contrast gate, unit tests, and a mutation step that breaks a token value on purpose and
+fails if the gate stays green. `smoke.test.mjs` is gone — it scraped CSS with a regex and
+was superseded by real structural parity between the light and dark token trees.
