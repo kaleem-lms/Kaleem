@@ -12,7 +12,7 @@ and no ORM (ADR-0035).
 **What it is not:** it does not carry any lesson media. Audio and video flow
 peer-to-peer between the two browsers once negotiation completes; the
 signaling service never sees a media byte. It only relays small JSON control
-messages (`offer`, `answer`, `ice`) between exactly two sockets in a room, and
+messages (`offer`, `answer`, `ice`, `media-state`) between exactly two sockets in a room, and
 drops a message rather than queuing it if the other peer is not there.
 
 ## Environment variables
@@ -131,6 +131,28 @@ the current secret might still be starting.
 
 ## Close codes
 
+## ⚠ Adding a message type is a deploy-ordering constraint
+
+`RELAYABLE` in `signaling/app.py` is an allowlist, and a frame whose `type` is
+outside it does not get ignored -- the socket is **closed with `4400`**. That is
+the right default (a frame we do not recognise is a bug or an attack, never a
+version to tolerate), but it means the protocol can only ever be widened in one
+direction:
+
+**The relay deploys first, always.** A client bundle that sends a type the
+running relay does not know drops the lesson it is in, the first time anyone
+triggers it. Ship the `RELAYABLE` change, deploy it, confirm it live, and only
+then ship the client that sends the new type.
+
+The reverse is safe: a relay that knows a type no client sends yet simply never
+sees one.
+
+This has happened once deliberately -- `media-state` (C5, 2026-09-12), which
+tells the other peer that a camera was released or a screen share stopped.
+Neither is otherwise detectable: the receiving `<video>` freezes on its last
+frame and keeps reporting it, with no `resize`, no `emptied`, and
+`track.muted` still `false`.
+
 The signaling service closes a WebSocket with one of these application close
 codes (4000–4999 range, distinct per reason so a client can tell "fetch a new
 token" apart from "this lesson is already full"):
@@ -139,7 +161,7 @@ token" apart from "this lesson is already full"):
 | --- | --- |
 | `4401` (`CLOSE_UNAUTHORIZED`) | The token is missing, malformed, expired, has a bad signature (secret mismatch), or is signed for a different room than the one being joined. |
 | `4409` (`CLOSE_ROOM_FULL`) | A third connection tried to join a room that already has its two participants (1-on-1 only; `MAX_PEERS = 2`). |
-| `4400` (`CLOSE_BAD_MESSAGE`) | A connected peer sent a frame that was not valid JSON, whose `type` was not one of `offer` / `answer` / `ice`, or that was a **binary** frame (this service speaks JSON text only). |
+| `4400` (`CLOSE_BAD_MESSAGE`) | A connected peer sent a frame that was not valid JSON, whose `type` was not one of `offer` / `answer` / `ice` / `media-state`, or that was a **binary** frame (this service speaks JSON text only). |
 | `4410` (`CLOSE_REPLACED`) | **Not an error.** This participant opened a newer socket — a reconnect, or a second tab — and it took over their seat in the room. The *older* socket receives this code. |
 
 A peer simply disconnecting (going away, closing the tab) is not an error —
