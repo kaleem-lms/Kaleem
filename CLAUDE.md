@@ -38,7 +38,7 @@ See `STATE.md` for the current phase and active spec. At the time of this file's
    | Repo | Floor (line/branch) | Where it lives | Enforced |
    | --- | --- | --- | --- |
    | `backend` | 97.7 | `pyproject.toml` `[tool.coverage.report]` | ✅ |
-   | `dashboard` | 95.2 lines / 91.5 branches / 87.0 functions | `vitest.config.ts` | ✅ |
+   | `dashboard` | 96.53 lines / 93.08 branches / 88.35 functions | `vitest.config.ts` | ✅ |
    | `marketing` | — | no test suite exists yet | ❌ |
 
    100% line+branch remains the target; exclusions are per-line and justified, never
@@ -56,12 +56,13 @@ See `STATE.md` for the current phase and active spec. At the time of this file's
    | `identity` — auth | ✅ 6 flows | login gate, session, sign-out, `_authed` guard, verify-email, RTL |
    | `identity` — account/email | ✅ 3 flows | add/remove an alias, wrong-password refusal, role-conditional panels |
    | `identity` — family | ✅ 3 flows | add a child, invite code, the non-parent empty state |
-   | `scheduling` — availability | ✅ 3 flows | add/remove a range with a reload, end-before-start refused |
+   | `scheduling` — availability | ✅ 6 flows | add/remove a range with a reload, end-before-start refused, and since C6: an unsaved edit surviving a refetch that brings back **different** data (identical data proves nothing — React Query structurally shares it, so the sync effect never re-runs either way), the navigation guard both ways, and copy-to-all's confirmation. The unsaved-edit flow needs a deliberate settle before asserting: `await refetch` only proves the response landed, and asserting immediately passed on a build with both guards reverted |
    | `curriculum` — subjects | ✅ 4 flows | teacher subjects, student interests, teacher gender, the parent empty state |
    | `scheduling` — matching | ✅ 3 flows | the student's searching state, a teacher accepting, and the offer gone after a reload |
-   | `scheduling` — booking | ✅ 3 flows | generated sessions + quota, a refund visible after a reload, the teacher's view |
+   | `scheduling` — booking | ✅ 3 flows | generated sessions + quota, a refund visible after a reload, the teacher's view. The refund flow also asserts (C6) that a cancelled lesson **moves** to the past disclosure rather than ceasing to exist, and carries no controls there |
    | `signaling` (C3b) | ❌ by design | no user-facing behaviour — a relay with no client until C3d, so there is no flow to drive |
    | TURN + handshake (C3c) | ❌ by design | no user-facing behaviour, and CI has no coturn and no media. **Verified live on staging 2026-09-06 instead:** a relay-only `RTCPeerConnection` pair connected through coturn (2.3 KB each way, candidate `46.225.151.255:49195`), and the `Sec-WebSocket-Protocol` handshake accepted a valid token, refused a tampered one, a token-less offer and a no-subprotocol connection — each 4401. Both mutation-checked by breaking the secret (`401 Unauthorized`, 0 relay candidates) |
+   | `scheduling` — call leave (C6) | ✅ 1 flow | the first tap on Leave does not leave and the URL does not move; cancelling keeps the room up; confirming returns to the schedule |
    | `scheduling` — video room | ✅ 3 flows | a student joins the lesson happening now (the grant *body* asserted, not just a 200), the teacher's control, a future lesson counting down |
    | `scheduling` — call client (C3d) | ✅ 2 flows | a real two-peer call with fake media: both sides assert a remote track is producing frames, and one leaving abruptly is seen by the other. **Proves host-candidate P2P only — CI has no coturn.** The relay path was verified live on staging 2026-09-07 instead: a relay-only call carried 443 KB/455 KB of real media through coturn (candidate `46.225.151.255:49553`). Fake media proves plumbing, never that audio is audible or video watchable — that stays a human check |
    | `scheduling`/`dashboard` — call diagnostics (C3e-a) | ✅ 2 flows | a contract test POSTs every failure code the client knows through the real `POST /sessions/<id>/diagnostics/` endpoint and asserts each is accepted, plus a check that an unknown code is refused with a 400 (that no row is written for it is a backend unit test — Playwright cannot see the table). Runs on Chromium. **The guard is directional**: it catches the client knowing a code the backend doesn't, not the reverse — a backend-only code is just an unused enum value, not a production failure. **What this does not and cannot prove: that Safari emits anything.** This project has no Apple device — no Mac, no iPhone, no iPad — and Playwright's WebKit on Linux is not iOS Safari and has no fake-media equivalent. The pipeline is verified; the reporter on the browser C3e exists for is not, and cannot be, here. **D9 deviation:** no manual click-through on the target browser is possible in this project; recorded in `journal/2026-W36.md` rather than skipped |
@@ -79,7 +80,15 @@ See `STATE.md` for the current phase and active spec. At the time of this file's
    ⚠ **Three places in the e2e suite hardcoded the call control bar's target count**
    (`>= 6`) and two more named a `"Layout"` button. C5 took the bar from seven targets to
    five and broke all of them. If you change what is in that bar, grep the suite for the
-   count before assuming it only lives in one place.
+   count before assuming it only lives in one place. C6 left the count at five (the share
+   control went from absent to present-and-disabled where the browser cannot share) and
+   re-checked every one anyway.
+
+   ⚠ **The in-call mic/camera toggles have ONE stable accessible name each** since C6
+   ("Microphone", "Camera"), with state in `aria-pressed` alone — a flipping label plus
+   the attribute made a screen reader say "Unmute microphone, pressed". Queries for them
+   must be anchored (`/^microphone$/i`), or they also match the settings menu's headings.
+   The **lobby's** own toggles keep their descriptive labels; they are different controls.
 
    **Nightly Stripe test-clock harness (not Playwright, not in the merge path).** The
    `past_due` → `unpaid` renewal path is exercised nightly against real Stripe test-mode
