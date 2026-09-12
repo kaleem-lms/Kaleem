@@ -143,6 +143,16 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
   **Being closed by ADR-0040** (`docs/superpowers/plans/2026-09-12-design-system-v2.md`),
   which replaces the palette outright and deletes the override block rather than promoting
   it value-by-value. Do not fix this entry separately — the two would collide.
+- **`docs/**` is gitleaks-exempt regardless of file type, so an executable file committed
+  under `docs/` is never secret-scanned.** ADR-0038 noted the risk for root `*.md` (the
+  shape of this project's one previous leak). The same hole is one level deeper and wider:
+  `classify-changes.sh` classifies on *path*, not extension, so
+  `docs/superpowers/specs/assets/*.mjs` counts as docs and the `security` job skips.
+  **Demonstrated, not theorised** — meta#205 added a `.mjs` bench under `docs/` and the
+  gitleaks job skipped on a green run. Low severity today (the exempt paths hold prose and
+  one hand-written script), but the exemption should key on extension as well as path, or
+  `docs/**/*.{mjs,js,ts,sh,py}` should force `code=true`. (Spotted 2026-09-12; not fixed in
+  passing, D10.)
 - **EN 301 549 clause 7: no captions or audio description for live lessons.** ADR-0040
   adopts EN 301 549, and for the design system its delta over WCAG 2.2 AA is ~zero
   (clause 9 incorporates WCAG by reference). **Clause 7 is the one with real teeth** and

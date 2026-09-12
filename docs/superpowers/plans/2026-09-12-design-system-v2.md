@@ -1,6 +1,6 @@
 ---
 spec: 2026-09-12-design-system-v2-design.md
-status: draft
+status: in-progress
 ---
 
 ## Steps
@@ -11,34 +11,40 @@ steps are independent of each other except where noted.
 
 ### Phase 0 — Spec, ADRs, doc repair (meta repo)
 
-1. [ ] Write the spec (`docs/superpowers/specs/2026-09-12-design-system-v2-design.md`).
-2. [ ] Write this plan.
-3. [ ] ADR-0040 — replace the palette; adopt EN 301 549 with clause 7 named as out of
+1. [x] Write the spec (`docs/superpowers/specs/2026-09-12-design-system-v2-design.md`).
+2. [x] Write this plan.
+3. [x] ADR-0040 — replace the palette; adopt EN 301 549 with clause 7 named as out of
        scope. Amends ADR-0020.
-4. [ ] ADR-0041 — design tokens are DTCG JSON with a hand-written emitter; Style
+4. [x] ADR-0041 — design tokens are DTCG JSON with a hand-written emitter; Style
        Dictionary rejected. Amends the 2026-06-13 visual-identity spec.
-5. [ ] Repair `docs/architecture/design-system.md`: the `/design-preview` claim at L62
+5. [x] Repair `docs/architecture/design-system.md`: the `/design-preview` claim at L62
        describes a route that does not exist — mark it planned, not present.
-6. [ ] `ISSUES.md`: amend the token-promotion entry (drop the `--container-*` clause,
+6. [x] `ISSUES.md`: amend the token-promotion entry (drop the `--container-*` clause,
        keep `--text-display`); add EN 301 549 clause 7 captions; add the raw-`<button>`
        audit; add the `/design-preview` doc-vs-reality finding.
-7. [ ] `STATE.md`: set the active spec and branch.
-8. [ ] PR → `master`. **This merge is a deploy** — docs-only, so `triage` classifies it
+7. [x] `STATE.md`: set the active spec and branch.
+8. [x] PR → `master`. **This merge is a deploy** — docs-only, so `triage` classifies it
        `code == false` and every gate skips, but confirm that is what happened rather
        than assuming it.
 
 ### Phase 1 — Design the palette (no code)
 
-9.  [ ] Answer open questions 1 (`sm` height) and 2 (accent-as-text). Both gate later
-        work; 2 gates the manifest.
-10. [ ] Draft the primitive OKLCH ramps. Perceptually even lightness steps.
-11. [ ] Derive the light semantic set; check every intended pair by hand against 4.5 /
+9.  [x] Answer open questions 1 (`sm` height) and 2 (accent-as-text). Both gate later
+        work; 2 gates the manifest. **Resolved 2026-09-12:** (1) keep the 40px ink and
+        expand the hit area to 44px with a pseudo-element; (2) gold stays banned as text.
+10. [x] Draft the primitive OKLCH ramps. Perceptually even lightness steps.
+11. [x] Derive the light semantic set; check every intended pair by hand against 4.5 /
         3.0 **before** committing to the ramps.
-12. [ ] Derive the dark semantic set, same check.
-13. [ ] Review for 1.4.1 — every status conveyance has an icon or text, not colour alone.
-14. [ ] Verify focus-indicator contrast (2.4.11) against **both** the component and the
-        adjacent background, in both themes. The current `ring-2` + `ring-offset-2`
-        recipe has only ever been checked against one.
+12. [x] Derive the dark semantic set, same check.
+13. [x] Review for 1.4.1 — every status conveyance has an icon or text, not colour alone.
+14. [x] Verify focus-indicator contrast (2.4.11) in both themes. **Finding 2026-09-12:
+        the premise of this step was wrong.** It assumed the ring must clear 3:1 against
+        the component *and* the background. It does not abut the component at all — the
+        `ring-offset-2` gap is painted in the surface colour, so on both edges the ring's
+        neighbour is the surface. `ring` vs `--primary` is a pair nothing renders.
+        Corrected to: ring vs every surface a focusable control sits on. Follow-up logged
+        — the offset is hardcoded `ring-offset-background`, so a control on a card draws a
+        mismatched halo (contrast passes; it is a visible seam).
 
 ### Phase 2 — `tokens` repo
 
