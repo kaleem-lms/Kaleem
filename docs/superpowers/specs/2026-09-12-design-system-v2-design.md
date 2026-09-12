@@ -311,24 +311,69 @@ Separately, the contrast gate proves that *declared* pairs are sound. It cannot 
 because nobody declared it. That gap is covered by the colour lint and the real-browser
 axe run, and the limitation is stated in the test file rather than left implicit.
 
+## Phase 1 outcome — the verified palette
+
+**Closed 2026-09-12. 50 pairs asserted across both themes, 0 failures.** Derivation bench:
+`assets/2026-09-12-palette-v2-bench.mjs` (`node …bench.mjs` to re-run, `… emit` for CSS,
+`… ramps` for the ladders). The bench is the provenance, not the gate — `contrast.mjs` in
+the `tokens` repo becomes the gate in phase 2.
+
+**The hue family is kept** — emerald, gold, cream. Every *value* is new, the ramps and the
+structure are new, but the identity survives. This was a deliberate narrowing of ADR-0040's
+cost: a different hue family would have discarded the `brand/` logos, favicons and imagery,
+which that ADR names as the largest unpriced cost of replacing rather than repairing.
+
+Seven ramps on one shared lightness ladder (0.972 → 0.224), hue held constant down each,
+chroma reduced per step until the colour is genuinely inside sRGB rather than clamped:
+`emerald` 168° (brand), `green` 146° (success only), `gold` 88° (accent), `sand` 82° (warm
+neutral), `ink` 170° (cool neutral), `red` 28°, `blue` 232°.
+
+Three findings came out of the derivation, and two of them corrected the *manifest*, not
+the palette:
+
+1. **Success must not be the brand emerald.** A success alert in the exact colour of the
+   primary CTA reads as an action, not an outcome. Hence a separate `green` ramp at 146°.
+2. **A focus ring never abuts the control it rings.** The recipe
+   `ring-2 ring-ring ring-offset-2 ring-offset-<surface>` puts a surface-coloured 2px gap
+   between ring and component, so on both its edges the ring's neighbour is the *surface*.
+   Asserting `ring` against `--primary` measured a pair that is never rendered. What
+   2.4.11 actually requires is that the ring area differ ≥3:1 between focused and
+   unfocused states — unfocused, that area **is** the surface. The manifest now tests the
+   ring against every surface a focusable control sits on. **Follow-up:** the offset is
+   hardcoded `ring-offset-background`, so a control on a card draws a faintly mismatched
+   halo. Contrast passes; the seam is for the `focusRing` work.
+3. **A modal's background fill is not a 1.4.11 requirement, and in dark mode cannot be
+   one.** An earlier draft asserted the popover at ≥3:1 against the scrimmed page. That is
+   unachievable in any dark theme — the page and the dialog are both dark, and a *lighter*
+   scrim moves the page closer to the dialog, making it worse. SC 1.4.11 covers controls
+   and graphics needed to understand content; the controls inside the dialog are covered
+   by their own pairs. Reported as a design-quality note, not a gate.
+
+Light `--overlay` is `#191C1B` at 55%; dark is `#000000` at 68%. In dark it dims the page
+by only 1.16:1 — stated rather than hidden, because modality there is carried by the
+dialog's border and elevation.
+
+Full emitted values are in the bench; they graduate to `tokens/src/*.tokens.json` in
+phase 2 rather than being transcribed here, so this spec does not become a 26th mirror of
+the numbers — which is the failure this whole spec exists to end.
+
 ## Open questions
 
-These must be resolved before the phase they block. Each is a decision, not a sweep.
+Resolved and remaining. Each is a decision, not a sweep.
 
-1. **`Button size="sm"` is 40px** (`ui/button.tsx:27`), under the 44px the call route's
-   own e2e enforces, and it is used on availability, the schedule, and the timezone
-   picker. This is already next-action #3 in `STATE.md`. Options: (a) raise to `h-11`,
-   losing the dense variant; (b) rename it `compact` and forbid it on mobile-primary
-   paths; (c) keep the 40px ink and expand the hit area to 44px with a pseudo-element.
-   **Recommendation: (c)** — 2.5.8 measures the target, not the ink, and it keeps the
-   density the tables were designed for. **Blocks the touch-target gate**, which goes red
-   everywhere until this is settled.
-2. **Does `--accent` gold stay banned as a text colour?**
-   `docs/architecture/design-system.md:67-71` bans it today (gold on cream ≈2:1). A v2
-   palette could derive an accessible accent-text ramp instead. This **changes what the
-   pairing manifest declares**, so it must be answered before the palette design closes.
+1. ~~**`Button size="sm"` is 40px**~~ — **RESOLVED 2026-09-12: option (c).** Keep the 40px
+   ink; expand the hit area to 44×44 with a pseudo-element. SC 2.5.8 measures the target,
+   not the ink, so the dense variant survives in the schedule, availability and timezone
+   tables while the touch guidance is met. Unblocks the touch-target gate and closes
+   `STATE.md` next-action #3.
+2. ~~**Does `--accent` gold stay banned as a text colour?**~~ — **RESOLVED 2026-09-12:
+   yes, banned.** Surface and decoration only. Worth recording *why* it is a universal ban:
+   in the v2 palette gold-as-text reaches 3.05:1 in light (fails 4.5) but **7.28:1 in
+   dark** (passes comfortably). The ban is a light-mode constraint applied to both themes,
+   because one token cannot be conditionally usable per theme. If that ever becomes
+   intolerable the fix is a separate `--accent-text` token, not relaxing the ban.
 3. **Select height** across the four implementations (h-9 / h-10 / h-11).
-   Recommendation: `h-11`, matching `Input` and the existing primitive.
+   Recommendation: `h-11`, matching `Input` and the existing primitive. Blocks P3 only.
 4. **Card radius** — one value, or two (card vs control)? Recommendation: one, unless
    `/design-preview` surfaces a real case.
 5. **Motion tokens: live or dead?** Recommendation: live, consumed by `Dialog` and
