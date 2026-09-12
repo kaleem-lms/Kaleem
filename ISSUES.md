@@ -656,10 +656,13 @@ just below these, so none of them is red today — each is what stops a category
   across three runs against a 0.95 floor. The assertion passes on the median, but one run in
   three is already under it — one regression from a flaky nightly. The cause is known and
   unaddressed: a single 862 KB JS chunk, warned about at every build.
-- **Marketing SEO should now measure higher than its floor.** The home page's missing
-  `<meta name="description">` is fixed (marketing #5), so the next nightly re-measures
-  SEO on `staging.kaleem.academy`. Raise the `.lighthouserc.json` SEO floor to the new
-  measured value once it has run — a ratchet left below the real number stops ratcheting.
+- ~~**Marketing SEO should now measure higher than its floor.**~~ **DONE 2026-09-13.**
+  Marketing now measures **1.00 on all four categories**. The floors are global across both
+  URLs, so they can only rise to the *lower* of the two: best-practices 0.75 → **0.96** and
+  SEO 0.80 → **0.82**, both limited by `app-staging`. Performance is deliberately NOT raised —
+  it measured 0.94/0.95/0.95 and is the one noisy category. Raising a global floor to
+  marketing's own 1.00 needs per-URL assertions (`assertMatrix`), which is a config change
+  worth making only if the two sites' scores keep diverging.
 - **Marketing has no type-check in CI**, so `interface Props` in its Astro components
   enforces nothing: `astro build` does not type-check and `marketing-build` runs only the
   build. Measured 2026-09-04 — deleting a required prop built clean. `Layout.astro`'s
@@ -676,15 +679,32 @@ just below these, so none of them is red today — each is what stops a category
   audits, run against the DEFAULT theme. A real-browser axe sweep of the same pages on the same
   day found a live 1.4.3 failure on `text-primary` links in dark mode (see "Blocks launch")
   that Lighthouse scored 1.00 straight through.
-- **`app-staging`: browser errors logged to the console, and `robots.txt` is invalid**
-  (best-practices 78, SEO 82). The dashboard has no `robots.txt` at all, which for an
-  authenticated app is arguably fine but currently reads as a failure rather than a
-  decision.
-- **Both sites: `deprecations` fails** (best-practices). Neither the source of the
-  deprecated API nor whether it is ours or a dependency's has been checked yet — read
-  the uploaded report.
-- **`app-staging`: missing source maps for large first-party JS.** Deliberate or not, it
-  has never been decided; it also makes Sentry stack traces unreadable.
+- **`app-staging`: the console "errors" are EXPECTED, and this is now settled.** Read from
+  the 2026-09-13 report: both entries are `403` from `GET /api/v1/identity/me/` on the login
+  page. That is the app's own `redirectIfAuthed` probe asking "is this visitor already signed
+  in?", and 403 is the right answer for an anonymous caller. A browser logs every failed
+  request and JavaScript cannot suppress it, so `errors-in-console` cannot pass while the
+  probe exists. **Not a defect.** Changing the endpoint to answer 200 with
+  `{authenticated:false}` would silence it at the cost of a worse API contract — don't,
+  unless something else wants that shape. `robots.txt` for an authed app remains a real
+  decision nobody has made.
+- ~~**Both sites: `deprecations` fails** (best-practices).~~ **STALE — no longer failing.**
+  Checked in the 2026-09-13 report, which is what the entry asked for: marketing scores 1.00
+  with nothing failing, and `app-staging`'s only best-practices failures are
+  `errors-in-console` and `valid-source-maps` (both below). Whatever the deprecated API was,
+  a dependency upgrade removed it.
+- **`app-staging`: missing source maps for large first-party JS — still a DECISION, not an
+  oversight.** Confirmed 2026-09-13: `valid-source-maps` fails on the one large first-party
+  bundle. Three options, and the difference is who can read the source:
+  (a) `build.sourcemap: true` — serves maps publicly, passes the audit, makes the app's
+  source readable by anyone;
+  (b) `sourcemap: "hidden"` — generates maps with no `sourceMappingURL` comment, so browsers
+  never fetch them; upload them to Sentry to get readable stack traces. **The audit still
+  fails**, because there is nothing for Lighthouse to follow;
+  (c) leave it.
+  (b) is almost certainly what is wanted — it buys the Sentry traces, which is the part that
+  has real value — but it means accepting that this audit stays red, so the
+  best-practices floor cannot rise past 0.96 until (a) is chosen. Needs an owner decision.
 
 ### Stripe dunning harness (nightly, `stripe-clock.yml`)
 
