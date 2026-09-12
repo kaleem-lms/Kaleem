@@ -1,8 +1,8 @@
 ---
-current_phase: "C — Scheduling. **C5 (call fixes found on a real phone) code-complete 2026-09-12**, in three PRs sequenced by a deploy constraint: backend#51 (the `media-state` relay) must deploy BEFORE dashboard#47, and #48 is stacked on #47. C4 closed 2026-09-11 except its manual phone pass, which C5 supersedes. C0–C3e closed 2026-09-07. Phase B (billing) CLOSED 2026-09-04. Phase A closed via ADR-0024. Roadmap's Phase B happy path still open: `assessment` and `analytics` were never built. Preview mode has not run."
-active_spec: "`docs/superpowers/specs/2026-09-12-schedule-call-audit-fixes-design.md` (C6) — in-progress, code complete on `feat/c6-audit-fixes`, stacked on C5's unmerged chain. Plan: `docs/superpowers/plans/2026-09-12-schedule-call-audit-fixes.md`. C5's own spec (`2026-09-12-call-fixes-design.md`) is still open in three unmerged PRs."
-active_branch: "FOUR open now, merge in THIS order: backend `feat/media-state-relay` (#51) → deploy → dashboard `feat/call-fixes-behaviour` (#47) → dashboard `feat/call-controls-redesign` (#48) → dashboard `feat/c6-audit-fixes` (C6, stacked on #48). Meta: `docs/c5-plan-and-journal` (#199) and `docs/c6-audit-fixes-spec` carry the docs."
-last_green_ci: "meta 480b78b (PR #190, ADR-0038 CI cost change) → master, 2026-09-08. Run 34206968953: triage code=true verified=true, all 7 gates SKIPPED (guard matched the PR's proven tree), deploy-staging SUCCESS, staging confirmed live after. See `docs/runbook/ci.md`."
+current_phase: "C — Scheduling. **C5 and C6 SHIPPED to staging 2026-09-12** in the two-deploy order the relay requires (meta#201 backend pointer → relay live → meta#202 dashboard pointer). C4 closed 2026-09-11 except its manual phone pass, which C5 supersedes. C0–C3e closed 2026-09-07. Phase B (billing) CLOSED 2026-09-04. Phase A closed via ADR-0024. Roadmap's Phase B happy path still open: `assessment` and `analytics` were never built. Preview mode has not run."
+active_spec: "None. C5 (`2026-09-12-call-fixes-design.md`) and C6 (`2026-09-12-schedule-call-audit-fixes-design.md`) are both merged and deployed; what remains of each is the manual pass on a real phone, which no harness here can do. Pick the next phase WITH the user — do not choose one unilaterally."
+active_branch: "None. Everything merged 2026-09-12: backend#51, dashboard#47/#48/#49, meta#199/#200/#201/#202. Only three Dependabot PRs remain open in meta."
+last_green_ci: "meta#202 (the C5+C6 dashboard pointer bump) → master, 2026-09-12. PR run 34695702515: all seven gates PASS including e2e with C5 and C6 together for the first time. Master run 34696063499: triage skipped every gate (the tree was already proven by the PR run — ADR-0038 working), deploy-staging SUCCESS. `app-staging.kaleem.academy` and `ws-staging.kaleem.academy/health/live/` both 200 after."
 ---
 
 # kaleem Project State
@@ -37,34 +37,19 @@ allowance, which Sept's usage sits exactly on.
 
 ## ▶ Next actions, in order
 
-0. **C6 (the audit fixes) is code-complete, stacked on #48, and fully verified.** Unit
-   suite 1099 green, biome/tsc clean, coverage 96.57/93.31/88.92 against ratcheted floors
-   of 96.53/93.08/88.35, and **the whole e2e suite run serially against the local stack:
-   61/61**, on a fresh seed and a restarted relay. It changes nothing about the C5 merge
-   order below — it simply goes last, after #48.
-   **Read the journal entry before reviewing it.** Three things in it are worth more than
-   the diff: the audit's headline P0 was overstated (React Query structurally shares
-   results, so an unchanged refetch cannot overwrite anything); C6 itself introduced a
-   silent data corruption — the availability page rewrote a teacher's stored timezone to
-   the browser's, moving every hour they had declared, found only because
-   `matching.spec.ts` went red three specs later; and **three separate regression tests
-   passed against builds that still had their bug**, each for a different reason. Nothing
-   here is trustworthy that has not been seen to fail.
-1. **Merge C5 in order, and do not collapse the steps.** `signaling/app.py` closes the
-   socket on a message type it does not recognise, so a dashboard bundle that ships ahead
-   of the relay drops the lesson it is in, the first time anyone toggles a camera.
-   backend#51 merges → meta pointer bump → `deploy-staging` → **confirm the new relay is
-   live** → then dashboard#47, then #48. `docs/runbook/signaling.md` has the rule in its
-   own section now.
-2. **The manual pass, on the iPhone C5 came from.** Portrait and landscape, light and
-   dark, English and Arabic. Specifically unprovable by any harness here: that the OS
-   camera indicator really goes out when the camera is switched off, that a shared screen
-   is legible, and that audio is audible. Fake media proves plumbing only.
-3. **Decide whether the Safari/iOS deviation can close.** The capture that started C5 is
-   from an iOS device. W36 records a standing D9 deviation that nothing in C3e or C4 is
-   verifiable on Safari or iOS because no Apple device exists in this project, and
-   C3e-a's `CallDiagnostic` codes have had no real reporter for that reason. If that
-   device is available for testing, that changes. It is the user's call.
+1. **The manual pass on a real phone.** The one thing nothing here can do. C5 came from
+   an iOS photo and C6's last four defects came from someone using the result; both still
+   rest on checks a harness cannot make: that the OS camera indicator really goes out,
+   that audio is audible, that a shared screen is legible, and anything at all on Safari
+   or iOS. Staging is live and carrying both.
+2. **Fix the CI concurrency group before the next busy merge day** (`ISSUES.md`).
+   `ci.yml`'s group is `${{ github.head_ref || github.run_id }}`; on a push `head_ref` is
+   empty, so every master run gets a unique group and two `deploy-staging` jobs can
+   overlap on the same host. This nearly bit on 2026-09-12 and was avoided by cancelling
+   a run by hand.
+3. **Decide the `Button` `sm` size** (`ISSUES.md`): `h-10` is 40px, under the 44pt the
+   call route's own e2e enforces, and `sm` is used across availability, the schedule and
+   the timezone picker. A decision about the scale, not a sweep.
 4. **Then choose the next phase with the user.** `assessment` closes the roadmap's happy
    path — a delivered lesson still leaves no trace — and `notifications` is the other
    candidate. Preview mode has still never run, so priorities remain provisional. Do not
