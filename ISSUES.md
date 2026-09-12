@@ -136,6 +136,17 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
   `email_changed_message.txt` (ADR-0023 violation). Currently unreachable: `RegisterView`
   raises `ValidationError` for duplicates and we do not use allauth's native signup/change
   flows. **Override these before enabling any allauth-native signup or social-auth path.**
+- **The staging VPS filled its disk and a deploy died mid-swap (2026-09-12).**
+  Root cause and all three code defects are FIXED (infra `ship.sh`, PR #11): no disk
+  precheck, a non-atomic state write that left `.active-color` EMPTY rather than stale,
+  and the state recorded AFTER the old colour was torn down. The host was remediated by
+  hand — pruned 73G/0-free to 7.5G/65G-free, `.active-color` restored to `green`.
+  **What remains open:** (a) nothing monitors disk on that host, so the next capacity
+  problem is also found by a failed deploy; (b) `docker image prune` now runs only on a
+  SUCCESSFUL deploy, so a run of consecutive failures still accumulates images; (c) the
+  prune keeps 24h of images, which after this incident's `prune -a` means there is
+  currently NO local rollback target — `restore_signaling()` and a rollback would have to
+  re-pull from GHCR. Worth a cheap disk alarm before it bites in production.
 - **EN 301 549 clause 7: no captions or audio description for live lessons.** ADR-0040
   adopts EN 301 549, and for the design system its delta over WCAG 2.2 AA is ~zero
   (clause 9 incorporates WCAG by reference). **Clause 7 is the one with real teeth** and
