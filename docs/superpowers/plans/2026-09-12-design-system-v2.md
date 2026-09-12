@@ -48,65 +48,65 @@ steps are independent of each other except where noted.
 
 ### Phase 2 — `tokens` repo
 
-15. [ ] Add the repo's **first CI workflow**. It has no `.github/` at all, so
+15. [x] Add the repo's **first CI workflow**. It has no `.github/` at all, so
         `smoke.test.mjs` has never run automatically. Do this first: everything below is
         unverified until it exists.
-16. [ ] Transcribe the **current** tokens to DTCG JSON under `src/`.
-17. [ ] Write `build.mjs` and make it reproduce today's `tokens.css` and `theme.css`
+16. [x] Transcribe the **current** tokens to DTCG JSON under `src/`.
+17. [x] Write `build.mjs` and make it reproduce today's `tokens.css` and `theme.css`
         **byte-for-byte**. This separates "the emitter works" from "the palette changed"
         into two independently verifiable steps — do not skip it.
-18. [ ] Add `--check` mode (rebuild in memory, diff, exit 1). Wire into CI.
-19. [ ] Add the structural-parity assertion (light and dark key trees identical),
+18. [x] Add `--check` mode (rebuild in memory, diff, exit 1). Wire into CI.
+19. [x] Add the structural-parity assertion (light and dark key trees identical),
         replacing `smoke.test.mjs`'s regex scrape.
-20. [ ] Write `contrast.mjs` — a pure `(light, dark, pairs) → violations` function.
+20. [x] Write `contrast.mjs` — a pure `(light, dark, pairs) → violations` function.
         Include alpha compositing from the start; the overlay token needs it and
         retrofitting it produces a confidently-passing wrong number.
-21. [ ] Write `pairs.tokens.json` from the palette designed in phase 1.
-22. [ ] Wire the contrast check into CI as `node --test`. **Mutation-check it**: break a
+21. [x] Write `pairs.tokens.json` from the palette designed in phase 1.
+22. [x] Wire the contrast check into CI as `node --test`. **Mutation-check it**: break a
         value, watch it go red, restore. A gate never seen failing is not trusted.
-23. [ ] Swap in the v2 palette values. Now `--check` legitimately fails; regenerate.
-24. [ ] Add the type scale, per-theme elevation, `--overlay`, and the explicit
+23. [x] Swap in the v2 palette values. Now `--check` legitimately fails; regenerate.
+24. [x] Add the type scale, per-theme elevation, `--overlay`, and the explicit
         `--spacing`. Add the DTCG `radius` group.
-25. [ ] Add the JSON files to `package.json` `exports` so the dashboard test can import
+25. [x] Add the JSON files to `package.json` `exports` so the dashboard test can import
         them.
-26. [ ] Fix the version/tag drift: `package.json` says `0.1.0`, the consumed tag is
+26. [x] Fix the version/tag drift: `package.json` says `0.1.0`, the consumed tag is
         `v0.1.1`. Set it to `0.2.0`.
-27. [ ] PR → `main`. Merge, tag `v0.2.0`, push the tag. **Deploys nothing** — no consumer
+27. [x] PR → `main`. Merge, tag `v0.2.0`, push the tag. **Deploys nothing** — no consumer
         has re-pinned.
 
 ### Phase 3 — Dashboard swap
 
-28. [ ] Re-pin `package.json` to `#v0.2.0`; regenerate the lockfile.
-29. [ ] **Delete `src/index.css:29-64` entirely** — the whole override block, not a trim.
+28. [x] Re-pin `package.json` to `#v0.2.0`; regenerate the lockfile.
+29. [x] **Delete `src/index.css:29-64` entirely** — the whole override block, not a trim.
         Four of the eight are shadows now fixed by per-theme elevation; the colour four
         were tuned against values that no longer exist, so keeping any of them is a
         silently-wrong value.
-30. [ ] Move `--text-display` into the package's type scale; **keep** `--container-*` and
+30. [x] Move `--text-display` into the package's type scale; **keep** `--container-*` and
         `--card-min` dashboard-local.
-31. [ ] Replace `a11y.test.tsx:64-115` with the derived check: import the colour trees
+31. [x] Replace `a11y.test.tsx:64-115` with the derived check: import the colour trees
         and the manifest, resolve aliases, loop. **Zero hex literals, zero pair names.**
         Keep the `relLum`/`ratio` maths at L9-19 — that code is correct.
-32. [ ] Write the limits into that test file explicitly: it tests declared pairs not
+32. [x] Write the limits into that test file explicitly: it tests declared pairs not
         rendered pixels; it cannot detect an undeclared pair; jsdom axe cannot evaluate
         `color-contrast` at all.
-33. [ ] Build `/design-preview` — every `src/ui` export × variant × state.
-34. [ ] Add light/dark × LTR/RTL switching to the preview route.
-35. [ ] Broaden the jsdom axe sweep to run over the preview route.
-36. [ ] Add `@axe-core/playwright` against `/design-preview`, four modes. **This is the
+33. [x] Build `/design-preview` — every `src/ui` export × variant × state.
+34. [x] Add light/dark × LTR/RTL switching to the preview route.
+35. [x] Broaden the jsdom axe sweep to run over the preview route.
+36. [x] Add `@axe-core/playwright` against `/design-preview`, four modes. **This is the
         only check anywhere that evaluates contrast as actually rendered** — composited
         alpha, gradients, real cascade. It lands here, with the swap, not in phase 6.
-37. [ ] Fix visual fallout. Re-measure and raise the coverage floors.
-38. [ ] Open `/design-preview` in a real browser in all four modes and look at it. The
+37. [x] Fix visual fallout. Re-measure and raise the coverage floors.
+38. [x] Open `/design-preview` in a real browser in all four modes and look at it. The
         swap is atomic — this is the review.
-39. [ ] PR → `main`. **Deploys nothing** — meta still points at the old commit.
+39. [x] PR → `main`. **Deploys nothing** — meta still points at the old commit.
 
 ### Phase 4 — Marketing
 
-40. [ ] Re-pin, regenerate the lockfile, `pnpm build`, eyeball the rendered page.
-41. [ ] Add `astro check` to the `marketing-build` job. Closes a real gap (marketing has
+40. [x] Re-pin, regenerate the lockfile, `pnpm build`, eyeball the rendered page.
+41. [x] Add `astro check` to the `marketing-build` job. Closes a real gap (marketing has
         a `tsconfig.json` and zero typechecking) but **catches nothing about the
         palette** — describe it accurately in the PR.
-42. [ ] PR → `main`. Deploys nothing.
+42. [x] PR → `main`. Deploys nothing.
 
 ### Phase 5 — The deploy
 

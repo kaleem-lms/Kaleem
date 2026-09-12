@@ -8,7 +8,12 @@ and the binding standard ADR-0020 (a11y WCAG 2.2 AA both themes, i18n, full RTL)
 ## The shared layer: `@kaleem/tokens`
 
 A standalone repo (`kaleem-lms/tokens`), added here as the 5th submodule at `tokens/`.
-It is the single source of truth for the brand and ships three CSS files:
+It is the single source of truth for the brand.
+
+**Since v0.2.0 the source of truth is DTCG JSON in `tokens/src/`, and the CSS files
+below are GENERATED** (ADR-0041). Edit `src/*.tokens.json` and run `node build.mjs`;
+`node build.mjs --check` fails CI if the committed CSS has drifted, so a hand-edit
+of `tokens.css` is silently reverted. The package ships:
 
 - `tokens.css` — semantic design tokens as CSS custom properties, defined for `:root`
   (light) and `.dark` (dark). Names follow **shadcn's CSS-variable contract**
@@ -34,7 +39,7 @@ and import in their Tailwind v4 entry CSS:
     @import "@kaleem/tokens/theme.css";
 
 To change the brand: edit the tokens repo, commit, tag `vX.Y.Z`, push the tag; then bump
-the dependency ref in each consumer and reinstall. Current release: **v0.1.1**.
+the dependency ref in each consumer and reinstall. Current release: **v0.2.1**.
 
 ### Rule: tokens are shared, components are not
 
@@ -58,28 +63,37 @@ because both pull the same tokens.
   `DirectionProvider` (`@/lib/direction`) sets `<html dir>` + `lang` from the locale and
   persists `localStorage["kaleem-locale"]`. Full RTL UI is supported; layout relies on
   logical/`rtl:` classes, not physical left/right.
-- **Verification gate**: `src/test/a11y.test.tsx` runs axe (LTR + RTL) and asserts WCAG AA
-  contrast (≥ 4.5:1) on key token pairings in **both** themes.
+- **Verification gate** — three checks, and they prove DIFFERENT things. Conflating
+  them is how the previous gate rotted:
 
-  Two caveats, both load-bearing and both being fixed by ADR-0040/0041:
-  1. **The contrast tables hand-mirror hex literals** copied from the token files. The
-     file's own comment (L58-63) records a drift that made the gate pass while testing
-     nothing. Until the derived gate lands, treat a green contrast run as weaker evidence
-     than it looks.
-  2. **axe runs against one sample tree only** (`AuthLayout` + `Field` + `Input` +
-     `Button`) — no other component or route is scanned. And jsdom axe cannot evaluate
-     `color-contrast` at all, so the axe half and the contrast half prove unrelated
-     things.
+  | Check | Where | Proves | Cannot prove |
+  | --- | --- | --- | --- |
+  | Token contrast | `tokens` CI + `src/test/a11y.test.tsx` | every declared pair meets WCAG 2.2 AA / 1.4.11 / 2.4.11 in both themes, body text at AAA | rendered pixels; undeclared pairs |
+  | jsdom axe | `src/routes/design-preview.test.tsx` | roles, names, labels, ARIA across every `@/ui` export in 4 modes | **colour contrast** — axe disables that rule without a renderer |
+  | Real-browser axe | `e2e/design-preview.spec.ts` | contrast **as actually rendered**: composited alpha, gradients, real cascade | Safari/iOS — no Apple device exists in this project |
 
-- **`/design-preview` is PLANNED, not built.** An earlier version of this document
-  described it as existing; `dashboard/src/routes/` has no such file. It lands in phase 3
-  of `docs/superpowers/plans/2026-09-12-design-system-v2.md`, where it is the primary
-  mitigation for an atomic palette swap.
+  The contrast checks hold **no colour values**. They read `tokens/src/*.tokens.json`
+  and the pairing manifest `tokens/src/contrast-pairs.json`. Until 2026-09-12 the
+  dashboard's gate hand-mirrored 26 hex literals and a drift had already made it pass
+  while testing nothing — see ADR-0041.
+
+  **A new colour pair must be declared in `contrast-pairs.json`, or nothing verifies
+  it.** The gate proves declared pairs are sound; it cannot know about a pair nobody
+  listed. That gap is what the real-browser run covers — it found a live AA failure in
+  `Alert variant="destructive"` (an undeclared, alpha-composited pair) on its first run.
+
+- **`/design-preview`** renders every `@/ui` export x variant x state in all four
+  combinations of theme x direction **at once**. A palette change is atomic — `@theme
+  inline` resolves at use site, and a scoped second palette cannot work because Radix
+  portals to `document.body` — so seeing the whole surface together is the only way to
+  review one. It is the target of both axe sweeps.
 
 ### Color-usage guardrails
 
-- **`--accent` (gold) is a surface/decoration color, not a text color.** Gold on the cream
-  `--background` is ≈ 2:1 — well under AA. Use `text-accent` only for decorative marks (e.g.
+- **`--accent` (gold) is a surface/decoration color, not a text color.** In v2 it measures
+  **3.05:1 in light** (needs 4.5) and **7.28:1 in dark**. The ban is a light-mode constraint
+  applied to BOTH themes, because one token cannot be conditionally usable per theme; if that
+  ever becomes intolerable the fix is a separate `--accent-text` token, not relaxing the ban. Use `text-accent` only for decorative marks (e.g.
   the brand "." in the wordmark) or paired with `--accent-foreground` *on* an accent surface.
   Never use it for body copy, labels, links, or any meaningful text. For "highlight" text that
   must stay readable, use `--primary` (emerald) or `--foreground`.
@@ -87,8 +101,9 @@ because both pull the same tokens.
   backed by an icon or text, not color alone — e.g. toast variants carry a leading status icon,
   and form errors render text, not just a red border (WCAG color-not-only).
 - **Interactive controls meet the 44px touch-target minimum** by default (`Button`/`Input` are
-  `h-11`; icon buttons `h-11 w-11`). The `sm` button is a deliberately compact, pointer-first
-  variant — don't use it as the primary tap target on mobile.
+  `h-11`; icon buttons `h-11 w-11`). `sm` keeps a 40px ink height with the hit area expanded
+  to 44x44 by a pseudo-element — SC 2.5.8 measures the target, not the ink, so dense tables
+  keep their density without failing the guidance (ADR-0040 decision, 2026-09-12).
 
 ## CI: fetching the private token package
 
