@@ -42,17 +42,24 @@ allowance, which Sept's usage sits exactly on.
    rest on checks a harness cannot make: that the OS camera indicator really goes out,
    that audio is audible, that a shared screen is legible, and anything at all on Safari
    or iOS. Staging is live and carrying both.
-2. **Finish the staging walk's authenticated half.** Blocked on a *working login*, which
-   is NOT the same thing as the deferred rotation below — bundling them was an error.
-   Rotation is security remediation for leaked strings; the walk needs any account that
-   works. A fresh throwaway staging user, created and never written down in this repo,
-   unblocks it on its own. `Dialog`, `Skeleton` and `Meter` stay unverified until then. The
-   unauthenticated half passes — v2 palette live in both themes, RTL flips, one `h1` and
-   one `banner` per auth page, Lighthouse a11y **1.00** (floor raised to match).
-   ⚠ Visible changes from phase 7 + the a11y fixes deserve human eyes: 12px → 16px corners
-   on session rows and the call end screen, a tightened spotlight gap, auth headings at
-   display rank, **emerald links lighter in dark mode**, and **the topbar wordmark hidden
-   below `sm`**.
+2. ✅ **The staging walk's authenticated half — DONE 2026-09-13.** It never needed the
+   deferred rotation, only a working login: a throwaway verified user with all three
+   profiles unblocked it in one command. Verified live, measured not eyeballed —
+   **`Dialog`**: opens in dark+RTL, focus moves inside, `aria-labelledby`/`describedby`
+   set, background `aria-hidden` via Radix `hideOthers` (no `aria-modal`, which is Radix's
+   deliberate and more robust choice), Escape closes, focus restored to the exact trigger.
+   **`Skeleton`**: all 12 `aria-hidden="true"`, `motion-reduce:animate-none` present, and
+   the sibling `role="status" aria-live="polite"` announcements really are there — the
+   component's design claim holds in the rendered page. **`Meter`**: both roles present
+   and distinct (`progressbar` "Lessons used this month" 3/8, `meter` "Microphone level"
+   42/100). Also confirmed as rendered values: the per-theme `--overlay` differs in HUE not
+   just alpha (light `#191c1b8c`, dark `#000000ad`), `--primary-text` is `#146a51` light /
+   `#9fd0bc` dark, the topbar wordmark is `display:none` below `sm` with no sideways scroll
+   at 320px on an authed route, and **today's own focus fix works in production** (focus
+   lands on "New email address", not `<body>`).
+   ⚠ Still owed to human eyes, because no harness can judge them: 12px → 16px corners on
+   session rows and the call end screen, the tightened spotlight gap, and auth headings at
+   display rank.
 3. ⏸ **Rotate the staging passwords — DEFERRED by the owner 2026-09-13.** Still under
    *Blocks launch* in `ISSUES.md` at unchanged severity: deferred is about when, not
    whether. Accepted meanwhile: staging-only reach, repo private again so the window is
