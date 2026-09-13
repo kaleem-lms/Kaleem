@@ -6,7 +6,7 @@ Deploys are triggered automatically when code is merged to `master`:
 
 1. CI runs (lint, test, build)
 2. If all pass, `deploy-staging` job builds a Docker image, pushes to GHCR, and SSHs into the staging VPS
-3. On the VPS, `scripts/deploy.sh` runs a blue-green swap
+3. On the VPS, `scripts/ship.sh` runs a blue-green swap
 
 ## Manual deploy (if CI is down or you need to deploy a specific SHA)
 
@@ -15,7 +15,7 @@ ssh deploy@<staging-ip>
 cd /opt/kaleem
 echo "<ghcr-pat>" | docker login ghcr.io -u <username> --password-stdin
 export DEPLOY_SHA=<git-sha-short>
-bash scripts/deploy.sh $DEPLOY_SHA
+bash scripts/ship.sh $DEPLOY_SHA
 ```
 
 ## Rollback
@@ -25,7 +25,7 @@ Re-deploy the previous image SHA:
 ```bash
 ssh deploy@<staging-ip>
 cd /opt/kaleem
-bash scripts/deploy.sh <previous-sha>
+bash scripts/ship.sh <previous-sha>
 ```
 
 The previous SHA can be found in the GitHub Actions deploy log or in GHCR tags.
