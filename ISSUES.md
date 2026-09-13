@@ -516,7 +516,19 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
   as a required step in `docs/runbook/signaling.md`, not fixed in code: a recurring deploy-time
   room-ending job is exactly the "treat the symptom on a schedule" design ADR-0037 rejected.
 
-- **`mypy` is red on `config/settings/local.py:61` and nothing notices.** `LOGGING["handlers"]["console"]["formatter"] = "verbose"` — mypy types `LOGGING` as `object`, so the subscript errors. Pre-existing (present at HEAD before Phase C3b's fix wave), and harmless only because **mypy runs in neither `ci.yml` nor pre-commit nor `just lint`** — it is a manual command. Either fix the annotation and put mypy in the merge path, or stop calling it a gate.
+- **`mypy` is red and nothing notices — and it is bigger than this entry used to say.**
+  Re-measured 2026-09-13: **14 errors in 5 files**, not the one in `config/settings/local.py`
+  this entry named (that line has also moved, 61 -> 80). The spread:
+  `tests/stripe_clock/test_renewal_dunning.py` 8 (mostly `datetime | None` arithmetic),
+  `tests/stripe_clock/conftest.py` 2, and one each in `config/settings/local.py`,
+  `config/settings/test.py` and `kaleem/scheduling/tests/test_diagnostics_api.py` (the settings
+  three are all the same root cause: `LOGGING`/`REST_FRAMEWORK` imported from `base` are typed
+  `object`, so subscripting or unpacking them errors).
+  Still red in neither `ci.yml` nor pre-commit nor `just lint` — it is a manual command.
+  **The choice is unchanged and is an owner decision, not a drive-by:** fixing the 14 has no
+  durable value unless mypy also enters the merge path, because nothing would stop the 15th;
+  and putting it in the merge path is a standing cost on every PR. Fix AND gate, or stop
+  calling it a gate. Measured here so the decision has real numbers.
 
 - **`docs/runbook/deploy.md` still calls the deploy script `scripts/deploy.sh`.** The
   actual file in the `infra` submodule is `scripts/ship.sh`; the doc's command examples
@@ -800,11 +812,23 @@ proves; all are robustness of an unattended job.
   label.
 - `WeeklyAvailabilityEditor` pill React key collides on two identical ranges in one day
   (cosmetic; the backend merges them on save).
-- Two buttons on `/family` share the accessible name **"Add child"** — the disclosure that
-  opens the form and the form's submit. A screen-reader user hears the same name for two
-  different actions, and the e2e spec has to scope to the form to disambiguate. Rename the
-  submit (`family.addChildSubmit`) to something distinct. Same shape worth checking on
-  `account.addEmail` / `account.addEmailSubmit`, which happen to differ today.
+- ~~Two buttons on `/family` share the accessible name **"Add child"**.~~ **WRONG, and the
+  measurement found a real defect underneath it. FIXED 2026-09-13** (dashboard #66). The two
+  buttons never coexist: the disclosure is REPLACED by the form, so exactly one is in the DOM
+  at a time (counted, then pinned by a test). Renaming the submit — what this entry asked for —
+  would have changed user-visible copy for no accessibility benefit at all.
+  What the same probe DID find: because the button the user just activated is removed,
+  `document.activeElement` falls to `<body>`, so a keyboard or screen-reader user is dropped at
+  the top of the document with no signal that a form appeared — **twice per add**, once on open
+  and once when success unmounts the form. That is **SC 2.4.3 Focus Order** and it was logged
+  nowhere. `/account`'s add-email card had the identical shape and the identical defect; this
+  entry asked for it to be checked, and it was. Both now autofocus the first field on the way
+  in (safe here precisely because the form only ever mounts on the user's own click) and
+  restore focus to the disclosure on the way out.
+  **The lesson is about this file, not that card:** a D10 entry records a symptom and a guess
+  in 15 seconds, and the guess is often wrong — this is the second one today, after the reflow
+  bug that was blamed on the availability editor and turned out to be the topbar. Probe before
+  trusting an entry.
 - Shell CSS padding drift: `UserMenu` uses logical `ps-/pe-`, `AppSidebar` uses symmetric
   `px-` (both RTL-safe). Unify on logical.
 - Topbar brand wordmark is a plain `<span>`, not a `<Link to="/">`. Make it and the
