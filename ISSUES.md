@@ -331,6 +331,19 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
 
 ## Someday
 
+- **One failed `getUserMedia` tap writes TWO `calldiagnostic` rows, so the table
+  over-counts failures (spotted during the per-kind split fix, dashboard #71).** `acquire`
+  coalesces a request that arrives mid-flight into `pendingAcquireRef` and runs
+  `acquireOnce` again after the first settles; each run reports independently. Session 7's
+  staging rows show the signature plainly -- pairs ~150-300ms apart (`12:26:05.605` /
+  `.818`, `12:24:39.203` / `.627`), which is one tap, not two. Nothing is *wrong* in the
+  app; the diagnostics table simply reads roughly double on any failing device, which
+  matters because that table is the only thing this phase is verified by. There is also no
+  dedup or rate limit on reporting, so a person mashing "Try again" writes a row per
+  attempt (ten in 13 seconds on 2026-09-07). Fix is probably "report a code at most once
+  per session per mount", but that trades away the ability to see retry volume -- decide
+  which of the two the table is for before changing it.
+
 - **The weekly-slot picker names a time and nothing else.** `SlotOption` carries only
   `weekday`/`start_time`/`starts_at`, so the cards a student chooses their standing weekly
   time from cannot show the teacher, the subject or the duration — there is nothing on the
