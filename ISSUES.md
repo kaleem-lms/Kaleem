@@ -308,10 +308,10 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
   locale (`registerSchema`'s birthdate refine, plus zod's defaults on every form). zod runs
   outside React so `t()` cannot be called in the schema. Breaks ar parity for validation copy
   (ADR-0020). Fix repo-wide via a locale-aware resolver wrapper or per-field `setError`.
-- `test_checkout_completed_for_a_valid_plan_but_an_unknown_user_is_ignored` would still pass
-  if the explicit `get_user` existence check were deleted — the `IntegrityError` savepoint
-  handler masks the resulting FK violation. Add a `caplog` assertion on `reason=unknown_user`
-  to pin the intended path.
+- ~~`test_checkout_completed_..._unknown_user_is_ignored` would still pass if the `get_user`
+  check were deleted.~~ **FIXED 2026-09-13** (backend #56) — the `caplog` assertion on
+  `reason=unknown_user` is in, and **mutation-checked both ways**: green with the guard removed
+  before, red with it removed now.
 - The `canceled`-but-paid-through mirror of the documented `past_due` divergence: such a row
   is entitled, yet `get_current_subscription` returns `None`, so the UI reads "no
   subscription" while the user can still book, and an overlapping purchase is permitted
@@ -495,21 +495,17 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
   back with no indication. Only reachable now that the retry path and the device wiring both exist.
   Fix: have `retry()` reuse the current selection.
 
-- **Signaling reads only the first `Sec-WebSocket-Protocol` header line (C3c).**
-  `signaling/app.py` uses `headers.get(...)`, which returns the first occurrence. A client that
-  sends the offer as two repeated header lines — semantically equivalent to one comma-joined line
-  under RFC 7230 — would have its token silently dropped and be refused. It fails **closed**, so
-  this is not an auth bypass, and it is unreachable today: browsers and Starlette's `TestClient`
-  both comma-join. Worth a `getlist()` or at least a one-line comment recording the assumption
-  before any non-browser client exists.
-- **A reversed subprotocol offer is treated as no offer (C3c).** `[token, kaleem.signaling.v1]`
-  fails the `offered[0] != SUBPROTOCOL` check, so the refusal selects no subprotocol and the
-  browser sees a generic handshake error instead of close code 4401. Theoretical — kaleem's own
-  provider documents and constructs the fixed `[SUBPROTOCOL, token]` order.
-- **`stuns:` URLs would be given a TURN credential (C3c).** `providers/turn.py` splits STUN from
-  TURN with `startswith("stun:")`, so a `stuns:` entry falls into the TURN bucket and is handed a
-  credential it does not need. Unreachable today: `DJANGO_TURN_URLS` has no `stuns:` entry and
-  C3c ships no TLS listener at all. Fix it together with the `turns:` work above.
+- ~~**Signaling reads only the first `Sec-WebSocket-Protocol` header line (C3c).**~~ **FIXED
+  2026-09-13** (backend #58) — `getlist()` joins them. Tested against the PARSER, and the test
+  says why: neither a browser nor Starlette's TestClient can produce the repeated form, so the
+  assumption was untestable through the front door. That is how it stayed invisible.
+- ~~**A reversed subprotocol offer is treated as no offer (C3c).**~~ **FIXED 2026-09-13**
+  (backend #58). Still REFUSED — the order is part of the contract — but the refusal now
+  carries 4401 instead of a generic handshake error. The close-code vocabulary exists so a
+  client can tell auth failure from a network fault.
+- ~~**`stuns:` URLs would be given a TURN credential (C3c).**~~ **FIXED 2026-09-13**
+  (backend #58) — pinned BEFORE the `turns:` work adds the first such URL, which is the only
+  time it is cheap.
 - **`.env.production.example` had a stale comment referring to `WS_DOMAIN` (C3c), now doubly
   stale.** It used to say the variable "was retired and replaced by
   `WS_BLUE_DOMAIN`/`WS_GREEN_DOMAIN`" — backwards as of ADR-0037, which collapsed signaling back
@@ -583,9 +579,9 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
   `reseed_after_transactional_flush` restores the rows that a `transaction=True` test truncates.
   It has a loud tripwire on the subject count, but a *third* data migration would need adding by
   hand and nothing in CI enforces that.
-- **`RoomAdmin` blocks adding but not deleting.** `readonly_fields` makes the change form inert
-  and `has_add_permission` returns False, but staff can still delete rooms, and no test covers
-  the read-only intent.
+- ~~**`RoomAdmin` blocks adding but not deleting.**~~ **FIXED 2026-09-13** (backend #56),
+  with the test for the read-only intent this entry noted was missing. Deleting a room severs a
+  lesson from the only record of where it happened; rooms END, they do not disappear.
 - **The 409 copy on a closed room says "not open yet".** `isOutsideJoinWindowError` maps every
   409 to the not-yet-open message, so leaving the schedule open past a lesson's end and clicking
   Join tells the user the room has not opened when it has closed. The client knows `starts_at`
@@ -637,8 +633,9 @@ None blocks the phase; each was reviewed and consciously deferred.
   it — fewer queries, two places to keep in step.
 - **`isNoActiveSlotError` is byte-identical to `isNoEntitlementError`**, justified by semantic
   distinctness; they could silently diverge if either endpoint's status changes.
-- **`NotFoundError("Recurring slot", request.user.id)`** echoes the *user* id where a slot id is
-  implied, and it reaches a user-visible 404 body.
+- ~~**`NotFoundError("Recurring slot", request.user.id)` echoes the user id.**~~ **FIXED
+  2026-09-13** (backend #56). `identifier` is now optional: the slot does not exist, so there is
+  no id to name, and the user-visible body no longer reads a USER id under a slot's noun.
 - **The multi-subject 400 detail renders the server's raw English string**, unlocalised — matching
   the existing claim-mutation pattern. Wants an i18n pass.
 - **Feature naming diverges across repos:** the backend puts booking inside `scheduling`; the
@@ -797,11 +794,11 @@ proves; all are robustness of an unattended job.
   credentials.
 - `/me/emails/` `@extend_schema` documents success responses only, not the 400/404 shapes.
   Worth a sweep across the identity module.
-- `billing.services.get_current_subscription` lacks `select_related("plan")`, costing one
-  extra query when serializing `current` (the history query already does it).
-- `WeeklyAvailability.weekday` is only service-validated (0..6), not DB-constrained — a raw
-  ORM insert > 6 would `IndexError` in `__str__`. Add a `CheckConstraint` if direct inserts
-  ever happen.
+- ~~`billing.services.get_current_subscription` lacks `select_related("plan")`.~~ **FIXED
+  2026-09-13** (backend #56).
+- ~~`WeeklyAvailability.weekday` is only service-validated (0..6), not DB-constrained.~~
+  **FIXED 2026-09-13** (backend #56) — a `CheckConstraint`, because the database is the only
+  place a rule holds for every writer, a Django shell included.
 - **tz-awareness is partial:** availability is stored/edited in the owner's timezone and
   `to_utc_intervals` converts for a reference week, but DST exactness and multi-tz-per-user
   are out of scope (documented in the spec). Revisit when the matching feature lands.
