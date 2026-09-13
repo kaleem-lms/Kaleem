@@ -557,6 +557,23 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
 - **The C3a e2e is time-bombed on seed age.** `seed_e2e_matching` puts the joinable session at
   `now`, and its window closes 75 minutes later. A suite run long after seeding would find the
   button still enabled but the POST returning 409. Fine in CI, which seeds immediately.
+- **`call.spec.ts`'s "the lobby has a way back" measures 44px with zero tolerance, and it is
+  runner-sensitive.** Failed on meta#221 at **43** (initial run AND the automatic retry, so
+  stable within the job), then **passed in 1.6s on a fresh runner at the identical commit**.
+  Ruled out as a code cause first: the same test passed on the previous run, the diff between
+  the two dashboard SHAs is seven files touching curriculum queries, the invite card and two
+  locale strings — nothing in the call UI or any global CSS — and the built CSS is correct
+  (`.h-11{height:calc(var(--spacing) * 11)}` with `--spacing:.25rem` = 44px).
+  **The assertion is stricter than the standard it cites.** SC 2.5.8 requires **24**px; 44 is
+  the Apple HIG preference, so a 43px render fails this gate while violating nothing. And
+  `expect(Math.round(box.height)).toBeGreaterThanOrEqual(44)` on an `h-11` element leaves no
+  room for any sub-pixel factor on a given runner.
+  **Do:** make it hit-test the way `touch-targets.spec.ts` does — which exists precisely
+  because `boundingBox()` returns the PAINTED box and a geometry gate misjudges correct
+  components — or state a tolerance and say why. Deliberately NOT changed in passing:
+  loosening a merge gate's threshold inside a PR about something else is how a gate quietly
+  stops meaning anything.
+
 - **`availability.spec.ts` failed once in local e2e (2026-09-05), then passed on a clean re-run.**
   The failing run overlapped a manual browser session signed in as `e2e.teacher` against the same
   database, which is the likely cause rather than a defect in the spec — but it is unproven, and a
