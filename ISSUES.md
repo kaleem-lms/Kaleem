@@ -850,13 +850,24 @@ proves; all are robustness of an unattended job.
   design-system v2 (audit, don't sweep): many are legitimate in-place icon controls. Audit them
   opportunistically, one at a time, when already in the file.
 
-- `/availability` has no in-component teacher gate — nav hides it and the API 403s, but a
-  parent deep-linking lands on the editor then hits a bare 403. Add a route-level gate +
-  friendly empty state.
+- ~~`/availability` has no in-component teacher gate.~~ **FIXED 2026-09-13** (dashboard #70).
+  Gated inside the page rather than at the route, so it is testable without a router and so
+  `useAvailability` can be called DISABLED — hooks cannot be conditional, but the request can
+  be. A bare 403 reads as the app being broken rather than the page not being yours.
 - `parseApiError` lives in `features/identity/api.ts`; promote it to `src/lib` so other
   features don't cross-import identity.
-- The child-create/preferences payload still sends `time_preferences: []` though the backend
-  dropped the field (unknown keys are ignored — harmless).
+- ~~The child-create/preferences payload still sends `time_preferences: []` (harmless).~~
+  **WRONG, and the reality was silent data loss. FIXED 2026-09-13** (dashboard #69).
+  `EditChildPreferencesDialog` rendered a FULL preferred-times editor — fieldset, day/start/end
+  selects per slot, remove buttons, an Add slot button, per-slot validation with translated
+  messages. The endpoint reads **only** `teacher_gender_preference` and the column was dropped
+  in identity migration 0006, so a parent could add slots, watch them validate, save
+  successfully, and have every one discarded. Nothing failed, so nobody was told.
+  **Two existing tests drove that editor and asserted the payload contained the slots** — they
+  passed, and they encoded the illusion as correct behaviour. That is the third time today a
+  green test was protecting nothing. The control is gone, because one that accepts input and
+  throws it away is worse than none: the parent believes the times are set. Editing a child's
+  real availability remains a genuine missing feature with its own entry.
 - `TimezoneBar` picker has no Escape-to-close, and its listbox `aria-label` reuses the search
   label.
 - `WeeklyAvailabilityEditor` pill React key collides on two identical ranges in one day
@@ -897,12 +908,14 @@ proves; all are robustness of an unattended job.
   `aria-invalid`. Also the "required times" message anchors on `end_time` even when
   `start_time` is the empty one. And it hand-rolls a `SELECT_CLASS` string replicating the
   shadcn `Input` classes — replace when a `Select` primitive lands in `@/ui`.
-- `verify-email.tsx`: the `started` ref is "confirm once per **mount**", not "once per
-  **key**" as its comment claims; and the route passes a vestigial `onVerified={() => {}}`.
-- `?checkout=cancelled` never clears from the URL (only the success path calls `onSettled`),
-  so a refresh after an abandoned checkout re-shows the banner.
-- Dead i18n keys after the billing promotion: `billing.subscribed`,
-  `modules.billing.{title,description}`.
+- ~~`verify-email.tsx`: the `started` ref and a vestigial `onVerified` prop.~~ **ALREADY FIXED
+  — entry was stale, verified 2026-09-13.** No `onVerified` exists anywhere in `src`.
+- ~~`?checkout=cancelled` never clears from the URL.~~ **FIXED 2026-09-13** (dashboard #69).
+  What to render is frozen at first render BEFORE the URL is cleared — without that the banner
+  would vanish the instant it appeared, since the param is what renders it.
+- ~~Dead i18n keys after the billing promotion.~~ **FIXED 2026-09-13** (dashboard #69) —
+  `billing.subscribed`, `modules.billing`, plus the nine `prefs.*` time-slot keys the deleted
+  child editor was the only consumer of. Each verified at zero call sites first.
 - Arabic `_few`/`_many`/`_other` plural categories for the plan-session copy are verified via
   `Intl.PluralRules` but only the dual (`_two`) has a rendered test.
 - `SubscriptionCard`'s history list includes the current subscription as its first row and is
