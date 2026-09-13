@@ -528,9 +528,21 @@ jobs:
     # A Dependabot PR cannot read secrets.SUBMODULE_TOKEN, so every one of these
     # jobs dies in `actions/checkout` -- six billed minutes to fail. It is not
     # newly untested; it was never testable here. See the spec.
+    #
+    # THIS JOB DELIBERATELY OMITS THE `code == 'true'` CLAUSE that every other
+    # gate carries. ADR-0038 skips the gates on documentation-only changes, and
+    # root `*.md` counts as documentation -- which is the exact shape of this
+    # project's one previous leak (`portal-snapshot.md`, a root-level `.md`,
+    # caught by the very first `security` run). Skipping the secret scan until
+    # the next code PR is an unbounded window for the one file shape that has
+    # actually leaked here. The `verified` clause stays: a tree already proven
+    # green has already been scanned.
+    #
+    # The cost is one job per docs PR. This repo's net Actions spend is
+    # $0.00/month against a real invoice (ADR-0038 Correction), so the trade is
+    # not close.
     if: >-
-      needs.triage.outputs.code == 'true'
-      && needs.triage.outputs.verified != 'true'
+      needs.triage.outputs.verified != 'true'
       && github.actor != 'dependabot[bot]'
     steps:
       - uses: actions/checkout@v7

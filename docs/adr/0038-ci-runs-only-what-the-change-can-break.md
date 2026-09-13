@@ -1,7 +1,10 @@
 # ADR-0038: CI runs only what the change can break
 
-**Status:** Accepted
+**Status:** Accepted, amended in part by ADR-0042
 **Date:** 2026-09-08 (justification corrected 2026-09-11 — see *Correction*)
+**Amended:** 2026-09-13 — ADR-0042 removes the docs-only skip from the `security` job
+alone. A secret scan tests the bytes of a commit, not the code, and this project's only
+two observed leaks were both root-level `.md` files. Every other clause stands.
 **Related:** ADR-0028 (trunk-based, a merge to the meta trunk is a deploy), ADR-0029 (API
 versioning enforcement, the previous CI-as-gate change), `docs/superpowers/specs/2026-09-08-ci-cost-optimization-design.md`
 

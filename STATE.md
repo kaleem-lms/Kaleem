@@ -61,9 +61,7 @@ allowance, which Sept's usage sits exactly on.
    pick unilaterally.
 5. A coturn config-only change does not restart the running relay — close before it bites
    again (`ISSUES.md`).
-6. **Blocks launch:** the quota cycle is keyed by an exact `current_period_end`; a
-   mid-cycle rewrite would hand out a second allowance.
-7. **Someday:** force the artifact-miss path once a code change merges >7 days after
+6. **Someday:** force the artifact-miss path once a code change merges >7 days after
    going green (`ISSUES.md`).
 
 ## Standing warnings
@@ -81,10 +79,16 @@ allowance, which Sept's usage sits exactly on.
   are still in git history. Anonymous access 404s as of 2026-09-11, so the window is closed,
   but anyone who cloned while it was open still has them. **Rotate them** — `ISSUES.md` →
   *Blocks launch*.
-- ⚠ ADR-0038 made the `security` job (gitleaks) skip on docs-only changes, and root `*.md`
-  counts as docs — the exact shape of this project's one previous leak (`portal-snapshot.md`).
 
 ## Recently verified
+
+- **Two launch blockers closed 2026-09-13** by working `ISSUES.md` rather than a phase.
+  (1) The quota cycle was keyed by exact `current_period_end` equality — the test the issue
+  named was written first and went red in the predicted shape: a **one-second** mid-cycle
+  rewrite generated **four extra lessons** on a four-lesson plan (backend #52). (2) The secret
+  scan no longer skips documentation-only changes (ADR-0042, amending ADR-0038 for that job
+  alone) — a secret scan tests the bytes of a commit, not the code, and both of this
+  project's observed leaks were root-level `.md` files.
 
 - **Design-system v2, complete 2026-09-12.** Palette replaced (ADR-0040/0041) and
   primitives consolidated. The consolidation itself found four defects no gate had

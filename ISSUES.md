@@ -46,13 +46,14 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
   `billing.clickthrough@`, `billing.recheck@`, `billing.failcard@` and the two `*.smoke@` users,
   then keep the new ones out of the repo entirely.
 
-- **`security` (gitleaks) skips on documentation-only changes, and root `*.md` counts as
-  documentation** (ADR-0038). This project's one previous leak was exactly that shape —
-  `portal-snapshot.md`, a root-level `.md`, caught by the first `security` run. Delaying that
-  scan until the next code PR is an unbounded window for the one file shape that has leaked
-  here before. **Do:** drop the `code == 'true'` clause from the `security` job alone, leaving
-  the `verified` clause in place. Costs one job per docs PR; the repo's Actions net spend is
-  $0.00/month (ADR-0038 Correction), so the trade is not close.
+- ~~**`security` (gitleaks) skips on documentation-only changes, and root `*.md` counts as
+  documentation.**~~ **FIXED 2026-09-13** (ADR-0042, meta). The `code == 'true'` clause is
+  dropped from the `security` job alone; `verified != 'true'` stays, because a tree a PR
+  already proved green has already been scanned. The reasoning ADR-0038 applied to the other
+  six gates does not transfer to this one: a secret scan tests the BYTES of a commit, not the
+  code, and a `.md` carries a credential exactly as well as a settings module does. This
+  project's only two observed leaks were both root-level `.md` files — `portal-snapshot.md`,
+  and the staging passwords that sat in `STATE.md` on a public `master`.
 
 - **A deploy drops every live call (C3b).** `scripts/ship.sh` step 8 stops the old signaling
   container with `stop --timeout 30`; room membership is an in-process dict, so every call in
@@ -541,17 +542,18 @@ None blocks the phase; each was reviewed and consciously deferred.
 
 **Blocks launch — read this one before touching billing:**
 
-- **`Session.cycle_end` is matched by exact `DateTimeField` equality, so a mid-cycle rewrite of
-  `current_period_end` would silently zero a student's usage.** `_consumed` filters
-  `cycle_end=cycle_end`. Four billing paths write `current_period_end`
-  (`_apply_subscription_updated` ×2, `cancel_subscription`, `_reconcile_one`). If any stores a
-  value differing by even one second *within a cycle a student is already inside*, every session
-  already generated stops counting, `used` drops to 0, and the next nightly run generates up to a
-  full second allowance — eight lessons on a four-lesson plan. A renewal producing a new period
-  end is correct and desired; the dangerous case is a **mid-cycle plan change with proration**,
-  which C2 does not ship. **The test that would settle it:** mutate a live subscription's
-  `current_period_end` mid-cycle and assert generation still cannot exceed the limit. It would
-  fail today. Fix by keying the cycle on a tolerance or a derived id rather than an exact instant.
+- ~~**`Session.cycle_end` is matched by exact `DateTimeField` equality, so a mid-cycle rewrite
+  of `current_period_end` would silently zero a student's usage.**~~ **FIXED 2026-09-13**
+  (backend #52). The test this entry named was written first and went red in exactly the
+  predicted shape: moving `current_period_end` forward by **one second** on a four-lesson plan
+  generated **four extra lessons**. A session now counts if EITHER its stored `cycle_end` is
+  the one billing reports now, OR that instant has not yet passed. The second clause absorbs
+  the rewrite and is strictly more inclusive than equality, so the failure it replaces —
+  handing out units already spent — is not reachable through it; a cycle that has ENDED stops
+  counting on its own, which is what still returns a student's allowance on renewal (covered
+  by its own test in the opposite direction). Keying on a derived cycle id was the other
+  candidate and is the larger change: `Subscription` mirrors no `current_period_start`, so
+  there is no second bound to derive an id from without a billing migration.
 
 **The C2 scoping cluster — one root cause, three symptoms:**
 
