@@ -146,10 +146,15 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
   email leaks; these are the heavier operational duties, all still missing: a data-retention
   policy, a DSAR / right-to-erasure flow (export + delete a user's data), a cookie/consent
   decision for the marketing site, and a Records-of-Processing (RoPA) document.
-- **No security-alert email on password change or reset.** `add_email` / `set_primary_email`
-  send one (ADR-0023); `change_password` and `confirm_password_reset` do not — so a silent
-  account takeover via password change never notifies the owner. Reuse
-  `_send_email_security_alert` with a new action.
+- ~~**No security-alert email on password change or reset.**~~ **FIXED 2026-09-13**
+  (backend #53). Both paths now alert the primary address, with one body for both: the
+  reader's question is "did I do this?", and the answer does not depend on which route was
+  taken. It says RESET rather than "change your password" — by the time it is read in anger
+  the old password no longer works. `confirm_password_reset` also activates a CHILD, whose
+  primary address is unverified until they follow the link, so the verified state is read
+  BEFORE the row is updated and a first-time activation stays silent; that guard is
+  mutation-checked. Adding two actions also forced the `else` fallback below to become an
+  exhaustive match that raises.
 - **allauth templates still echo an email address in the body** —
   `account_already_exists_message.txt`, `unknown_account_message.txt`,
   `email_changed_message.txt` (ADR-0023 violation). Currently unreachable: `RegisterView`
@@ -222,14 +227,13 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
   coturn was restarted by hand. Either add an explicit `restart coturn` to the deploy when the
   config changes, or hash the config into the service definition so Compose notices.
 
-- **Sentry may capture a capability token and TURN credential as stack-frame locals (C3c).**
-  `backend/config/settings/base.py` calls `sentry_sdk.init()` without
-  `include_local_variables=False`. The default `EventScrubber` scrubs frame variables by NAME,
-  and `secret`/`token` are on its denylist, but `credential`, `servers` (a tuple of `IceServer`
-  whose `repr` carries the credential) and `grant` are not. Any 500 raised after those locals are
-  bound ships them to Sentry in full. Only live once `SENTRY_DSN` is set (currently empty in
-  `.env.production.example`). One-line fix (`include_local_variables=False`), logged rather than
-  applied in this phase.
+- ~~**Sentry may capture a capability token and TURN credential as stack-frame locals
+  (C3c).**~~ **FIXED 2026-09-13** (backend #54). `include_local_variables=False`, so frame
+  locals do not leave the process at all. The defect was never the three names the default
+  `EventScrubber` happens to miss (`credential`, `servers`, `grant`) — a name-based denylist
+  cannot be kept in step with every local a future view binds. `send_default_pii=False` is now
+  explicit too, because a default is exactly what an SDK upgrade is free to change. Landed
+  before `SENTRY_DSN` is ever set, which is the only time this is cheap.
 
 - **There is no `docs/architecture/scheduling.md`, and D9 asks for one every phase.** `identity`,
   `billing` and `curriculum` each have an architecture doc; `scheduling` — now the largest module
@@ -278,11 +282,12 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
 - **The spec requires `display_amount`/`currency` "validated against the Stripe Price on
   save"; there is no `clean()` or admin validation.** The runbook says keep them in lockstep
   by hand. Either implement the validation or amend the spec — right now the spec is wrong.
-- **`TeacherProfile.availability` is a dead JSONField that duplicates
-  `scheduling.WeeklyAvailability`** and violates rule #3 (no role-specific data as JSON blobs
-  on a profile). Nothing reads it — availability has lived in `scheduling` since that module
-  shipped. Delete it with a migration; check first that no admin screen or fixture writes it.
-  (Spotted 2026-09-04 while specing Phase C0; not fixed in passing, D10.)
+- ~~**`TeacherProfile.availability` is a dead JSONField.**~~ **FIXED 2026-09-13**
+  (backend #55). The check this entry asked for came first: no serializer exposes it, no admin
+  form lists it, and the only references in the tree were the model line, its creating
+  migration and one default assertion — so every row held `[]` and the drop lost nothing. The
+  migration's docstring records that, since the next reader of a `RemoveField` on a JSON
+  column will want to know whether data went with it.
 - **Dashboard zod validation messages are not i18n'd** — they render English regardless of
   locale (`registerSchema`'s birthdate refine, plus zod's defaults on every form). zod runs
   outside React so `t()` cannot be called in the schema. Breaks ar parity for validation copy
@@ -736,9 +741,11 @@ proves; all are robustness of an unattended job.
   `transaction.on_commit(...)`, but that breaks pytest-django's non-committing test
   transactions. Decide deliberately (e.g. `on_commit` + `django_capture_on_commit_callbacks`).
   Low harm today — the alert only fires after all validation passes.
-- `identity.services._send_email_security_alert` picks the body with an `else` fallback, so
-  an unknown `action` silently uses the "primary changed" wording. Only `"added"` /
-  `"set_primary"` are passed today; harden to an explicit `elif` + raise.
+- ~~`identity.services._send_email_security_alert` picks the body with an `else` fallback.~~
+  **FIXED 2026-09-13** (backend #53) — it matches `action` exhaustively and raises on an
+  unknown one, with a test. Adding the two password actions is what made it urgent: a typo at
+  a new call site would have told every user the wrong reason for a change to their own
+  credentials.
 - `/me/emails/` `@extend_schema` documents success responses only, not the 400/404 shapes.
   Worth a sweep across the identity module.
 - `billing.services.get_current_subscription` lacks `select_related("plan")`, costing one
