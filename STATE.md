@@ -42,19 +42,22 @@ allowance, which Sept's usage sits exactly on.
    rest on checks a harness cannot make: that the OS camera indicator really goes out,
    that audio is audible, that a shared screen is legible, and anything at all on Safari
    or iOS. Staging is live and carrying both.
-2. **Finish the staging walk's authenticated half.** Still blocked: every staging
-   credential in `ISSUES.md` is refused, consistent with the rotation already tracked
-   there. `Dialog`, `Skeleton` and `Meter` are therefore unverified on staging. The
+2. **Finish the staging walk's authenticated half.** Blocked on a *working login*, which
+   is NOT the same thing as the deferred rotation below — bundling them was an error.
+   Rotation is security remediation for leaked strings; the walk needs any account that
+   works. A fresh throwaway staging user, created and never written down in this repo,
+   unblocks it on its own. `Dialog`, `Skeleton` and `Meter` stay unverified until then. The
    unauthenticated half passes — v2 palette live in both themes, RTL flips, one `h1` and
    one `banner` per auth page, Lighthouse a11y **1.00** (floor raised to match).
    ⚠ Visible changes from phase 7 + the a11y fixes deserve human eyes: 12px → 16px corners
    on session rows and the call end screen, a tightened spotlight gap, auth headings at
    display rank, **emerald links lighter in dark mode**, and **the topbar wordmark hidden
    below `sm`**.
-3. **Rotate the staging passwords** (`ISSUES.md` → Blocks launch). They were
-   world-readable on a then-public master and are still in history; they are ALSO simply
-   wrong now — every documented credential is refused — so the rotation and the blocked
-   walk above are one task, not two.
+3. ⏸ **Rotate the staging passwords — DEFERRED by the owner 2026-09-13.** Still under
+   *Blocks launch* in `ISSUES.md` at unchanged severity: deferred is about when, not
+   whether. Accepted meanwhile: staging-only reach, repo private again so the window is
+   closed, exposure bounded by whoever cloned during it. Must happen before real users and
+   real money, and the new values must never enter the repo — history keeps the old ones.
 4. **Then choose the next phase with the user.** `assessment` closes the roadmap's happy
    path — a delivered lesson still leaves no trace — and `notifications` is the other
    candidate. Preview mode has still never run, so priorities remain provisional. Do not
@@ -77,8 +80,8 @@ allowance, which Sept's usage sits exactly on.
 - ⚠ **The repo was PUBLIC until the owner made it private (between 2026-09-08 and 09-11).**
   Live staging passwords were world-readable in `STATE.md` on `master` during that window and
   are still in git history. Anonymous access 404s as of 2026-09-11, so the window is closed,
-  but anyone who cloned while it was open still has them. **Rotate them** — `ISSUES.md` →
-  *Blocks launch*.
+  but anyone who cloned while it was open still has them. Rotation is **deferred by the owner
+  (2026-09-13)** and still required before launch — `ISSUES.md` → *Blocks launch*.
 
 ## Recently verified
 
