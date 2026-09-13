@@ -295,13 +295,20 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
   needing a real inbox — registration, password reset, child activation — because CI has no
   mail-catcher wired in. That is its own slice (a mailpit service plus a way to read the
   link). Note this is *not* the same as the billing exclusion below, which is permanent.
-- **`WebhookEvent.stripe_customer_id` is parsed but never consumed.** A subscription created
-  directly in the Stripe dashboard (no checkout, no metadata) is invisible to us and its
-  events are logged `unknown_subscription` and dropped. B2's nightly reconciler covers the
-  drift case, but the customer-id path is still dead code — either wire it or delete it.
-- **The spec requires `display_amount`/`currency` "validated against the Stripe Price on
-  save"; there is no `clean()` or admin validation.** The runbook says keep them in lockstep
-  by hand. Either implement the validation or amend the spec — right now the spec is wrong.
+- ~~**`WebhookEvent.stripe_customer_id` is parsed but never consumed.**~~ **FIXED 2026-09-13**
+  (backend #62) — it is now recorded in the incident detail, so whoever investigates a dropped
+  event finds WHOSE subscription it was in one search. Deliberately diagnostic rather than
+  functional: resolving the customer to a user and adopting the subscription would grant
+  entitlement from an event we cannot attribute, which is a **product decision** about
+  dashboard-created subscriptions and remains open.
+- ~~**The spec requires `display_amount`/`currency` "validated against the Stripe Price on
+  save"; there is no `clean()`.**~~ **PARTLY FIXED 2026-09-13** (backend #62). `clean()` now
+  validates the SHAPE — lowercase ISO-4217, non-zero amount — which catches what a human gets
+  wrong in the admin. The Stripe cross-check is deliberately NOT in `clean()`: it would make an
+  ordinary admin edit fail whenever Stripe is slow, for a field that is a display mirror and
+  never the charge source of truth. Its right home is the nightly reconciler, which already
+  talks to Stripe on a schedule and can raise an incident on drift. **That remains an owner
+  decision**, and the docstring says so.
 - ~~**`TeacherProfile.availability` is a dead JSONField.**~~ **FIXED 2026-09-13**
   (backend #55). The check this entry asked for came first: no serializer exposes it, no admin
   form lists it, and the only references in the tree were the model line, its creating
@@ -580,9 +587,12 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
   database, which is the likely cause rather than a defect in the spec — but it is unproven, and a
   shared-account suite has no isolation to fall back on. Watch for it in CI.
 - **The transactional-test reseed fixture is a hand-maintained mirror of two data migrations.**
-  `reseed_after_transactional_flush` restores the rows that a `transaction=True` test truncates.
-  It has a loud tripwire on the subject count, but a *third* data migration would need adding by
-  hand and nothing in CI enforces that.
+  Still true and still un-enforced. **One half was fixed 2026-09-13** (backend #63): the fixture
+  was SESSION-scoped, so it repaired the seeded rows for the next RUN and not between tests
+  within one — which held only while the suite had exactly ONE transactional test. Adding a
+  second exposed it, and which test broke depended on collection order. Now function-scoped and
+  idempotent at both ends. The hand-mirroring of the migrations, and the missing link between
+  them, is unchanged.
 - ~~**`RoomAdmin` blocks adding but not deleting.**~~ **FIXED 2026-09-13** (backend #56),
   with the test for the read-only intent this entry noted was missing. Deleting a room severs a
   lesson from the only record of where it happened; rooms END, they do not disappear.
@@ -657,8 +667,13 @@ phase; each was reviewed and consciously deferred rather than missed.
 
 **Worth doing sooner than the rest:**
 
-- **The accept race's lock is unproven by any test.** (Unchanged — still wants a
-  `TransactionTestCase` with two threads.)
+- ~~**The accept race's lock is unproven by any test.**~~ **FIXED 2026-09-13** (backend #63) —
+  two threads, a barrier, and a slow eligibility check holding the window open.
+  ⚠ **The first version of that test was ALSO worthless**, and the mutation check is the only
+  reason it is not in the repo: asserting "the loser got a typed error" PASSES with the lock
+  deleted, because without it both threads reach the INSERT and the unique index refuses one —
+  which `accept_offer` now converts into a `ConflictError` too. Same type, different mechanism.
+  The MESSAGE separates them, and the assertion names which one refused when it fails.
 - **`/account` overflows horizontally in Arabic** — `scrollWidth` 1162 vs `innerWidth` 1018
   (144px); clean at 1003/1018 in English. Traced to the "Preferred teacher gender" radio group's
   visually-hidden inputs using a physical `left:-159px` instead of a logical inset. This is a
