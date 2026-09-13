@@ -82,6 +82,10 @@ allowance, which Sept's usage sits exactly on.
 
 ## Recently verified
 
+- **Five `ISSUES.md` entries closed 2026-09-13**, worked as a backlog rather than a phase:
+  password-change/reset security alerts (backend #53, ADR-0023's remaining gap — the change
+  an account takeover makes FIRST notified nobody), Sentry frame locals (#54), and the dead
+  `TeacherProfile.availability` JSONField (#55), on top of the two launch blockers below.
 - **Two launch blockers closed 2026-09-13** by working `ISSUES.md` rather than a phase.
   (1) The quota cycle was keyed by exact `current_period_end` equality — the test the issue
   named was written first and went red in the predicted shape: a **one-second** mid-cycle
