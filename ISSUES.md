@@ -873,8 +873,13 @@ proves; all are robustness of an unattended job.
 - `features/identity/schemas.ts` has two near-identical child shapes — `ChildSummary` (the
   `/me`-embedded one) and `Child` (the `/children/` list shape). Unify once the child surface
   settles.
-- `InviteCard`'s copy button calls `navigator.clipboard.writeText(...)` with no `.catch` — a
-  permissions rejection is an unhandled promise rejection.
+- ~~`InviteCard`'s copy button calls `navigator.clipboard.writeText(...)` with no `.catch`.~~
+  **FIXED 2026-09-13** (dashboard #68). Accurate as written, and reproduced before fixing —
+  the new test went red with vitest reporting the unhandled rejection itself. There were two
+  failures, not one: the unhandled rejection, and a button that silently STAYED on "Copy", so
+  the user could not tell a failed copy from a slow one. The message now says to select the
+  code by hand, because the code is still on screen and reporting only "failed" would leave
+  the user stuck beside a working alternative.
 - `StudentPreferencesCard`: the per-row validation message is a sibling `<p role="alert">`,
   not `aria-describedby`-linked to the offending input, and the time inputs carry no
   `aria-invalid`. Also the "required times" message anchors on `end_time` even when
@@ -919,9 +924,11 @@ proves; all are robustness of an unattended job.
   when already in the file. The clearest real duplicate is `ExitToSchedule.tsx:33`, a
   fully hand-rolled pill (h-11, rounded-full, own ring, own focus recipe).
   (Spotted 2026-09-12 during the design-system v2 audit; deliberately left out of that plan.)
-- The room route (C3d) has two `<h1>`s at once during the Lobby state: its own `sr-only`
-  "Lesson room" plus `Lobby.tsx`'s visible "Get ready for your lesson". Demote `Lobby`'s to
-  `<h2>` once something touches that file again.
+- ~~The room route (C3d) has two `<h1>`s at once during the Lobby state.~~ **ALREADY FIXED —
+  entry was stale, verified 2026-09-13.** C6 demoted `Lobby`'s heading to `<h2>` and pinned it
+  with a test (`Lobby.test.tsx`, "is a section of the room, not a second page") that also
+  asserts no `level: 1` heading remains. Closed on reading the code rather than on trusting
+  the entry — the fourth stale-or-wrong entry found today.
 - **A rejected `sender.replaceTrack()` is swallowed, not reported (C3e-b).** The rejection is
   now caught (an unhandled rejection would fail `call.spec.ts`'s `pageerror` listener on a
   lesson that is still running), but nothing is recorded: no diagnostic code fits, and the
@@ -979,14 +986,13 @@ proves; all are robustness of an unattended job.
   new endpoint and rotating `DJANGO_STRIPE_WEBHOOK_SECRET`. Cheap to get right up front,
   annoying afterwards.
 
-- **A teacher-only account page always fires a forbidden request for student subjects.**
-  `SubjectsCard` calls `useTeacherSubjects()` and `useStudentSubjects()` unconditionally —
-  hooks cannot be conditional, and `audience` only picks which result is *rendered*. So a
-  user with no `student` profile still issues `GET curriculum/me/student-subjects/`, gets a
-  403, and logs a console error on every visit to `/account`. Confirmed on staging
-  2026-09-06 with a teacher-only account. Harmless — the server refuses correctly, which is
-  the point — but it is a wasted round trip on every load and a red herring for anyone
-  debugging a real 403. Fix is `enabled:` on the two queries, keyed off the audience.
+- ~~**A teacher-only account page always fires a forbidden request for student subjects.**~~
+  **FIXED 2026-09-13** (dashboard #67). Hooks cannot be conditional, so `SubjectsCard` must
+  CALL both queries and `audience` only picked which result it rendered. Both hooks now take
+  `enabled` (default `true`, so no other caller changes) and the card passes
+  `isTeacher` / `!isTeacher`. The framing that made it worth fixing: the server refusing was
+  the system working — **asking at all** was the defect, and it cost a round trip on every
+  `/account` load plus a console error that is a red herring for anyone debugging a real 403.
 
 - **The dashboard unit suite flakes: jsdom intermittently crashes creating a Window.**
   Roughly 1 run in 4 on a loaded machine, `vitest` reports an unhandled
