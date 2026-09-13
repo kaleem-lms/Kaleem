@@ -129,13 +129,15 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
   form is the fix; the exposure is the accepted cost, and it sits inside an existing trust
   boundary (the same value is already in `.env.production` on that box, and docker socket access
   there is already root-equivalent). See `docs/runbook/turn.md`.
-- **`pyproject.toml`'s `precision = 1` comment describes a rounding rule coverage.py does not
-  appear to follow.** The comment says the fail-under check rounds the measured total to
-  `precision` decimals before comparing it to `fail_under`. Measured empirically 2026-09-06: a
-  total of 97.76%, which the report *displays* as `97.8%`, still failed a `fail_under = 97.8`
-  gate. The backend floor therefore stayed at 97.7 through C3c rather than ratcheting. The
-  comment will mislead the next person raising the floor — establish the real rule and rewrite it.
-
+- ~~**`pyproject.toml`'s `precision = 1` comment describes a rounding rule coverage.py does not
+  appear to follow.**~~ **WRONG DIAGNOSIS, REAL OBSERVATION. CLOSED 2026-09-13** (backend #60).
+  Read from the pinned coverage 7.16.0, `should_fail_under` is in full
+  `return round(total, precision) < fail_under` — it follows the documented rule exactly.
+  The actual trap: `fail_under` had TWO decimals while `precision` is 1, so the total was
+  rounded to one decimal and compared against a two-decimal floor, making **97.72 effectively
+  97.75**. `round(97.74, 1) = 97.7 < 97.72` FAILS while the report prints a number above the
+  floor — which is the behaviour that got logged. `fail_under` is now 97.8, one decimal:
+  identical effective floor, but the number says what it does.
 - **`semgrep`, `trivy` and `pnpm audit` still do not run anywhere.** ADR-0030 wired in
   `gitleaks` + `pip-audit` (blocking) and Lighthouse (nightly), so the OWASP-Top-10 SAST
   pass, the container-image CVE scan, and the JS dependency audit are what remains of the
@@ -235,13 +237,15 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
   a slower ACME or a rate-limited issuance, and because the first flip to a *never-before-active*
   colour is the risky case — but do not plan work around an outage that has not been observed.
 
-- **A coturn config-only change does not restart the running relay (C3c).** `ship.sh` runs
-  `docker compose up -d ... coturn`; the config arrives by `scp` as a bind-mounted file, so the
-  service definition is unchanged and Compose leaves the container running with the OLD config.
-  Hit for real on 2026-09-06: the `log-file=stdout` fix reached the VPS but did nothing until
-  coturn was restarted by hand. Either add an explicit `restart coturn` to the deploy when the
-  config changes, or hash the config into the service definition so Compose notices.
-
+- ~~**A coturn config-only change does not restart the running relay (C3c).**~~ **FIXED
+  2026-09-13** (infra #12). `ship.sh` compares a sha256 of `turnserver.conf` against a recorded
+  hash and restarts **only on a real change** — an unconditional restart would trade a silent
+  stale config for a guaranteed mid-call cut on every deploy, since a restart drops every relay
+  allocation (the reason coturn is not in a colour profile at all). The hash is recorded only
+  AFTER a successful restart, so a failure retries next deploy rather than recording a config as
+  applied that is not running, and it is written atomically for the same reason `write_state` is
+  (2026-09-12: a truncating write left state EMPTY, not stale).
+  ⚠ No hash file exists on the VPS yet, so the FIRST deploy after this restarts coturn once.
 - ~~**Sentry may capture a capability token and TURN credential as stack-frame locals
   (C3c).**~~ **FIXED 2026-09-13** (backend #54). `include_local_variables=False`, so frame
   locals do not leave the process at all. The defect was never the three names the default
@@ -548,9 +552,9 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
   and putting it in the merge path is a standing cost on every PR. Fix AND gate, or stop
   calling it a gate. Measured here so the decision has real numbers.
 
-- **`docs/runbook/deploy.md` still calls the deploy script `scripts/deploy.sh`.** The
-  actual file in the `infra` submodule is `scripts/ship.sh`; the doc's command examples
-  are stale and will fail if copy-pasted.
+- ~~**`docs/runbook/deploy.md` still calls the deploy script `scripts/deploy.sh`.**~~ **FIXED
+  2026-09-13** — every reference now says `scripts/ship.sh`, so the commands survive a
+  copy-paste.
 - **The C3a e2e is time-bombed on seed age.** `seed_e2e_matching` puts the joinable session at
   `now`, and its window closes 75 minutes later. A suite run long after seeding would find the
   button still enabled but the POST returning 409. Fine in CI, which seeds immediately.
@@ -716,11 +720,9 @@ just below these, so none of them is red today — each is what stops a category
   it measured 0.94/0.95/0.95 and is the one noisy category. Raising a global floor to
   marketing's own 1.00 needs per-URL assertions (`assertMatrix`), which is a config change
   worth making only if the two sites' scores keep diverging.
-- **Marketing has no type-check in CI**, so `interface Props` in its Astro components
-  enforces nothing: `astro build` does not type-check and `marketing-build` runs only the
-  build. Measured 2026-09-04 — deleting a required prop built clean. `Layout.astro`'s
-  `description` guard is therefore a runtime throw, which is a workaround for the missing
-  check, not a substitute for it. Add `astro check` to the job and the throw can go.
+- ~~**Marketing has no type-check in CI.**~~ **ALREADY FIXED — entry was stale, verified
+  2026-09-13.** `marketing-build` runs a `Type-check` step (`pnpm check` → `astro check`) ahead
+  of the build; it landed with design-system v2's gate G7.
 - ~~**`app-staging` login page: colour contrast fails** (a11y 96).~~ **CLOSED 2026-09-12.**
   Re-measured after the design-system v2 palette deployed: accessibility is **1.00** on both
   `app-staging.kaleem.academy/login` and `staging.kaleem.academy`, 3 of 3 runs each. The
@@ -841,12 +843,9 @@ proves; all are robustness of an unattended job.
   a stated reason — a blurred scrim, because live video behind it keeps moving through any
   opacity — survived as the `scrimBlur` prop. Decide whether the elevated look should become a
   `Dialog` variant, or stay gone.
-- **`focusRing` has no `secondary` surface.** The availability editor's inline range row sits on
-  `bg-secondary` and draws its focus offset in `--background`, so the halo does not match the
-  surface the control is actually on (the mismatch SC 2.4.11 modelling cares about). Adding the
-  surface means adding a `ring` vs `--secondary` pair to `tokens/src/contrast-pairs.json` and
-  cutting a token release, which is why P3 did not do it inline. Pre-existing; P3 preserved the
-  behaviour exactly.
+- ~~**`focusRing` has no `secondary` surface.**~~ **ALREADY FIXED — entry was stale, verified
+  2026-09-13.** `FocusSurface` carries `"secondary"` and the contrast manifest asserts `ring`
+  against it.
 - **P9 — the 20 raw `<button>` elements outside the primitive.** Explicitly NOT swept by
   design-system v2 (audit, don't sweep): many are legitimate in-place icon controls. Audit them
   opportunistically, one at a time, when already in the file.
@@ -909,12 +908,10 @@ proves; all are robustness of an unattended job.
 - `SubscriptionCard`'s history list includes the current subscription as its first row and is
   hidden entirely for a lapsed user; `useDateFormatter` builds a fresh `Intl.DateTimeFormat`
   per call.
-- The cancel dialog's `bg-black/40` overlay is a non-token colour, carried over from
-  `RemoveEmailDialog`. Fix both call sites in a token audit. **Scoped into ADR-0040**: the
-  full count is **14 sites**, not two, plus divergent `bg-black/60` (`CallControls.tsx:164`)
-  and `bg-background/70` (`DeviceCheckDialog.tsx:72`). A per-theme `--overlay` token lands
-  with the `Dialog` primitive — 40% black reads completely differently over cream than over
-  near-black, so one value for both themes was never right either.
+- ~~The cancel dialog's `bg-black/40` overlay is a non-token colour.~~ **ALREADY FIXED — entry
+  was stale, verified 2026-09-13.** `grep -rn "bg-black/" dashboard/src` returns nothing; the
+  per-theme `--overlay` token landed with the `Dialog` primitive and was confirmed rendering as
+  `#191c1b8c` light / `#000000ad` dark during the staging walk.
 - **A `secondary` button is nearly invisible as a SURFACE against the page.**
   `--secondary` on `--background` measures **1.09:1** in light (it was 1.13:1 on
   v0.1.1, so this is pre-existing and only marginally worse, not a v2 regression);
