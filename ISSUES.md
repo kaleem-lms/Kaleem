@@ -421,6 +421,12 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
   - **Billing click-through accounts:** `billing.clickthrough@` (id 7), `billing.recheck@`
     (id 8), `billing.failcard@` (id 9), plus two older `*.smoke@` users. Clear on the next
     staging DB reset.
+  - **The 2026-09-13 walk account:** `walk.2026w37@example.com` (id 19), verified, with all
+    three profiles so the full nav renders. Created for the authenticated staging walk after
+    the rotation was deferred — proving the walk never needed the leaked credentials, only a
+    working login. **Its password is deliberately not recorded here** (this file is in a repo
+    that was public once); regenerate or delete the user rather than trying to recover it.
+    Clear on the next staging DB reset.
   - **One throwaway `CallDiagnostic` row**, written by the 2026-09-07 live check: session 3,
     `autoplay-blocked`, a synthetic iPhone-Safari `User-Agent` and hand-built redacted stats.
     Evidence the diagnostics pipeline works, not real user data. Delete on the next staging DB
@@ -795,6 +801,22 @@ proves; all are robustness of an unattended job.
   not apply — which is precisely when 2.5.8 requires the target to be enlarged. All are now
   19px of ink inside a 25px target via `inlineTapTarget`, the same pseudo-element technique
   as `Button size="sm"` and `Checkbox`.
+
+- **`/design-preview`'s LIGHT panels inherit the app's theme, so with the app in dark mode
+  the page shows dark x4.** Only the dark panels carry a wrapper class (`.dark`); the light
+  ones rely on `:root` being light, and `@kaleem/tokens` defines `:root` + `.dark` with no
+  `.light` scope to opt back in. Measured on staging 2026-09-13 with the app in dark mode:
+  `preview-light-ltr` resolved `--background: #191c1b` and `--primary-text: #9fd0bc` —
+  byte-identical to the dark panel.
+  **CI is NOT affected and the gate already knows:** `e2e/design-preview.spec.ts`'s "each mode
+  panel renders in the theme and direction it claims" asserts ground luminance per panel
+  (<0.3 dark, >0.7 light), so a dark-themed run turns red rather than passing quietly. The gap
+  is the HUMAN case — someone opening the page on staging to review the palette gets no signal
+  that half of what they are looking at is the wrong theme, which is exactly what happened
+  during the 2026-09-13 walk. **Do:** either add a `.light` scope to the token package (a
+  release + re-pin, which is why it was not done in passing) or render an in-page warning when
+  `:root` is dark. The portal caveat beside it — Radix dialogs escaping the scoped wrapper —
+  is already documented in the route's own header comment and is working as described.
 
 - **No `Sheet` primitive.** `AppShell`'s mobile drawer is the only side-panel in the app, so
   design-system v2 P2b deliberately left it on raw Radix rather than inventing a primitive for
