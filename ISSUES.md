@@ -417,13 +417,19 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
   measured per-job minutes times the published per-minute rate — the billing API needs
   `admin:org`, which this project's token does not have. Read one real month's Actions bill
   and correct the spec against it.
-- **The artifact-miss path in the CI cost guard is unproven on a real push (ADR-0038).** A
-  push whose tree has no recorded `verified-tree-<hash>` artifact should re-run the full
-  suite, but that has only been checked mechanically (a `gh api` query against a name that
-  does not exist returns 0), never end to end on a real `push` event. The next code change
-  that merges more than 7 days after going green, or after `master` moves underneath its PR,
-  will exercise it on its own — or force it deliberately by deleting the artifact before
-  merging (`docs/runbook/ci.md`).
+- ~~**The artifact-miss path in the CI cost guard is unproven on a real push (ADR-0038).**~~
+  **PROVEN ON A REAL PUSH 2026-09-13**, by itself, exactly as this entry predicted ("or after
+  `master` moves underneath its PR"). No deliberate artifact deletion was needed.
+  What happened: meta#228 went green and recorded its tree, then `master` moved underneath it
+  while it sat in CI (#227, `c0de39f` and #229 landed from a concurrent session). The merge
+  therefore produced a tree nobody had verified — push tree `0391c7c7` against the PR head tree
+  `0380a8e6` — `triage` found no matching `verified-tree-<hash>` artifact, and **the full gate
+  set re-ran on the push** instead of skipping. All ten green, `deploy-staging` SUCCESS, four
+  endpoints 200.
+  So the guard fails in the safe direction under the condition that actually occurs in practice:
+  a busy trunk, not a week-old branch. The mechanical check this entry distrusted (a `gh api`
+  query against a name that does not exist returning 0) turns out to have been right — but it is
+  no longer the only evidence.
 - **Dependabot PRs now report green with nothing tested (ADR-0038).** The seven gate jobs and
   `deploy-staging` all skip for `github.actor == 'dependabot[bot]'` rather than failing at
   checkout as before — cheaper and no less honest about what was tested, but GitHub counts a
