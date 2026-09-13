@@ -682,10 +682,15 @@ phase; each was reviewed and consciously deferred rather than missed.
 - **A rematched student can see "Your teacher:" with a blank name.** After staff end an
   assignment, the old `MATCHED` request survives while the name is joined only from *ACTIVE*
   assignments.
-- **The `unique_active_assignment` backstop would surface as a 500,** not the 409 the same
-  situation produces one line earlier in `accept_offer`.
-- **A teacher who declined an offer can still accept it** by posting the id — "declined" is a
-  visibility fact, not a domain rule, and nothing says so.
+- ~~**The `unique_active_assignment` backstop would surface as a 500.**~~ **FIXED 2026-09-13**
+  (backend #61). Now a `ConflictError`: the user-visible outcome should not depend on which
+  layer noticed, and the identical situation one line earlier already reported a 409.
+- ~~**A teacher who declined an offer can still accept it.**~~ **CLOSED AS INTENDED 2026-09-13**
+  (backend #61) — the entry's actual complaint was that "nothing says so", and now something
+  does. Pinned by a test that argues the case: a teacher who declines and changes their mind has
+  no other route back to a student who is still waiting, so declining means "not now, hide it",
+  not a promise the platform enforces against the person who made it. Turning it into a real
+  prohibition is now a deliberate decision rather than a silent behaviour change.
 - **`_today()` uses `timezone.localdate()`,** correct only because `TIME_ZONE` is `"UTC"`; the
   overlap engine is UTC-instant-based and does not consult Django's zone.
 - **`MatchOfferAcceptView` rebuilds the assignment projection by hand** rather than reusing
