@@ -46,6 +46,21 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
   `billing.clickthrough@`, `billing.recheck@`, `billing.failcard@` and the two `*.smoke@` users,
   then keep the new ones out of the repo entirely.
 
+  ⏸ **DEFERRED by the owner 2026-09-13.** It stays under *Blocks launch* and its severity is
+  unchanged — deferring is a decision about **when**, not about whether it matters. What the
+  deferral actually accepts, stated so the next reader does not have to reconstruct it:
+  these credentials reach **staging only**, the repo is private again so the window is closed,
+  and the exposure is bounded by whoever cloned during it. It must still be done before real
+  users and real money, and it cannot be done by rotating alone at that point — the strings are
+  in history for good, so the new ones must never enter the repo.
+
+  ⚠ **This is NOT the same task as unblocking the staging walk, and bundling them was my
+  error.** `STATE.md` called them "one task, not two". They share a symptom — no working
+  credential — but not a purpose: rotation is *security remediation* for leaked strings, while
+  the walk needs *any* working login. A fresh throwaway staging account, created and never
+  written down here, unblocks the walk without touching the leaked ones. That is a much smaller
+  piece of work and is now independent of this deferral.
+
 - ~~**`security` (gitleaks) skips on documentation-only changes, and root `*.md` counts as
   documentation.**~~ **FIXED 2026-09-13** (ADR-0042, meta). The `code == 'true'` clause is
   dropped from the `security` job alone; `verified != 'true'` stays, because a tree a PR
