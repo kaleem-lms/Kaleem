@@ -260,21 +260,22 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
   `docs/runbook/signaling.md` and `docs/runbook/turn.md`; what is missing is the module's own
   structure, boundaries and data model.
 
-- **Nothing ever ends a video room (C3a).** `end_room` is on the provider `Protocol` and
-  implemented by the fake, but has no caller. Cancelling or completing a session leaves its
-  `Room` ACTIVE forever, and `Room.Status.ENDED` has no production path at all — it is reachable
-  only from a test. Harmless while a room is a string; a real provider leaks a provisioned room
-  per lesson, which is a cost and a security surface. C3b or C3d.
-- **`Room.provider` is stored but never read (C3a).** The field exists so a room created under
-  one adapter stays readable after the setting changes, but `join_session` mints the URL with the
-  *currently configured* provider regardless, and there is no registry mapping the stored short
-  name back to a class. Flip `DJANGO_VIDEO_PROVIDER` with an ACTIVE room row and the new provider
-  is asked for a URL to the old provider's room. Either add the routing or delete the field's
-  promise.
-- **The join endpoint has no throttle (C3a).** `SessionJoinView` carries only `IsAuthenticated`,
-  while the project already has scoped-throttle infrastructure (`DEFAULT_THROTTLE_RATES`). A
-  participant can mint unlimited grants. Add a scope before a real provider makes each mint an
-  upstream API call.
+- ~~**Nothing ever ends a video room (C3a).**~~ **FIXED 2026-09-13** (backend #59).
+  Cancelling and completing a session now end its ACTIVE room, which is what gives
+  `Room.Status.ENDED` a production path at all. The local row is marked ENDED **even when the
+  provider call fails**, because ACTIVE is what `_ensure_room` REUSES and reusing a room the
+  provider has dropped is worse than minting a new one; that path has its own test.
+- ~~**`Room.provider` is stored but never read (C3a).**~~ **FIXED 2026-09-13** (backend #59)
+  by taking the second option this entry offered. A mismatch is now **refused loudly** rather
+  than routed: there is no registry mapping the stored short name back to a class, and building
+  one would claim we can still reach a room inside a provider we are no longer configured for.
+  The operator's fix is to end the active rooms, which the `end_room` work above makes
+  possible.
+- ~~**The join endpoint has no throttle (C3a).**~~ **FIXED 2026-09-13** (backend #59).
+  `session-join` at 30/hour in production — set for a BAD network, since a rejoin after a drop
+  is normal and a lesson runs an hour — and raised in local/test settings so the e2e flows and
+  CI's retry are unaffected. The test drives the real throttle rather than reading the
+  attribute, because a `throttle_scope` with no matching rate silently does nothing.
 - **The C3a e2e does not cover "a parent sees no Join control".** The spec lists it; it shipped
   covered at API level (403 against a real `ParentStudent` row) and at component level only.
   `seed_e2e` creates no parent↔student link, so the flow would be vacuous without seed work.
@@ -655,26 +656,24 @@ phase; each was reviewed and consciously deferred rather than missed.
 
 **Worth doing sooner than the rest:**
 
-- **The accept race's lock is unproven by any test.** `accept_offer` takes `select_for_update`
-  and re-checks eligibility inside the transaction, but both race tests run sequentially inside
-  pytest-django's per-test transaction — they exercise the status guard and the partial-unique
-  index, not the lock. Deleting `select_for_update()` would turn nothing red. Proving it needs a
-  `TransactionTestCase` with two threads.
+- **The accept race's lock is unproven by any test.** (Unchanged — still wants a
+  `TransactionTestCase` with two threads.)
 - **`/account` overflows horizontally in Arabic** — `scrollWidth` 1162 vs `innerWidth` 1018
   (144px); clean at 1003/1018 in English. Traced to the "Preferred teacher gender" radio group's
   visually-hidden inputs using a physical `left:-159px` instead of a logical inset. This is a
   WCAG 1.4.10 Reflow (AA) failure on a page C1 adds a card to. Belongs to identity/curriculum.
-- **N+1 in the teacher inbox.** `list_offers_for` calls `_student_preference`, `get_user` and
-  `overlap_minutes` per candidate row, and `overlap_minutes` → `to_utc_intervals` →
-  `get_availability` re-queries *the teacher's own availability on every row*. Fine at 3 open
-  requests, not at 300. Hoist the teacher's intervals; batch the student reads.
-- **`is_eligible` and `list_offers_for` assemble the same three filters separately.** They agree
-  today, and no test asserts that they do. A fourth hard filter (OQ-C1-1's capacity cap is the
-  named candidate) added to only one of them is silently exploitable in one direction or
-  silently broken in the other. Extract the predicate over pre-fetched context.
-
-**The rest:**
-
+- ~~**N+1 in the teacher inbox.**~~ **FIXED 2026-09-13** (backend #57). Measured at **23
+  queries for five offers**, now **7 and constant**: the teacher's own availability was re-read
+  per row, and the student read and preference lookup were a query each. Batched via new
+  `identity.services.get_users` / `get_student_preferences` and `to_utc_intervals_for`, which
+  shares its conversion with the singular form so the two cannot drift. The test asserts
+  CONSTANCY (two rows vs six must cost the same) rather than a budget, and is mutation-checked:
+  reverting the hoist reports `11 for 2 offers, 19 for 6`.
+- ~~**`is_eligible` and `list_offers_for` assemble the same three filters separately.**~~
+  **FIXED 2026-09-13** (backend #57). Both now call `_passes_hard_filters`, which takes VALUES
+  rather than objects so the bulk path and the single path share one rule without it knowing
+  the difference. A test asserts set-equality between the two over every open request, so it
+  fails whichever side drifts — the exact failure this entry predicted.
 - **Withdrawing a subject interest never closes the open match request.** Nothing writes
   `MatchRequest.Status.CANCELLED`, yet the enum member exists and `MyMatchRequestsView`
   `.exclude()`s it as though something did. A student who un-ticks Quran stays broadcast for it.
