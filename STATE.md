@@ -1,8 +1,8 @@
 ---
 current_phase: "C — Scheduling, CLOSED. **Design-system v2 is COMPLETE and its spec is closed** (2026-09-12): palette replaced and deployed, primitive layer consolidated, CI gates G1–G7 landed. C5/C6 shipped to staging 2026-09-12. C0–C3e closed 2026-09-07. Phase B (billing) CLOSED 2026-09-04. Phase A closed via ADR-0024. Roadmap's Phase B happy path still open: `assessment` and `analytics` were never built. Preview mode has not run."
 active_spec: "**None — pick the next phase with the user.** `2026-09-12-design-system-v2-design.md` is CLOSED; its outcome section carries what the consolidation found and what was deliberately left alone. ADR-0040 (palette + EN 301 549), ADR-0041 (DTCG tokens). Still owed from it: the staging walk and the Lighthouse a11y re-measure (raise the floor if it now exceeds 0.95 — ADR-0026 ratchet). C5/C6 each still owe the manual pass on a real phone."
-active_branch: "**None — everything merged and deployed.** 2026-09-13 (later): seven `ISSUES.md` entries closed as a backlog, three of them Blocks launch — backend #52/#53/#54/#55, dashboard #66, meta #215/#216/#217, ADR-0042. Three Dependabot PRs (#182/#183/#184) remain open ON PURPOSE — ADR-0038 means they report green with nothing tested."
-last_green_ci: "meta#217 -> master 2026-09-13: all ten jobs green on the PR, deploy-staging SUCCESS on the push. The previous deploy (#215/#216) was verified live rather than assumed: marketing and dashboard 200, api /health/ready/ reporting database ok, signaling /health/live/ healthy. NOTE the four health URLs are /health/ready/ and /health/live/ — /healthz 404s, and reading that as a failure wasted a check."
+active_branch: "**None — everything merged and deployed.** 2026-09-13 (later): eleven ISSUES entries closed as a backlog plus the authenticated staging walk. backend #52-#55, dashboard #66-#68, meta #215-#221, ADR-0042. Three Dependabot PRs (#182/#183/#184) remain open ON PURPOSE — ADR-0038 means they report green with nothing tested."
+last_green_ci: "meta#221 -> master 2026-09-13: all ten jobs green, deploy-staging SUCCESS, four endpoints 200 afterwards. ⚠ #221's first e2e run failed on `call.spec.ts` 'the lobby has a way back' at 43px against a zero-tolerance >=44 assertion, on the initial run AND the retry, then passed at the IDENTICAL commit on a fresh runner — runner-sensitive, not a regression, and the assertion is stricter than the SC 2.5.8 minimum (24) it exists for. Logged in ISSUES.md rather than loosened."
 ---
 
 # kaleem Project State
@@ -92,7 +92,9 @@ allowance, which Sept's usage sits exactly on.
 
 ## Recently verified
 
-- **Five `ISSUES.md` entries closed 2026-09-13**, worked as a backlog rather than a phase:
+- **The staging walk's authenticated half, done 2026-09-13** — see next-action #2 for what
+  was measured. It never needed the deferred rotation, only a working login.
+- **Eleven `ISSUES.md` entries closed 2026-09-13**, worked as a backlog rather than a phase:
   password-change/reset security alerts (backend #53, ADR-0023's remaining gap — the change
   an account takeover makes FIRST notified nobody), Sentry frame locals (#54), and the dead
   `TeacherProfile.availability` JSONField (#55), on top of the two launch blockers below.
