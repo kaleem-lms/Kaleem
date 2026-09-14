@@ -11,7 +11,7 @@ closed: null
 
 kaleem has a complete, gate-enforced design system and no brand. `tokens` carries an
 accessible palette (ADR-0040) built from DTCG source (ADR-0041); the dashboard's wordmark is
-plain text; `marketing/public/` holds the Astro default favicon. This spec produces the
+plain text; both consumers ship an off-palette purple favicon. This spec produces the
 identity — an Arabic-first calligraphic mark for **كليم**, its lockups and derivatives, a
 typography decision for both scripts, colour usage rules bound to the existing palette, and
 the extended identity programme — and lands it in `@kaleem/tokens` so every surface consumes
@@ -55,15 +55,17 @@ None.
 
 ## Frontend
 
-**`dashboard`** — replaces the text wordmark in the topbar with the mark, honouring the
-existing `display:none` below `sm` behaviour verified on staging 2026-09-13; replaces the
-favicon and adds the app-icon set; picks up the mark's colour from tokens, never a literal.
-No new routes. The RTL lockup is used when `dir="rtl"`.
+**`dashboard`** — replaces the text wordmark at `src/features/shell/AppTopbar.tsx:43`
+(`kaleem` + an accent-coloured dot) with the mark, honouring the existing `display:none` below
+`sm` behaviour verified on staging 2026-09-13; replaces `public/favicon.svg` and adds the
+app-icon set; picks up the mark's colour from tokens, never a literal. No new routes. The RTL
+lockup is used when `dir="rtl"`.
 
-**`marketing`** — currently consumes no shared styling at all (`src/styles/global.css` is six
-lines). This spec wires it to `@kaleem/tokens` and lands the mark, favicon set and OG card.
-Page structure, content, routes, i18n and SEO are **out of scope** and belong to the site spec;
-what this delivers is a styled baseline for that spec to start from.
+**`marketing`** — **already consumes `@kaleem/tokens`** (pinned `v0.2.2`); its six-line
+`global.css` is six imports, not an absence. So there is no wiring to do. What it gets is the
+mark, the corrected favicon set and the OG card, replacing the hand-built wordmark in
+`src/pages/index.astro`. Page structure, content, routes, i18n and SEO are **out of scope** and
+belong to the site spec.
 
 **`backend`** — email header raster only. SVG in email is unreliable across clients, so email
 gets PNG at 1x/2x, not the vector.
@@ -93,6 +95,23 @@ Six stages. Stage 4 is the only one load-bearing for correctness.
 5. **Verification.** See "What no gate can prove" below.
 6. **Derivatives.** Built from the approved master vector, never redrawn per surface.
 
+## What already exists (verified 2026-09-14, not assumed)
+
+Checked against the tree before planning, because two of these contradicted the first draft
+of this spec:
+
+| Claim | Reality |
+| --- | --- |
+| marketing consumes shared tokens | **Yes** — `@kaleem/tokens` pinned `v0.2.2`, imported in `src/styles/global.css`. No wiring needed. |
+| a type pairing exists | **Yes** — Fraunces / Inter / IBM Plex Sans Arabic, tokenised, in both consumers. Not re-opened here. |
+| a wordmark exists | **A convention does**: `kaleem` + accent dot, duplicated by hand in `AppTopbar.tsx:43` and `marketing/src/pages/index.astro`. Two copies, no shared source. |
+| a favicon exists | **Yes, and it is wrong** — a generic `#863bff` purple glyph, off-palette, shipped in both `dashboard/public/` and `marketing/public/`. Replacing it is a correction, not an addition. |
+| marketing has CI | **A build job** (`marketing-build`), which is a real gate but not a test suite. |
+
+The practical effect: the duplicated wordmark and the off-palette favicon are existing defects
+this spec closes, and the typography deliverable shrinks to a display face for the mark plus a
+written rationale for a pairing that already ships.
+
 ## Deliverables
 
 **Core mark**
@@ -108,8 +127,12 @@ Six stages. Stage 4 is the only one load-bearing for correctness.
 - Avatar/square crop.
 
 **System**
-- Typography decision: an Arabic face and a Latin face that pair, with the weights and the
-  rationale. Covers both scripts in both the dashboard and marketing.
+- Typography: **the text pairing already exists and ships** — Fraunces (display), Inter
+  (Latin sans), IBM Plex Sans Arabic, behind the `--font-display` / `--font-sans` /
+  `--font-arabic` tokens in both consumers. This spec does **not** re-open it. It adds only
+  (a) the display/calligraphic Arabic face used to source the mark's outlines, which is a
+  logo input and need not ship as a webfont, and (b) the written rationale for the existing
+  pairing, which has never been recorded.
 - Colour usage rules: which token each mark variant draws from, and which surfaces each
   variant is permitted on, expressed as declared pairs in `contrast-pairs.json` so the
   existing gate checks them.
