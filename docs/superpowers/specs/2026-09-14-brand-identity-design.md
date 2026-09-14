@@ -11,7 +11,8 @@ closed: null
 
 kaleem has a complete, gate-enforced design system and no brand. `tokens` carries an
 accessible palette (ADR-0040) built from DTCG source (ADR-0041); the dashboard's wordmark is
-plain text; both consumers ship an off-palette purple favicon. This spec produces the
+plain text; neither consumer ships a real favicon — dashboard keeps its scaffold's
+off-palette purple glyph and marketing keeps Astro's stock logo. This spec produces the
 identity — an Arabic-first calligraphic mark for **كليم**, its lockups and derivatives, a
 typography decision for both scripts, colour usage rules bound to the existing palette, and
 the extended identity programme — and lands it in `@kaleem/tokens` so every surface consumes
@@ -105,12 +106,12 @@ of this spec:
 | marketing consumes shared tokens | **Yes** — `@kaleem/tokens` pinned `v0.2.2`, imported in `src/styles/global.css`. No wiring needed. |
 | a type pairing exists | **Yes** — Fraunces / Inter / IBM Plex Sans Arabic, tokenised, in both consumers. Not re-opened here. |
 | a wordmark exists | **A convention does**: `kaleem` + accent dot, duplicated by hand in `AppTopbar.tsx:43` and `marketing/src/pages/index.astro`. Two copies, no shared source. |
-| a favicon exists | **Yes, and it is wrong** — a generic `#863bff` purple glyph, off-palette, shipped in both `dashboard/public/` and `marketing/public/`. Replacing it is a correction, not an addition. |
+| a favicon exists | **No, not a real one in either repo** — `dashboard/public/` ships a generic `#863bff` purple glyph (off-palette), `marketing/public/` ships an unrelated black/white Astro stock logo. Two different scaffolding defaults, neither of them kaleem's. Replacing both is a correction, not an addition. |
 | marketing has CI | **A build job** (`marketing-build`), which is a real gate but not a test suite. |
 
-The practical effect: the duplicated wordmark and the off-palette favicon are existing defects
-this spec closes, and the typography deliverable shrinks to a display face for the mark plus a
-written rationale for a pairing that already ships.
+The practical effect: the duplicated wordmark and the two mismatched scaffold favicons are
+existing defects this spec closes, and the typography deliverable shrinks to a display face
+for the mark plus a written rationale for a pairing that already ships.
 
 ## Deliverables
 

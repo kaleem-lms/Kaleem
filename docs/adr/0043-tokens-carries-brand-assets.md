@@ -16,12 +16,13 @@ consumed at build time by two frontends (`dashboard`, `marketing`) and, for soci
 previews and transactional email, the backend — not colour tokens a component resolves
 at runtime.
 
-There is no brand today. There is no logo, no wordmark asset, and the favicon that
-ships identically in both `dashboard/public/favicon.svg` and `marketing/public/` is a
-generic purple (`#863bff`) glyph — off-palette since ADR-0040 replaced the palette, and
-never fixed in either place because there is no single place to fix it. Two copies of
-the same asset already exist, and they already agree with each other and disagree with
-the token package: the concrete failure mode this ADR exists to close.
+There is no brand today. There is no logo and no wordmark asset, and the two frontends
+do not even agree on a placeholder: `dashboard/public/favicon.svg` is a generic purple
+(`#863bff`) glyph — off-palette since ADR-0040 replaced the palette — while
+`marketing/public/favicon.svg` is an unrelated black/white theme-aware mark (the stock
+Astro logo). Each is simply whatever its scaffolding tool shipped by default; neither is
+kaleem's. That divergence, not duplication, is the concrete failure mode this ADR exists
+to close: with no shared source, each consumer drifted to a different placeholder.
 
 Once a real mark exists (ADR-0044, not this one), it needs a single home that both
 frontends and the backend can consume without becoming a second, drifting copy of the
@@ -63,30 +64,28 @@ tokens/brand/
   it is a rule about how the asset is consumed, not just how it is built, and it has no
   other home.
 
-## Why not a sixth submodule
+## Alternatives considered
 
-A `brand` submodule is another git pointer to keep pinned and bumped on every release,
-for isolation nothing in this repo needs. `tokens` is already the shared, versioned,
-pinned dependency both frontends consume; a second one earns its cost only if brand
-assets needed an independent release cadence or independent access control from the
-palette they are derived from. Neither is true — the mark's colour *is* a token, so the
-two are coupled by construction, not by convenience.
-
-## Why not per-consumer copies
-
-Two copies drift. This is not a hypothetical: the purple favicon shipping identically
-in `dashboard/public/favicon.svg` and `marketing/public/favicon.svg` today is the
-existing proof, and it is already off-palette because nothing recomputes it when the
-palette changes. A third copy in the backend (for email/OG assets) would make it three
-independent places to notice and fix the same drift.
-
-## Why not meta
-
-CLAUDE.md is explicit that the meta repo is docs, CI config, and submodule pointer
-bumps only — no feature or build-time code. Brand assets consumed at build time by
-three codebases are build-time assets, not documentation, so meta can hold the usage
-guide (how to reference a brand asset) but not the assets or the emitter that produces
-them.
+- **A sixth submodule for brand assets.** Another git pointer to keep pinned and
+  bumped on every release, for isolation nothing in this repo needs. `tokens` is
+  already the shared, versioned, pinned dependency both frontends consume; a second
+  one earns its cost only if brand assets needed an independent release cadence or
+  independent access control from the palette they are derived from. Neither is
+  true — the mark's colour *is* a token, so the two are coupled by construction, not
+  by convenience. Rejected.
+- **Per-consumer copies of the asset.** With no shared source, copies do not stay
+  in sync — they simply diverge. That is not a hypothetical: today
+  `dashboard/public/favicon.svg` is a generic purple (`#863bff`) placeholder glyph
+  and `marketing/public/favicon.svg` is a completely unrelated black/white
+  theme-aware mark (the stock Astro logo left over from scaffolding) — two different
+  third-party defaults, neither of them kaleem's, because nothing ties the two
+  together. A third copy in the backend (for email/OG assets) would add a third
+  independent place to notice and fix the same kind of drift. Rejected.
+- **Meta repo.** CLAUDE.md is explicit that the meta repo is docs, CI config, and
+  submodule pointer bumps only — no feature or build-time code. Brand assets
+  consumed at build time by three codebases are build-time assets, not
+  documentation, so meta can hold the usage guide (how to reference a brand asset)
+  but not the assets or the emitter that produces them. Rejected.
 
 ## Consequences
 
@@ -97,8 +96,8 @@ them.
   established for colour tokens, extended to the assets that colour is applied to.
 - "No hex literal ships in a brand asset" becomes a property the `--check` contract can
   assert, not something a reviewer has to notice by eye.
-- The favicon duplication-and-drift this ADR opens with has a fix with a name: replace
-  both copies with the emitted asset from `tokens/brand/dist/`.
+- The favicon divergence this ADR opens with has a fix with a name: replace both
+  placeholders with the emitted asset from `tokens/brand/dist/`.
 
 **Bad / costs**
 
