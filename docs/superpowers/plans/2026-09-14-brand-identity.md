@@ -239,7 +239,8 @@ Create `tokens/brand/brand.json`:
   "source": [
     { "id": "mark", "file": "brand/src/mark.svg", "role": "master" }
   ],
-  "emitted": []
+  "emitted": [],
+  "extras": []
 }
 ```
 
@@ -269,10 +270,19 @@ export const manifest = JSON.parse(
 	readFileSync(join(ROOT, "brand", "brand.json"), "utf8"),
 );
 
-/** Every declared asset, source and emitted alike, in one flat list. */
+/**
+ * Every declared asset in one flat list.
+ *
+ * Three kinds, and the kind decides which gates apply: `source` marks are
+ * shape-only SVGs (hygiene-gated, emitted from); `emitted` artefacts are built and
+ * drift-gated; `extras` are hand-authored non-mark collateral — stationery, an
+ * email signature — which exist and are presence-gated but are neither SVG nor
+ * emitted, so forcing them through either gate would make that gate lie.
+ */
 export const declared = () => [
 	...manifest.source.map((a) => ({ ...a, kind: "source" })),
 	...manifest.emitted.map((a) => ({ ...a, kind: "emitted" })),
+	...(manifest.extras ?? []).map((a) => ({ ...a, kind: "extra" })),
 ];
 
 /** Declared assets whose file is not on disk. */
@@ -293,8 +303,14 @@ In `tokens/package.json`, `scripts.test` already runs `node --test test/*.test.m
 
 ```json
     "./brand.mjs": "./brand.mjs",
-    "./brand/brand.json": "./brand/brand.json"
+    "./brand/brand.json": "./brand/brand.json",
+    "./brand/src/*.svg": "./brand/src/*.svg",
+    "./brand/dist/*": "./brand/dist/*"
 ```
+
+**The two wildcard subpaths are load-bearing** (pre-flight Ruling 1). Node and Vite resolve a
+package subpath ONLY if the `exports` map lists it; without these, `@kaleem/tokens/brand/src/mark.svg`
+fails to resolve in Task 10 as a build error, not a test failure.
 
 - [ ] **Step 7: Commit the red gate**
 
@@ -523,8 +539,15 @@ In `brand/brand.json`, extend `source`:
     { "id": "mark", "file": "brand/src/mark.svg", "role": "master" },
     { "id": "lockup-ltr", "file": "brand/src/lockup-ltr.svg", "role": "lockup" },
     { "id": "lockup-rtl", "file": "brand/src/lockup-rtl.svg", "role": "lockup" },
-    { "id": "mark-square", "file": "brand/src/mark-square.svg", "role": "icon" }
+    { "id": "mark-square", "file": "brand/src/mark-square.svg", "role": "icon" },
+    { "id": "og-card", "file": "brand/src/og-card.svg", "role": "composition" },
+    { "id": "email-header", "file": "brand/src/email-header.svg", "role": "composition" }
 ```
+
+**`og-card.svg` and `email-header.svg` are their own compositions** (pre-flight Ruling 2), authored
+at **exactly 1200:630 and 4:1** respectively. They are NOT the lockup rescaled: the emitter fits to
+width, so pointing the 1200x630 card at `lockup-ltr` would either distort the mark or emit the wrong
+height — and the dimension gate would pass a distorted mark happily.
 
 - [ ] **Step 2: Run the gate and watch it fail**
 
@@ -539,6 +562,8 @@ Expected: FAIL listing the three absent files.
 - `lockup-ltr.svg` — the mark with Latin "kaleem" to its right, reading left-to-right.
 - `lockup-rtl.svg` — the mirrored composition. **Mirror the layout, never the glyphs.**
 - `mark-square.svg` — the mark composed on a 1:1 viewBox with the clear-space the favicon and avatar need.
+- `og-card.svg` — a 1200:630 composition: the lockup on a token-coloured field, with the clear space a link preview needs.
+- `email-header.svg` — a 4:1 composition sized for an email header band.
 
 Every one: `currentColor` only, tight `viewBox`, `<title>kaleem</title>` first child.
 
@@ -646,9 +671,9 @@ In `brand/brand.json`, fill `emitted`:
     { "id": "icon-192", "file": "brand/dist/icon-192.png", "from": "mark-square", "format": "png", "width": 192, "height": 192, "color": "mark" },
     { "id": "icon-512", "file": "brand/dist/icon-512.png", "from": "mark-square", "format": "png", "width": 512, "height": 512, "color": "mark" },
     { "id": "apple-touch-icon", "file": "brand/dist/apple-touch-icon.png", "from": "mark-square", "format": "png", "width": 180, "height": 180, "color": "mark" },
-    { "id": "og-card", "file": "brand/dist/og.png", "from": "lockup-ltr", "format": "png", "width": 1200, "height": 630, "color": "mark" },
-    { "id": "email-header", "file": "brand/dist/email-header.png", "from": "lockup-ltr", "format": "png", "width": 320, "height": 80, "color": "mark" },
-    { "id": "email-header-2x", "file": "brand/dist/email-header@2x.png", "from": "lockup-ltr", "format": "png", "width": 640, "height": 160, "color": "mark" },
+    { "id": "og-card", "file": "brand/dist/og.png", "from": "og-card", "format": "png", "width": 1200, "height": 630, "color": "mark" },
+    { "id": "email-header", "file": "brand/dist/email-header.png", "from": "email-header", "format": "png", "width": 320, "height": 80, "color": "mark" },
+    { "id": "email-header-2x", "file": "brand/dist/email-header@2x.png", "from": "email-header", "format": "png", "width": 640, "height": 160, "color": "mark" },
     { "id": "webmanifest", "file": "brand/dist/site.webmanifest", "format": "json" }
   ]
 ```
@@ -671,6 +696,7 @@ const sourceById = (id) => {
 export const emit = () => {
 	const out = {};
 	for (const a of manifest.emitted) {
+		// `extras` never reach here — they are hand-authored, not emitted (Ruling 3).
 		if (a.format === "json") {
 			out[a.file] = JSON.stringify(webmanifest(), null, "\t") + "\n";
 			continue;
@@ -839,19 +865,36 @@ cp node_modules/@kaleem/tokens/brand/dist/{favicon-32.png,icon-192.png,icon-512.
 - [ ] **Step 4: Write `Wordmark.tsx`**
 
 ```tsx
-import markUrl from "@kaleem/tokens/brand/src/mark.svg?url";
+import markSvg from "@kaleem/tokens/brand/src/mark.svg?raw";
 
 /**
  * The wordmark, in one place.
  *
  * It lived as hand-built JSX in AppTopbar AND again in marketing's index.astro,
- * which is how the two drifted. `role="img"` plus an explicit name keeps the
- * accessible name the text version had.
+ * which is how the two drifted.
+ *
+ * WHY INLINE AND NOT <img src> (pre-flight Ruling 4): the source mark is colourless
+ * by design — it paints with `currentColor` so a token change repaints it. An external
+ * SVG loaded through <img> does NOT inherit currentColor; it would render BLACK in both
+ * themes and silently defeat the whole colour design while looking like it worked.
+ * Inlining is what makes the token colour reach the mark.
  */
 export function Wordmark({ className }: { className?: string }) {
-	return <img src={markUrl} alt="kaleem" role="img" className={className} />;
+	return (
+		<span
+			role="img"
+			aria-label="kaleem"
+			className={className}
+			// The SVG is our own build-time asset, not user input.
+			dangerouslySetInnerHTML={{ __html: markSvg }}
+		/>
+	);
 }
 ```
+
+**Verify the colour actually lands** before moving on: render the topbar in dark mode and
+confirm the mark is the emerald token, not black. A black mark means the inline path broke
+and an `<img>` crept back in.
 
 - [ ] **Step 5: Use it in the topbar**
 
@@ -910,7 +953,20 @@ rm -f public/favicon.ico
 
 - [ ] **Step 2: Replace the hand-built wordmark**
 
-In `src/pages/index.astro`, replace the `<h1>kaleem<span class="text-accent">.</span></h1>` construction with the imported mark, keeping an `alt="kaleem"`. The `<h1>` stays an `<h1>` — the mark is its content, not a replacement for the heading.
+In `src/pages/index.astro`, replace the `<h1>kaleem<span class="text-accent">.</span></h1>` construction
+with the **inlined** mark. The `<h1>` stays an `<h1>` — the mark is its content, not a replacement
+for the heading.
+
+```astro
+---
+import markSvg from "@kaleem/tokens/brand/src/mark.svg?raw";
+---
+<h1 role="img" aria-label="kaleem" class="text-primary-text" set:html={markSvg} />
+```
+
+**Inline, not `<img src>` (pre-flight Ruling 4)** — same reason as the dashboard: an external SVG
+does not inherit `currentColor` and the mark would render black. Astro's `set:html` is the inline
+path here. Confirm in the built output that the mark takes the token colour in both themes.
 
 - [ ] **Step 3: Add icons and OG meta to the layout**
 
