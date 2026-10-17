@@ -16,6 +16,17 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
 
 ## Blocks launch
 
+- **`--font-display` names a family nothing ships: the dashboard renders Georgia, not
+  Fraunces.** `@kaleem/tokens` sets `--font-display: "Fraunces", Georgia, serif`, but the only
+  face imported anywhere is `@fontsource-variable/fraunces`, whose `@font-face` declares the
+  family **`"Fraunces Variable"`**. The names never match, so every heading in the app falls
+  through to Georgia — in production, today. Found 2026-09-14 by the design-sync font gate,
+  which is the first check anywhere that compares referenced families against shipped
+  `@font-face` rules; no existing gate looks at this. `--font-quran: "Amiri Quran"` has the
+  same shape — no Amiri package is installed at all — but that token has no consumer yet, so
+  it is latent rather than live. Fix is one of: import the non-variable `@fontsource/fraunces`,
+  or change the token to `"Fraunces Variable"`. Needs a token release either way.
+
 - ~~**`text-primary` links fail AA in dark mode wherever they sit on a card.**~~ **FIXED
   2026-09-13** in `@kaleem/tokens` v0.2.2 + dashboard #63. The root cause was not a bad
   value but an **undeclared pair**: `--primary` is a SURFACE colour, and nothing asserted it
