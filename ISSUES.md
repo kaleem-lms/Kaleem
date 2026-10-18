@@ -359,6 +359,10 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
 
 ## Someday
 
+- **`SessionAdmin` still lets staff edit `status`.** Moving a closed lesson back to `scheduled`
+  in the admin now violates `session_outcome_only_when_completed` and returns a 500 rather
+  than a form error. Found 2026-10-18 by ana-session-outcomes.
+
 - **Five Arabic plural families have no `_zero` form**, so at count 0 an Arabic page falls back
   to English: `availability.copyConfirmBody`, `availability.weeklyTotal`,
   `billing.planFamilyDesc`, `billing.planIndividualDesc`, `booking.showPast`. Held on the parity

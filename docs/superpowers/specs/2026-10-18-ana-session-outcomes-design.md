@@ -124,6 +124,8 @@ keys, so the current dashboard is unaffected by the two new payload keys.
 - `CLOSE_OUT_WINDOW = timedelta(days=7)`
 - `SessionInfo.outcome: str | None` (last field, default `None`)
 - `may_close(user, session: SessionInfo, now) -> bool`
+- `close_out_window(starts_at, now) -> "not_started" | "open" | "closed"` (the `CloseOutWindow`
+  literal): the single place the window rule is written; `booking` and `may_close` both read it.
 - `sessions_to_close(user, *, now) -> list[SessionInfo]`: the teacher's own `scheduled`
   lessons with `starts_at <= now < starts_at + CLOSE_OUT_WINDOW`, ascending. `ana-teacher-dashboard`
   counts this list.
@@ -170,9 +172,8 @@ contracts are unchanged.
 - Earnings (`pay-earnings-ledger`), events (`eng-event-bus`), notices, reports
   (`asm-report-api` shares the window), and attendance and dashboard counts (`ana-*`).
 - Changing a recorded outcome. Once a lesson is closed it is final in this unit.
-- `cancel_session` has no time bound: a party can cancel a lesson that has already ended.
-  This unit pins that behaviour in the matrix and does not change it (D10). Flagged to the
-  conductor for a follow-up.
+- How `cancel_session` relates to the close-out window. This unit pins today's cancel rows in
+  the matrix and does not change them (D10); a follow-up unit decides it.
 - Scheduling's personal-data export and erase hooks.
 
 ## Test plan

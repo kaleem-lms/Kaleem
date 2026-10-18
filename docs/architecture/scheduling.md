@@ -353,8 +353,8 @@ dec-lesson-outcomes. `completed` means "closed out", and `Session.outcome` says 
   `tests/test_close_out_matrix.py`, the one table of action x actor x prior status x clock.
 - **Closing ends the call.** The window opens at the start, so a teacher can close a lesson
   while its call is running, and that ends the room.
-- **Cancelling is unchanged and has no time bound:** a party can cancel a lesson that has already
-  ended. The matrix pins that behaviour; it is flagged, not fixed here.
+- **Cancelling is unchanged.** How cancelling relates to the close-out window is a later
+  unit's decision; the matrix pins today's cancel rows so that change is deliberate.
 - **Blue-green.** Both columns are nullable with no default, so the previous release keeps
   working beside this one. A lesson it completes during a deploy keeps a NULL outcome.
   Migration `0013_session_outcome` backfilled existing `completed` rows as `held`.
