@@ -45,6 +45,7 @@ All inter-module calls enter here — no other module may import identity's mode
 | `add_email_address(user_id, email, current_password)` | Add a new **unverified** address (password re-auth, uniqueness + cap checks); alerts current primary |
 | `set_primary_email(user_id, email_id, current_password)` | Promote a **verified** address to primary (swaps `User.email`); alerts previous primary |
 | `remove_email_address(user_id, email_id)` / `list_email_addresses(user_id)` | Remove a non-primary address / list addresses |
+| `export_account_data(user_id, current_password)` | The person's own data export: password re-check, then the personal-data registry's `export_user` inside a versioned envelope; alerts the primary address |
 | `get_profile_types`, `get_children`, `is_parent_of`, `get_*_profile`, `get_user` | Reads |
 
 Errors are typed (`platform.exceptions.ValidationError` / `NotFoundError`) — never bare
@@ -57,8 +58,8 @@ Errors are typed (`platform.exceptions.ValidationError` / `NotFoundError`) — n
 - URL-path versioned under `/api/v1/` (ADR-0017). Endpoints: `register/`,
   `resend-verification/`, `verify-email/`, `login/`, `logout/`, `me/` (GET+PATCH),
   `me/emails/` (GET+POST), `me/emails/<id>/primary/`, `me/emails/<id>/` (DELETE),
-  `me/student-profile/`, `children/`, `children/<id>/set-password/`, `invites/`,
-  `invites/accept/`. Browsable docs at `/api/v1/docs/` (staff-only off local dev).
+  `me/student-profile/`, `me/export/` (POST), `children/`, `children/<id>/set-password/`,
+  `invites/`, `invites/accept/`. Browsable docs at `/api/v1/docs/` (staff-only off local dev).
   `PATCH /me/` updates `full_name` only — it cannot change the email (see below).
 - `GET /me/`, `PATCH /me/` and the login response share one body (`_me_payload`), which
   carries `is_staff`: the caller's own flag, read-only. A `PATCH` that sends `is_staff`
@@ -100,6 +101,21 @@ primary on promotion (so the real owner is warned of an unauthorised change). Th
 address cannot be deleted (`DELETE /me/emails/<id>/`); promote another first. The old
 insecure `PATCH /me/ {email}` path was removed — email changes go only through these
 endpoints.
+
+## Data export (lb-gdpr-data-export, ADR-0023, ADR-0048)
+
+`POST /api/v1/identity/me/export/` with `{current_password}` downloads the signed-in person's
+own data as one JSON attachment (`kaleem-data-export-<date>.json`): the envelope and
+per-module sections are described in `platform.md`. Session auth with CSRF; a wrong password
+is the same 400 as add-email and change-password; `ScopedRateThrottle` scope `data-export`,
+`10/hour` per user, wrong guesses counted. Success sends the `data_exported` security alert
+to the current primary address (English, like the others). Nothing is stored, and the log
+line records the user id, section names and byte size, never content. Staff have no view of
+it. A parent exporting for a child who cannot sign in is out of scope (lb-parent-acts-for-
+child). The `identity.account` hook exports email, name, birthdate, timezone, dates, the
+person's allauth addresses (address, primary, verified), which profiles exist with their
+preference fields, and family links as `{user_id, linked_at}`; allauth's `mfa` and
+`socialaccount` tables are not written by any product flow yet, so they are not exported.
 
 ## e2e fixtures
 
