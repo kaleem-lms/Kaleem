@@ -403,14 +403,33 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
+      # The inbox the e2e flows read (ADR-0052, amending ADR-0027). Pinned, because the
+      # helper's HTTP API (dashboard/e2e/support/inbox.ts) is per version; the same
+      # version is pinned in docker-compose.local.yml. A bump goes through an API re-check.
+      mailpit:
+        image: axllent/mailpit:v1.30.1
+        ports:
+          - 1025:1025
+          - 8025:8025
+        options: >-
+          --health-cmd "/mailpit readyz"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     env:
       DATABASE_URL: postgres://kaleem:kaleem@localhost:5432/kaleem_e2e
       CELERY_BROKER_URL: redis://localhost:6379/0
       DJANGO_SETTINGS_MODULE: config.settings.local
-      # No mailpit here; an unreachable SMTP host would turn an incidental send into
-      # a 500 rather than a no-op.
-      DJANGO_EMAIL_BACKEND: django.core.mail.backends.locmem.EmailBackend
+      # Mail goes to the job's own mailpit (the service above), which the inbox flows
+      # read over HTTP. Nothing leaves the runner.
+      DJANGO_EMAIL_BACKEND: django.core.mail.backends.smtp.EmailBackend
+      DJANGO_EMAIL_HOST: localhost
+      DJANGO_EMAIL_PORT: "1025"
+      E2E_MAILPIT_URL: http://localhost:8025
       E2E_APP_URL: http://app.kaleem.localhost:4173
+      # Must equal E2E_APP_URL: the backend builds every emailed link from it. Unset, it
+      # defaults to port 80, where nothing listens, and the inbox helper refuses the link.
+      DJANGO_FRONTEND_URL: http://app.kaleem.localhost:4173
       # C3d: the call e2e spec needs a real join URL, so this job runs the real
       # SignalingProvider instead of the FakeVideoProvider default -- otherwise the
       # browser gets a join_url pointing at the unresolvable https://video.kaleem.test
@@ -518,8 +537,9 @@ jobs:
             > /tmp/celery.log 2>&1 &
       # No shipped flow observes a task's effect yet, so this is the check that the
       # worker is up and can execute one: queue a real task and wait for its result.
-      # The locmem mail backend means nothing leaves the runner. A dead worker fails
-      # here, in seconds, rather than as a mystery in a Playwright spec.
+      # The mail goes to the runner's own mailpit, so nothing leaves it, and the probe
+      # also proves the whole path: a dead worker, or a broken SMTP setting, fails here
+      # in seconds rather than as a mystery in a Playwright spec.
       - name: Prove the worker executes a task
         working-directory: backend
         run: |
@@ -539,6 +559,20 @@ jobs:
               print(open('/tmp/celery.log').read())
               sys.exit(1)
           print('worker probe ok: task executed by the worker')
+
+          import json, time, urllib.parse, urllib.request
+          url = 'http://localhost:8025/api/v1/search?' + urllib.parse.urlencode(
+              {'query': 'to:\"worker-probe@kaleem.test\"'}
+          )
+          for _ in range(60):
+              with urllib.request.urlopen(url) as response:
+                  if json.load(response)['messages_count'] > 0:
+                      print('worker probe ok: mail reached mailpit')
+                      sys.exit(0)
+              time.sleep(0.5)
+          print('worker probe failed: the task ran but no mail reached mailpit')
+          print(open('/tmp/celery.log').read())
+          sys.exit(1)
           "
 
       - name: Install dashboard dependencies
