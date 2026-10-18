@@ -213,6 +213,13 @@ jobs:
           python-version: "3.13"
       - name: Install dependencies
         run: pip install -r requirements/local.txt
+      # The translation catalogs are compiled from their .po files, and the
+      # completeness check shells out to GNU gettext (msgfmt, xgettext). The runner
+      # image ships it; this makes that a checked fact instead of an assumption.
+      - name: Ensure GNU gettext
+        run: |
+          command -v msgfmt >/dev/null && command -v xgettext >/dev/null \
+            || sudo apt-get install -y --no-install-recommends gettext
       - name: Run migrations
         run: python manage.py migrate --noinput
       # `migrate` applies the migrations that exist; it cannot notice a model
@@ -500,6 +507,16 @@ jobs:
         run: |
           python manage.py migrate --noinput
           python manage.py seed_e2e_all
+      # The .mo files are build output and are not committed, and a server without
+      # them does not fail: it answers in English. Staging runs the image, which
+      # compiles them, so an e2e run on an uncompiled tree would be English in CI and
+      # Arabic in production -- the server-strings flows would pass or fail for the
+      # wrong reason.
+      - name: Compile the Arabic catalogs
+        working-directory: backend
+        run: |
+          command -v msgfmt >/dev/null || sudo apt-get install -y --no-install-recommends gettext
+          python manage.py compilemessages
       - name: Start the API
         working-directory: backend
         run: |

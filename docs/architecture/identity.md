@@ -68,6 +68,10 @@ Errors are typed (`platform.exceptions.ValidationError` / `NotFoundError`) — n
   confirmation link if an unverified account exists. Always returns 200 (never reveals
   whether an email is registered) and is throttled per-email (`EmailScopedThrottle`,
   5/hour) so it can't be used to email-bomb a recipient.
+- **Error codes and language** (ADR-0058). Messages follow `Accept-Language`; every error
+  body carries `error_code`. Two bodies are written by hand and set their own: login of an
+  unverified address returns `email_not_verified` (the dashboard's not-verified panel keys on
+  it, not on the text) and a bad verify-email key returns `invalid_verification_key`.
 
 ## Email addresses (ADR-0022)
 
