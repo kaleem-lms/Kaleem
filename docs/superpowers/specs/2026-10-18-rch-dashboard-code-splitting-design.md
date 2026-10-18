@@ -80,12 +80,17 @@ after a deploy, and the unit handles that too.
 
 - **The router already reloads on a missing component chunk.** TanStack's
   `lazyRouteComponent` reloads once per distinct "Failed to fetch dynamically imported
-  module" message (Chrome, Firefox and Safari wordings), keyed in `sessionStorage`. With
-  the guard's install line removed, the stale-chunk e2e still passes. The guard is kept:
-  it answers every `vite:preloadError` (for example a CSS preload failure, which the
-  router does not match), it has a 10 s loop limit, and `rch-pwa-service-worker`
-  inherits it. The e2e therefore has two flows: one proves the recovery in the real
-  build, and one proves the guard itself is installed and does not loop (mutation-checked).
+  module" message (Chrome, Firefox and Safari wordings), keyed in `sessionStorage`. A
+  reload alone therefore cannot show that our guard ran: with the guard's install line
+  removed, a test that only asserts the reload still passes. The guard is kept: it
+  answers every `vite:preloadError` (for example a CSS preload failure, which the router
+  does not match), it has a 10 s loop limit, and `rch-pwa-service-worker` inherits it.
+  The e2e therefore has two flows. The first recovers from a real missing chunk in the
+  real build and additionally asserts the guard's own `kaleem-chunk-reload-at` timestamp
+  in `sessionStorage` (the router uses a different key), which proves the real build
+  fired `vite:preloadError` and our guard answered it. The second dispatches a synthetic
+  event and proves the guard is installed and does not loop. Removing the install line
+  turns both flows red (mutation-checked).
 - **Measured budget.** Initial JS is 570,290 raw bytes in 16 files, so
   `INITIAL_JS_BUDGET` is 580,000. The probe's "15 files" was one short.
 - **`RoomPage` uses `useParams({ from })`**, not `Route.useParams()`: importing `Route`
@@ -181,14 +186,15 @@ that creates it. No API or cookie changes.
    - make the next `register-*.js` request return 404 once, then follow the link to
      register;
    - assert the marker is gone (the page reloaded) and the register page renders;
-   - assert the route was hit exactly once.
-   This is the only check that Rolldown's real build fires `vite:preloadError`, which no
-   jsdom test can show. The rest of the e2e suite (every shipped flow, against
+   - assert the route was hit exactly once;
+   - assert `sessionStorage` holds the guard's `kaleem-chunk-reload-at` key.
+   This is the only check that Rolldown's real build fires `vite:preloadError` and that
+   our guard answers it, which no jsdom test can show. The rest of the e2e suite (every shipped flow, against
    `pnpm build`) proves that every split route still loads.
 6. **Mutation checks:**
    - revert `autoCodeSplitting`: the budget turns red;
    - re-export one page component: the split guard turns red;
-   - delete the guard's install line in `main.tsx`: the e2e turns red;
+   - delete the guard's install line in `main.tsx`: both e2e flows turn red;
    - drop the loop check: the unit test turns red.
 
 ## Open questions
