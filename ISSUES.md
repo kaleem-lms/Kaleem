@@ -359,6 +359,11 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
 
 ## Someday
 
+- **The load-test smoke scenario is not a CI job.** `infra/loadtest/selftest.sh` proves
+  the harness locally (target guard, 100% of checks, one CSRF-protected write per role)
+  but nothing runs it on a PR, so a seed or journey can rot unnoticed. Found 2026-10-18
+  by rch-load-test-harness.
+
 - **`RadioCardGroup` arrow keys are mirrored the wrong way under Arabic.** Radix roving
   focus treats every group as LTR unless a `DirectionProvider` is mounted, and the app
   mounts none, so in RTL ArrowRight moves to the card on the left. The fix is to mount
