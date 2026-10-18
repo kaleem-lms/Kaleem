@@ -1,6 +1,6 @@
 ---
 spec: docs/superpowers/specs/2026-10-18-ntf-mail-e2e-harness-design.md
-status: draft
+status: built
 ---
 
 # Plan: ntf-mail-e2e-harness
@@ -20,7 +20,7 @@ Biome still lints it.
 
 ## Steps
 
-1. [ ] **Seed: the reset account and the register prune (backend). Tests first.** In
+1. [x] **Seed: the reset account and the register prune (backend). Tests first.** In
    `kaleem/identity/tests/test_seed_e2e.py`:
    - Rename `test_seeds_the_five_accounts_with_their_profiles` to `..._six_...` and add
      `e2e.reset@kaleem.test` with a `ParentProfile`.
@@ -40,16 +40,16 @@ Biome still lints it.
    prefix, and the success message "Seeded 6". Mutation-check: remove the prune clause
    and see the register prune test go red.
 
-2. [ ] **Settings comment (backend).** In `config/settings/local.py`, rewrite the
+2. [x] **Settings comment (backend).** In `config/settings/local.py`, rewrite the
    email comment: the CI e2e job now runs its own mailpit and sets `DJANGO_EMAIL_HOST`.
    The override stays, because other users of these settings may have none. No code
    changes.
 
-3. [ ] **Backend gate and commit.** `backend-gate.sh <wt>
+3. [x] **Backend gate and commit.** `backend-gate.sh <wt>
    kaleem/identity/tests/test_seed_e2e.py`, then the full `backend-gate.sh <wt>`.
    Commit: `test(identity): seed an e2e reset account and prune e2e registrations`.
 
-4. [ ] **Inbox helper (dashboard).** Write `e2e/support/inbox.ts`:
+4. [x] **Inbox helper (dashboard).** Write `e2e/support/inbox.ts`:
    - `MAILPIT_URL = process.env.E2E_MAILPIT_URL ?? "http://localhost:8025"`.
    - `clearInbox(request, to)`: `DELETE /api/v1/search?query=to:"<to>"`. Expect 200.
    - `waitForMail(request, { to, subject })`: polls `GET /api/v1/search` with
@@ -64,13 +64,13 @@ Biome still lints it.
    stale links on retry; the origin check catches mail pointed at the wrong host.
    Mailpit returns CRLF text, so `\S+` must stop at `\r`. This was measured on v1.30.1.
 
-5. [ ] **Fixtures (dashboard).** In `e2e/fixtures.ts`: `uniqueEmail(kind: "child" |
+5. [x] **Fixtures (dashboard).** In `e2e/fixtures.ts`: `uniqueEmail(kind: "child" |
    "alias" | "register")`, and update its doc comment so `seed_e2e`'s prune lists all
    three prefixes. Add `reset: { email: "e2e.reset@kaleem.test", name: "E2E Reset" }`
    to `ACCOUNTS`, with a comment that the reset flow changes its password, so no other
    spec may log in as it.
 
-6. [ ] **The three flows (dashboard).** `e2e/inbox.spec.ts`, with a header citing the
+6. [x] **The three flows (dashboard).** `e2e/inbox.spec.ts`, with a header citing the
    spec and the ADR, using English locale strings from `src/locales/en/common.json`:
    - `"registers, verifies from the inbox, then signs in"`: `/register`, fill Full
      name, Email (`uniqueEmail("register")`), Password, Date of birth (an adult date),
@@ -93,7 +93,7 @@ Biome still lints it.
    The sign-in helper for non-seeded accounts is a local function in the spec, not a
    `login()` overload. `login()` stays the seeded-account contract.
 
-7. [ ] **Local proof in an e2e slot.** Use the runbook §2 slot recipe plus:
+7. [x] **Local proof in an e2e slot.** Use the runbook §2 slot recipe plus:
    - `docker run -d --network <slot net> --name mailpit-<slot> -p 127.0.0.1:<8025+k*10>:8025 axllent/mailpit:v1.30.1`;
    - Django and the worker containers get `DJANGO_EMAIL_HOST=mailpit-<slot>`,
      `DJANGO_EMAIL_PORT=1025`,
@@ -107,11 +107,11 @@ Biome still lints it.
    Then run the full suite once, to check that no existing flow broke under the SMTP
    backend.
 
-8. [ ] **Dashboard gate and commit.** Run the full `dashboard-gate.sh <wt>` (biome lints
+8. [x] **Dashboard gate and commit.** Run the full `dashboard-gate.sh <wt>` (biome lints
    `e2e/`). Commit: `test(e2e): inbox helper and register, reset and child-activation
    flows`.
 
-9. [ ] **ci.yml and compose (meta).** In the `e2e` job:
+9. [x] **ci.yml and compose (meta).** In the `e2e` job:
    - Add a `mailpit` service: `image: axllent/mailpit:v1.30.1`, `ports: [1025:1025,
      8025:8025]`, and `options: --health-cmd "/mailpit readyz" --health-interval 5s
      --health-timeout 5s --health-retries 10`.
@@ -133,7 +133,7 @@ Biome still lints it.
    Local mutation: in the slot, a wrong `DJANGO_EMAIL_HOST` makes the probe's mail
    check fail.
 
-10. [ ] **ADR (meta).** Use `docs/adr/NNNN-e2e-reads-a-real-inbox.md`, with the number
+10. [x] **ADR (meta).** Use `docs/adr/NNNN-e2e-reads-a-real-inbox.md`, with the number
     from the conductor (0050 if free), "Amends ADR-0027". It covers:
     - the decision: mailpit pinned as an e2e service, and a version bump goes through
       an API re-check;
@@ -155,6 +155,25 @@ Biome still lints it.
     - In ISSUES.md, the "structurally cannot reach" bullet is struck through as
       FIXED with the date. The change-password and billing exclusions stay.
     - Add a journal line.
+
+## Deviations found while building
+
+- **ADR number.** 0050 was already taken (`chat-transport`), so the ADR is 0051,
+  provisional until the conductor confirms the number.
+- **`e2e/` is not linted by biome.** The plan said the dashboard gate lints it; `biome.json`
+  has `files.includes: ["src/**"]`. The new files were formatted by piping them through
+  `biome format --stdin-file-path=src/<name>.ts` so they match the rest of `e2e/`. Widening
+  the include is its own change.
+- **Register-flow selectors.** Labels carry a required-field asterisk in the DOM, so
+  `getByLabel("Password", { exact: true })` finds nothing; role and accessible name
+  (`getByRole("textbox", { name: "Password", exact: true })`) is what works.
+- **The allauth subject is `[Kaleem] Please Confirm Your Email Address`**, read from the
+  first local mail as the plan said. The body greeting is "Hello from !" (an empty site
+  name); out of scope, noted for ISSUES.md.
+- **Probe mutation.** A wrong `DJANGO_EMAIL_HOST` makes the task itself fail (three
+  retries), so it trips the existing result check. The case the new mail check exists for
+  is a worker whose backend accepts the task but sends nowhere (the old locmem), and that
+  is the mutation recorded.
 
 ## Risks
 
