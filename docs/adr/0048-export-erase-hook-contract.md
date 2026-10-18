@@ -1,11 +1,10 @@
 ---
-number: NNNN
+number: 0048
 title: Personal-data modules join one export/erase hook registry
 status: proposed
 date: 2026-10-18
 ---
 
-<!-- NNNN is allocated by the conductor when this lands; rename the file to match. -->
 
 ## Context
 

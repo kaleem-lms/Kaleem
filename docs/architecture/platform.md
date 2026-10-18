@@ -6,7 +6,7 @@ imports none of them (the forbidden contract in `pyproject.toml`, which
 modules). It has no models and no migrations.
 
 Spec for the personal-data registry: `docs/superpowers/specs/2026-10-18-plat-dsar-registry-design.md`.
-Decision: `docs/adr/NNNN-export-erase-hook-contract.md`.
+Decision: `docs/adr/0048-export-erase-hook-contract.md`.
 
 ## What platform owns
 
