@@ -2,9 +2,9 @@
 name: identity-frontend
 phase: A
 modules: [identity]
-status: draft
+status: shipped
 created: 2026-06-14
-closed: null
+closed: 2026-07-08
 ---
 
 ## Goal
@@ -185,6 +185,9 @@ route/component gets a `jest-axe` test. The availability grid is verified in bot
 
 Built, deployed to staging, browser-verified end-to-end. Phase 1 "done" =
 register → verify → login → `/me` click-through works on `app-staging` against `api-staging`.
+
+The real-inbox staging click-through is an open residual (ADR-0024); it closes with
+`hg-mail-client-render`.
 
 ---
 

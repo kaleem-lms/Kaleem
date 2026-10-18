@@ -2,8 +2,9 @@
 name: phase-c3e-b-browser-hardening
 phase: C
 modules: [dashboard]
-status: draft
+status: shipped
 created: 2026-09-07
+closed: 2026-09-07
 ---
 
 ## Goal

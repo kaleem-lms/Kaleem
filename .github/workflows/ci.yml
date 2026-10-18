@@ -36,6 +36,17 @@ permissions:
   actions: read
   contents: read
 
+env:
+  # ADR-0030 (as amended): the dependency scanners (`pnpm audit`, `trivy`) are
+  # report-only until this day and blocking from it, with no further edit to this file.
+  # `.github/scripts/sca-gate.sh` is the only thing that reads it. A scanner ERROR
+  # (registry or DB outage, bad report) fails the step on any day.
+  #
+  # Moving this date LATER needs an ADR, exactly as lowering a coverage floor does
+  # (ADR-0026). Moving it earlier is an ordinary PR once the baseline is clean.
+  # `lb-security-scanning-sast` (semgrep) reuses this value.
+  SCA_BLOCKING_FROM: "2026-11-30"
+
 jobs:
   # One job, two questions, because a job skipped by `if:` also skips its
   # dependents -- so a separate guard job would have to run on pull requests
@@ -593,22 +604,59 @@ jobs:
           # it exactly one to look at.
           fetch-depth: 0
 
+      # The scanners below decide whether a PR may merge, so they are tested first
+      # (the test-classify-changes.sh precedent): a gitleaks that scanned nothing prints
+      # "no leaks found" too, and the guard against that is code that can rot.
+      - name: Self-test the scan wrappers
+        run: .github/scripts/test-security-scripts.sh
+
       # Known historical findings are allowlisted by fingerprint in `.gitleaksignore`,
       # one annotated line each, so a NEW secret in a NEW commit still fails here.
       # The image is pinned: an unpinned scanner changes what "green" means without a
-      # commit.
+      # commit. The wrapper refuses a shallow clone and any scan that read fewer commits
+      # than the history holds, because gitleaks exits 0 having scanned none.
       - name: Gitleaks — meta repo history
+        run: .github/scripts/gitleaks-history.sh .
+
+      # ADR-0030 left submodule histories unscanned; a local run over all five found
+      # nothing, so there is no baseline to wait for and this blocks from the start.
+      # Every repository is scanned before the step reports, so one run names them all.
+      - name: Gitleaks — submodule histories
         run: |
-          docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:v8.30.1 \
-            git /repo --redact --no-banner --exit-code 1
+          failed=0
+          for sub in backend dashboard marketing infra tokens; do
+            .github/scripts/gitleaks-history.sh "$sub" || failed=1
+          done
+          exit "$failed"
 
       # Directory mode covers the submodule working trees — the code the deploy is
-      # actually built from — which the history scan above cannot see. Submodule
-      # *histories* are covered only by their own pre-commit hooks (ADR-0030, known gap).
+      # actually built from — which the history scans above cannot see.
       - name: Gitleaks — checked-out tree, submodules included
         run: |
           docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:v8.30.1 \
             dir /repo --redact --no-banner --exit-code 1
+
+      # Runs from the COMMITTED lockfiles with no install, so it needs neither the
+      # tokens git dependency nor a token. Report-only until SCA_BLOCKING_FROM, then
+      # blocking (sca-gate.sh). The log and step summary carry counts per severity only: the
+      # audited repositories are private and this page is public.
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 10
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+      - name: pnpm audit — production dependencies of both frontends
+        run: |
+          worst=0
+          for app in dashboard marketing; do
+            rc=0
+            .github/scripts/pnpm-audit.sh "$app" || rc=$?
+            gate=0
+            .github/scripts/sca-gate.sh "pnpm audit ($app)" "$rc" 5 || gate=$?
+            [ "$gate" -eq 0 ] || worst="$gate"
+          done
+          exit "$worst"
 
       - uses: actions/setup-python@v7
         with:
@@ -626,6 +674,107 @@ jobs:
           pip install --quiet pip-audit
       - name: pip-audit
         run: pip-audit --progress-spinner off --path /tmp/prodenv/lib/python3.13/site-packages
+
+  # ADR-0030 (as amended). Scans the three images staging runs, built exactly as
+  # `deploy-staging` builds them and not pushed: HIGH and CRITICAL vulnerabilities that
+  # have a fix. Report-only until SCA_BLOCKING_FROM, blocking from it (sca-gate.sh).
+  #
+  # Third-party images (traefik, postgres, redis, coturn) are NOT scanned here: their tags
+  # float and are pulled on the VPS, so a scan in CI would not be the image that runs.
+  #
+  # It builds the images a second time (deploy-staging builds them again on merge). A
+  # floating base tag could therefore differ between the two builds; that is accepted.
+  # The scanner is the digest-pinned image, never a marketplace action: an unpinned
+  # scanner changes what "green" means without a commit.
+  image-scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    needs: triage
+    # Same three clauses as every other build gate, see `backend-lint`.
+    if: >-
+      needs.triage.outputs.code == 'true'
+      && needs.triage.outputs.verified != 'true'
+      && github.actor != 'dependabot[bot]'
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+          token: ${{ secrets.SUBMODULE_TOKEN }}
+
+      - name: Build backend image
+        run: |
+          docker build \
+            -f backend/Dockerfile \
+            --target production \
+            -t scan/backend:ci \
+            backend/
+
+      # Flags as in `deploy-staging`, minus the registry tags and the push.
+      - name: Build dashboard image
+        env:
+          DOCKER_BUILDKIT: "1"
+          TOKENS_REPO_TOKEN: ${{ secrets.TOKENS_REPO_TOKEN }}
+        run: |
+          docker build \
+            -f dashboard/Dockerfile \
+            --target production \
+            --secret id=tokens_token,env=TOKENS_REPO_TOKEN \
+            --build-arg VITE_API_URL=https://api-staging.kaleem.academy/api/v1/ \
+            -t scan/dashboard:ci \
+            dashboard/
+
+      - name: Build marketing image
+        env:
+          DOCKER_BUILDKIT: "1"
+          TOKENS_REPO_TOKEN: ${{ secrets.TOKENS_REPO_TOKEN }}
+        run: |
+          docker build \
+            -f marketing/Dockerfile \
+            --target production \
+            --secret id=tokens_token,env=TOKENS_REPO_TOKEN \
+            -t scan/marketing:ci \
+            marketing/
+
+      # The vulnerability DB is a ~70 MB download from a registry that rate-limits;
+      # one cache entry per day keeps three scans to one download at most.
+      - name: Date for the trivy DB cache key
+        id: day
+        run: echo "day=$(date -u +%F)" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/trivy
+          key: trivy-db-${{ steps.day.outputs.day }}
+          restore-keys: trivy-db-
+
+      # `--exit-code 5` is the "found something" code and nothing else: a trivy that
+      # cannot fetch its DB or read the image exits 1, which sca-gate.sh treats as an
+      # error on every day. `.trivyignore` entries carry an `exp:` date.
+      - name: trivy — HIGH and CRITICAL with a fix available
+        run: |
+          mkdir -p "$HOME/.cache/trivy" "$RUNNER_TEMP/trivy-out"
+          worst=0
+          for app in backend dashboard marketing; do
+            rc=0
+            docker run --rm \
+              -v /var/run/docker.sock:/var/run/docker.sock \
+              -v "$PWD:/src:ro" \
+              -v "$HOME/.cache/trivy:/root/.cache/trivy" \
+              -v "$RUNNER_TEMP/trivy-out:/out" \
+              aquasec/trivy:0.72.0@sha256:cffe3f5161a47a6823fbd23d985795b3ed72a4c806da4c4df16266c02accdd6f \
+              image --scanners vuln --severity HIGH,CRITICAL --ignore-unfixed \
+              --ignorefile /src/.trivyignore --no-progress --exit-code 5 \
+              --format json --output "/out/$app.json" \
+              "scan/$app:ci" || rc=$?
+            # Counts only: the images come from private repositories and this log is
+            # public. The detail is for a local run (docs/runbook/ci.md).
+            counts=0
+            .github/scripts/trivy-counts.sh "$app" "$RUNNER_TEMP/trivy-out/$app.json" "$rc" || counts=$?
+            [ "$counts" -eq 0 ] || worst="$counts"
+            gate=0
+            .github/scripts/sca-gate.sh "trivy ($app)" "$rc" 5 || gate=$?
+            [ "$gate" -eq 0 ] || worst="$gate"
+          done
+          exit "$worst"
 
   # Publishes "these gates went green against this exact content" so the push
   # that merges this PR does not have to prove it again.
@@ -647,6 +796,7 @@ jobs:
         e2e,
         marketing-build,
         security,
+        image-scan,
       ]
     # Deliberately NOT `!cancelled()`: unlike deploy-staging, this job must run
     # only when every gate actually ran and passed. A skipped gate means this
@@ -761,6 +911,7 @@ jobs:
         e2e,
         marketing-build,
         security,
+        image-scan,
       ]
     # `!cancelled()` opts out of the default "all needs succeeded" rule, which
     # would treat a deliberately SKIPPED gate as a reason not to deploy. The

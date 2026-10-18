@@ -2,7 +2,7 @@
 name: billing-subscriptions
 phase: B
 modules: [billing, identity]
-status: implemented
+status: shipped
 created: 2026-07-09
 closed: 2026-09-04
 amended_by: docs/superpowers/specs/2026-08-13-billing-hardening-design.md

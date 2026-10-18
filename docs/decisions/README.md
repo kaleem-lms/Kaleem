@@ -26,4 +26,8 @@ files are up to you.
 ## Index
 
 <!-- newest first: - [YYYY-MM-DD title](file.md) — one-line hook -->
-(none yet)
+- [2026-10-17 v1 kickoff decisions](2026-10-17-v1-kickoff-decisions.md) — the owner's 45
+  before-start answers for the v1 programme: 37 took the recommended default, 8 did not.
+- [2026-10-17 The full v1 supersedes the product spec's out-of-scope lines](2026-10-17-v1-scope-supersedes-product-spec.md)
+  — line-by-line disposition of the product spec's "Out of Scope (v1)" list; group sessions
+  stay deferred.
