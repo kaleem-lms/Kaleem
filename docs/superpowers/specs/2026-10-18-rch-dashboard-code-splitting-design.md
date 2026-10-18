@@ -2,7 +2,7 @@
 name: rch-dashboard-code-splitting
 phase: v1 (wave 1, PWA & bundle stream)
 modules: [dashboard routes]
-status: draft
+status: built
 created: 2026-10-18
 closed: null
 ---
@@ -75,6 +75,21 @@ after a deploy, and the unit handles that too.
   reloads the page once. A `sessionStorage` timestamp stops a reload loop: there is no
   second reload within 10 s. If storage throws, it does not reload at all. The guard is
   installed in `main.tsx`.
+
+## Corrections found while building (2026-10-18)
+
+- **The router already reloads on a missing component chunk.** TanStack's
+  `lazyRouteComponent` reloads once per distinct "Failed to fetch dynamically imported
+  module" message (Chrome, Firefox and Safari wordings), keyed in `sessionStorage`. With
+  the guard's install line removed, the stale-chunk e2e still passes. The guard is kept:
+  it answers every `vite:preloadError` (for example a CSS preload failure, which the
+  router does not match), it has a 10 s loop limit, and `rch-pwa-service-worker`
+  inherits it. The e2e therefore has two flows: one proves the recovery in the real
+  build, and one proves the guard itself is installed and does not loop (mutation-checked).
+- **Measured budget.** Initial JS is 570,290 raw bytes in 16 files, so
+  `INITIAL_JS_BUDGET` is 580,000. The probe's "15 files" was one short.
+- **`RoomPage` uses `useParams({ from })`**, not `Route.useParams()`: importing `Route`
+  back from the route module would be a cycle with the lazy chunk.
 
 ## User flow
 

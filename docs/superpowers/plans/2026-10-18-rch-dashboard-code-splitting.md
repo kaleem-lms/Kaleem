@@ -1,6 +1,6 @@
 ---
 spec: docs/superpowers/specs/2026-10-18-rch-dashboard-code-splitting-design.md
-status: draft
+status: done
 ---
 
 Worktree: `/home/abdulkhalek/Projects/kaleem-worktrees/dashboard-rch-dashboard-code-splitting`
@@ -130,10 +130,10 @@ TDD loop: `_tools/dashboard-gate.sh "${WT}" <test path>`.
 
 ## e2e (D3)
 
-- **One new flow:** `chunk-reload.spec.ts`, as in step 7.
+- **Two new flows:** `chunk-reload.spec.ts`: recovery from a missing chunk, and the installed guard reloading once without looping (see the spec's corrections).
 - **Existing flows:** they cover every shipped area, run against `pnpm build`, and prove
   that every split route still loads. The suite stays green.
-- **D3 row at close-out:** "dashboard — code splitting: 1 flow (stale-chunk reload). It
+- **D3 row at close-out:** "dashboard — code splitting: 2 flows (stale-chunk recovery; the guard reloads once and never loops). It
   does not prove the Lighthouse score (staging, weekly dispatch) or a real blue-green
   switch."
 
