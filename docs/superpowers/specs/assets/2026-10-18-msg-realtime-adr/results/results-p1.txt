@@ -1,0 +1,3 @@
+P1-CONTROL clean_mean_ms=2.49 slowed_mean_ms=56.50 delta_ms=54.01
+P1 n=2000 mean_ms=1.749 p50_ms=1.579 p99_ms=3.252 max_ms=30.855
+2 passed, 2 warnings in 12.23s
