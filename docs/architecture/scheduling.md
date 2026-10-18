@@ -540,6 +540,12 @@ The view layer is thin: it checks the profile, calls one service, and serializes
 complete return a payload built from the public read after the transaction committed, never
 from the model the mutation returned. `_today()` is a seam so a test can pin the reference week.
 
+Text follows `Accept-Language` (ADR-0058). The five `subject_name` fields (offers, assignments,
+match requests, slots, sessions) are `api/fields.py::SubjectNameField`, which translates the
+stored English name through `curriculum.services.subject_display_name` at the edge; the services
+keep returning the stored name, because the video provider is handed one. Every error message in
+this module is a gettext call, with its Arabic in `kaleem/scheduling/locale/`.
+
 ## Jobs
 
 | What | Where | When |

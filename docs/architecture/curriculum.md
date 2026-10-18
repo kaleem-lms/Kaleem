@@ -43,6 +43,13 @@ the models.
 | `set_teacher_subjects(user_id, slugs)` | Replaces the whole set; returns what was stored |
 | `get_student_subjects(user_id)` | The student's slugs, sorted |
 | `set_student_subjects(user_id, slugs)` | Replaces the whole set; returns what was stored |
+| `subject_display_name(name)` | The stored subject name in the language of the current request (`pgettext("subject name", name)`). A name with no catalog entry comes back as stored |
+
+`subject_display_name` is how a subject name reaches a client in Arabic. Services keep returning the
+stored name (scheduling hands one to the video provider); the serializers of curriculum and of
+scheduling (`SubjectNameField`) translate at the edge. The three seeded names are marked with
+`pgettext_lazy` in `services.py` so `makemessages` finds them; a subject an admin adds shows its
+stored name until a catalog entry ships (ADR-0058).
 
 A symmetric quartet on purpose: the dashboard hooks mirror these names exactly, so a reader
 can move between the two repos without translating.
