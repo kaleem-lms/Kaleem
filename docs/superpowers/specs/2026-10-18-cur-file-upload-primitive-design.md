@@ -261,3 +261,9 @@ None. No owner decision is needed. `dec-cur-file-policy` is resolved, and it set
 values consumers pass, not this primitive. The Arabic strings are ordinary interface
 words, not religious terminology. They go through the consumers' `hg-arabic-review` when
 they first appear on a product page.
+- **`initials()` builds its segmenter on first use and degrades without one.** Created
+  at module scope, `new Intl.Segmenter` would throw while the shared chunk loads in a
+  browser that lacks it (Firefox before 125, still inside the build target), and the
+  whole app would fail to load. Without a segmenter it splits by code point: a letter
+  outside the Basic Multilingual Plane stays whole, and only a letter's combining marks
+  can be cut off from it. A test removes the constructor and re-imports the module.
