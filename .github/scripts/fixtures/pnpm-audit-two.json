@@ -1,0 +1,33 @@
+{
+  "actions": [],
+  "advisories": {
+    "9000001": {
+      "id": 9000001,
+      "github_advisory_id": "GHSA-fake-aaaa-0001",
+      "module_name": "fake-package-one",
+      "severity": "high",
+      "vulnerable_versions": "<2.0.0",
+      "patched_versions": ">=2.0.0",
+      "title": "Synthetic advisory used only by the scanner self-test",
+      "url": "https://example.invalid/advisories/GHSA-fake-aaaa-0001"
+    },
+    "9000002": {
+      "id": 9000002,
+      "github_advisory_id": "GHSA-fake-bbbb-0002",
+      "module_name": "fake-package-two",
+      "severity": "critical",
+      "vulnerable_versions": "<3.1.0",
+      "patched_versions": ">=3.1.0",
+      "title": "Second synthetic advisory",
+      "url": "https://example.invalid/advisories/GHSA-fake-bbbb-0002"
+    }
+  },
+  "muted": [],
+  "metadata": {
+    "vulnerabilities": { "info": 0, "low": 0, "moderate": 0, "high": 1, "critical": 1 },
+    "dependencies": 4,
+    "devDependencies": 0,
+    "optionalDependencies": 0,
+    "totalDependencies": 4
+  }
+}
