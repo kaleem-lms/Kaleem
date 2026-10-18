@@ -281,7 +281,12 @@ jobs:
       # 2026-09-12).
       - name: Token pin agrees with the submodule (G3)
         working-directory: .
-        run: node scripts/check-token-pin.mjs
+        # The submodule checkout fetches only the pinned commit, which carries no tags
+        # once tokens main has moved past the release. Fetch the tags first, or a correct
+        # pin reads as "tag does not exist" (seen on 2026-10-18 after tokens#9).
+        run: |
+          git -C tokens fetch -q --depth=1 origin "+refs/tags/*:refs/tags/*"
+          node scripts/check-token-pin.mjs
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       - name: TypeScript check
@@ -349,6 +354,16 @@ jobs:
       # already built.
       - name: No palette rules in the built CSS
         run: node scripts/check-colors.mjs --built
+      # Access-log policy: the image's nginx config must log paths only. This
+      # runs the real config over the real build in a real nginx container, sends probe
+      # values in the query string, Referer, User-Agent and Cookie, and fails if any
+      # reaches the container's output (access log and error log both). The self-test
+      # runs the checker against configs that leak and that log nothing and requires it
+      # to fail on each, so a pass here cannot be a checker that looks at nothing.
+      - name: Access log self-test
+        run: ${GITHUB_WORKSPACE}/.github/scripts/test-check-nginx-access-log.sh
+      - name: Access log records no credential
+        run: ${GITHUB_WORKSPACE}/.github/scripts/check-nginx-access-log.sh nginx.conf dist
 
   # ADR-0021 has required end-to-end tests since 2026-06-17 and no harness existed
   # until 2026-09-03; ADR-0026 recorded the clause as suspended in the meantime. This
@@ -990,6 +1005,9 @@ jobs:
         run: pnpm test:coverage
       - name: Build
         run: pnpm build
+      # Access-log policy: the dashboard job holds the checker's self-test.
+      - name: Access log records no credential
+        run: ${GITHUB_WORKSPACE}/.github/scripts/check-nginx-access-log.sh nginx.conf dist
       # The e2e suite runs against `astro preview` of the build above, so it must come
       # after it. No backend, database or secrets: the site is static.
       - name: Install Playwright chromium
