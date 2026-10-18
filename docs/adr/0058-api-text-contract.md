@@ -93,6 +93,10 @@ The dashboard also branched on server text once (`LoginForm` matched the substri
   leaves the last request's language on the thread.
 - The production image build gains the `gettext` apt package and one `RUN` step. A
   failing compile fails the build.
+- Account mail rendered inside a request is pinned to English (`CeleryAccountAdapter`
+  renders under `LANGUAGE_CODE`), so an Arabic dashboard user does not get allauth's Arabic
+  subject and sign-off around an English body. It stays English until the recipient's
+  locale is known outside a request (`ntf-recipient-locale-tz`).
 - Out of scope, each owned elsewhere: email and notification copy, Zod messages on the
   client, Django admin text, signaling close reasons, and sorting subjects by their
   translated name.

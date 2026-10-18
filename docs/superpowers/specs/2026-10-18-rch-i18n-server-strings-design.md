@@ -135,6 +135,10 @@ No routes, components or copy keys change.
 
 - Email and notification copy (`ntf-*` units, D-ntf-template-ownership), and the recipient's
   locale outside a request (`ntf-recipient-locale-tz`).
+  Until that unit lands, account mail rendered inside a request (registration,
+  resend-verification, adding an address) is pinned to English: `CeleryAccountAdapter`
+  renders it under `LANGUAGE_CODE`, because the request's language would otherwise wrap
+  allauth's own Arabic subject, greeting and sign-off around our English body.
 - Zod messages on the client (`lb-zod-i18n`), and the Arabic copy pass on `common.json`
   (`rch-i18n-arabic-copy-review`).
 - Django admin text and `message_user` strings (staff-only), allauth's own pages, and
