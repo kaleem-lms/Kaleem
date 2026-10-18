@@ -17,7 +17,7 @@ erasure would leave data behind, and nothing would notice.
 
 The constraints:
 
-- Module boundaries are enforced (ADR-0004 and the import-linter contracts): `platform`
+- Module boundaries are enforced (ADR-0001 and the import-linter contracts): `platform`
   imports no business module, and a business module may import `kaleem.platform`.
 - Erasure follows lb-dec-erasure-semantics: anonymize in place. A cascade on deleting the
   user is not the method.
