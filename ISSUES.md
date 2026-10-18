@@ -362,10 +362,6 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
 - **`SessionAdmin` still lets staff edit `status`.** Moving a closed lesson back to `scheduled`
   in the admin now violates `session_outcome_only_when_completed` and returns a 500 rather
   than a form error. Found 2026-10-18 by ana-session-outcomes.
-- **`@kaleem/tokens` will export `./brand.mjs`, which imports a devDependency at top level**
-  (brand plan E15): a consumer that imports it fails with `ERR_MODULE_NOT_FOUND`. Drop the
-  export or import `@resvg/resvg-js` lazily inside `emit()`. For `inf-brand-tokens-pipeline`.
-
 - **The allauth confirmation email greets "Hello from !"** — the site name is empty, so the
   greeting has nothing after "from". Seen in the first real e2e inbox mail. Found 2026-10-18 by
   ntf-mail-e2e-harness.
@@ -409,7 +405,8 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
   Fraunces has no Arabic glyphs (its `unicode-range` subsets never load), so an Arabic
   heading renders in whatever serif the OS picks. True before and after `@kaleem/tokens`
   v0.2.3, which fixed the Latin case only. Deciding which Arabic display face the brand
-  wants is a design choice for the brand work (`inf-brand-tokens-pipeline`), not a patch.
+  wants is a design choice for the brand work (`inf-brand-direction` / `inf-brand-mark-assets`,
+  after `dec-brand-typeface`), not a patch.
   `e2e/display-font.spec.ts` runs in English for this reason. Found 2026-10-18.
 
 - **One failed `getUserMedia` tap writes TWO `calldiagnostic` rows, so the table

@@ -219,6 +219,32 @@ contrast gate, unit tests, and a mutation step that breaks a token value on purp
 fails if the gate stays green. `smoke.test.mjs` is gone — it scraped CSS with a regex and
 was superseded by real structural parity between the light and dark token trees.
 
+### The brand pipeline (since `inf-brand-tokens-pipeline`)
+
+`tokens` carries the machinery for brand assets, with **no brand in it yet**: the shipped
+manifest `brand/brand.json` has empty `source`, `emitted` and `extras` lists, and the gates run
+against `test/fixtures/brand/` (a fixture manifest, two colourless source SVGs and a committed
+`dist/`) until `inf-brand-mark-assets` adds the real mark. `brand.mjs` is a **developer tool,
+not package surface**: it is in neither `files` nor `exports` (a test fails if it appears in
+either), because it imports `@resvg/resvg-js` at top level. Consumers take files only
+(`brand/src/*.svg`, `brand/dist/*`), once those are exported by the mark unit.
+
+- **Manifest.** `brand.json` declares every asset and binds it to a colour **token alias**
+  (flat theme keys such as `{primary-text}`, no `color.` prefix), never to a literal. Source SVGs
+  carry shape only (`currentColor`); the emitter resolves the alias through `build.mjs` and
+  bakes it into standalone images.
+- **Gates** (all in `test/brand.test.mjs`, each seen red before it was trusted): every declared
+  file exists; `svgIssues` rejects any paint other than `currentColor` / `none` / `inherit` /
+  `url(#…)`, embedded rasters (`<image>`, `<feImage>`, `data:image`), live `<text>`, a missing
+  `viewBox` or `<title>`; every emitted PNG has its declared size (OG card 1200x630); committed
+  output equals what the emitter produces now (`node brand.mjs [manifest] [--check]`).
+- **CI.** The tokens `verify` job now installs one **devDependency** (`@resvg/resvg-js` 2.6.2,
+  pnpm 10 with a committed `pnpm-lock.yaml`, frozen). Consumers still install nothing from
+  `tokens`. Resvg output was measured byte-identical between node 24 (host) and node 22 (CI's
+  version) on linux-x64.
+- **Limit.** `brand.mjs --check` on the shipped manifest is vacuous until the mark lands, so
+  the fixture drift test in the suite is what proves the drift gate today.
+
 ## What each a11y gate cannot see
 
 Four gates run, and every real failure so far slipped through at least three of them. The
