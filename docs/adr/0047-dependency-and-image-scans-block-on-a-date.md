@@ -125,7 +125,64 @@ a real submodule checkout.
 - `pnpm audit` and `trivy` cover only what public advisory databases know; a git-hosted
   dependency (`@kaleem/tokens`) is covered by neither.
 
+## Addendum: semgrep (`lb-security-scanning-sast`)
+
+ADR-0030 deferred `semgrep` because a SAST tool adopted with a pile of findings gets muted
+within a week. It now runs, under the same date and guard as the dependency scans. This
+addendum records the controls. Triage detail is kept in the private record
+(`rch-d-security-disclosure`).
+
+**7. Scope and pinning.** The `sast` job in `ci.yml` scans the code that ships: `backend`
+(`kaleem`, `signaling`, `config`) and `dashboard/src`. Test code and the development and CI
+settings modules are excluded, in one annotated place (the wrapper). The scanner is a
+digest-pinned `semgrep/semgrep` image, run with `--network none`, `--metrics=off` and
+`--disable-version-check`. The rules are the `security` directories of
+`semgrep/semgrep-rules` for this stack (Python, Django, JWT, cryptography, requests,
+JavaScript, browser, TypeScript React), fetched at the commit in `SEMGREP_RULES_SHA` and
+asserted to equal it. They are fetched at run time and never copied into this public
+repository, because they are published under their own licence. A pinned set was chosen
+over the registry's `p/owasp-top-ten` because a registry ruleset changes without a commit
+and needs a third-party service at scan time, the same reasons ADR-0030 gave against an
+unpinned scanner. Bumping the image or the rules commit is an ordinary PR.
+
+**8. Same date, same guard.** A finding is a warning before `SCA_BLOCKING_FROM` and a
+failure from it, through `sca-gate.sh`; nothing new to flip. Semgrep runs without
+`--error`, so its own exit code is never read as a finding: any non-zero exit from it (or
+from docker) is exit 6 of the wrapper, an error on every day. Semgrep's own codes include 3,
+4 and 5, which would otherwise collide with the wrapper's.
+
+**9. A completeness guard.** The wrapper exits 4, an error on every day, when the report
+holds any entry in `errors` (a partial parse included), when a git-tracked source file under
+the targets is missing from `paths.scanned`, or when the expected set is empty. It is a set
+comparison, not a count, so semgrep's own default ignores cannot widen the exclusions
+unnoticed. A submodule that did not check out is an error, not a clean scan.
+
+**10. A canary.** Before the real scan, the job scans two fixture files (one Python, one
+TypeScript, each with a known-bad line) and requires exit 5 with both files flagged. A
+ruleset that loaded nothing, or a wrong rules path, turns the job red instead of the scan
+reading "clean".
+
+**11. Suppressions are named and counted.** A false positive gets an inline
+`nosemgrep: <rule-id>` with the reason in an adjacent comment. A suppression that names no
+rule (`nosemgrep` or `nosem` alone) is exit 3, because it silences every rule on its line,
+including rules written later. Every text file under the targets is read for this, templates
+included. The step summary publishes the count of named suppressions beside the finding
+counts, so a rise is visible in review. A finding triaged as real is fixed, never suppressed.
+
+**12. Counts only.** The scanned repositories are private and the Actions page is public, so
+the log and summary carry only finding counts per severity, the suppression count and the
+per-target scanned counts. The itemised list (`SEMGREP_DETAILS=1`) is for a local run, the
+rule `pnpm-audit.sh` and `trivy-counts.sh` already follow.
+
+**13. Tested on every run.** `test-security-scripts.sh` gains table-driven cases for the
+wrapper (every exit code, both completeness cases, the suppression rules, the invocation
+flags, the counts-only output), with docker replaced by a shim.
+
+Costs: the image is about 1.1 GB, so a code PR pays a pull of roughly a minute. A syntax the
+pinned semgrep cannot parse fails the guard until the image pin is bumped; the fix is the
+bump, never a looser guard.
+
 ## Not covered
 
-semgrep (`lb-security-scanning-sast`), the third-party runtime images, and git-hosted
-dependencies.
+The third-party runtime images, git-hosted dependencies, meta's own workflow files, and
+`marketing` and `infra` source (see `ISSUES.md`).
