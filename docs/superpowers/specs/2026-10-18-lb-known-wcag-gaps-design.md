@@ -92,7 +92,9 @@ None.
   - Set `package.json` to `0.2.4`, and tag `v0.2.4` on the merge commit.
 - **dashboard:**
   - Re-pin `package.json` to `#v0.2.4`, with the lockfile written by pnpm 10.28.0.
-  - `src/ui/button.tsx`: the `secondary` variant gets `border border-control-border`.
+  - `src/ui/button.tsx`: the `secondary` variant gets `border border-control-border`, and the
+    secondary-and-`sm` combination widens its target bleed to 3px (the bleed is inset from
+    the padding box, so the border would otherwise leave a 42px target).
   - `src/ui/select.tsx`: add `Input`'s `aria-invalid:` recipe, so an invalid select is
     marked the same way as an invalid input.
   - `WeeklyAvailabilityEditor.tsx`: `InlineEditor` renders its error through `FormError`

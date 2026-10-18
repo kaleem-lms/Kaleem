@@ -162,7 +162,12 @@ Worktrees go under `/home/abdulkhalek/Projects/kaleem-worktrees`, named
   pushed. If it is missed, tag the pre-pipeline commit and escalate rather than tagging
   `main`.
 - **Layout.** The border adds 2px of width to a secondary button. `reflow` (320px) and
-  `touch-targets` must stay green. A border cannot shrink the hit area.
+  `touch-targets` must stay green. **Found while building:** a border *can* shrink the hit
+  area of `size="sm"`. Its 2px bleed is a `::after` inset from the padding box, so a 1px
+  border left a 42px target and `touch-targets` ("the dense controls accept more than they
+  paint") went red. The secondary-and-sm compound variant now bleeds 3px. The same
+  arithmetic applies to `variant="outline"` with `size="sm"`, which already has a border;
+  it is logged in `ISSUES.md`, not fixed here (D10).
 - **Built CSS.** A utility named in a comment or test selector is emitted (Tailwind v4).
   `border-control-border` is a real token utility, so emitting it is intended. Step 23
   checks for it.
@@ -178,3 +183,16 @@ The whole unit is verified this way:
 1. Green CI on the meta PR, including G3 and the e2e job. Read the log for the two
    new or changed test names.
 2. Then the staging pass from the spec's "Done": light and dark, Arabic RTL, 320px.
+
+## Build notes (2026-10-18)
+
+- **Steps 10 and 25 (the re-pins) are the conductor's.** `pnpm-lock.yaml` records the tokens
+  commit SHA, and the SHA of the v0.2.4 merge commit does not exist until the conductor has
+  merged and tagged the tokens PR. The dashboard branch carries the code and tests only. To
+  finish it, in each consumer worktree: `npx -y pnpm@10.28.0 add "github:kaleem-lms/tokens#v0.2.4"`
+  (dashboard and marketing), then `pnpm install --frozen-lockfile`. Until then
+  `src/test/a11y.test.tsx` ("declares the secondary button's boundary") is red on the v0.2.3
+  install, which is the point of it.
+- The dashboard gates were run with `@kaleem/tokens` temporarily linked to the tokens worktree
+  (`file:`); that change to `package.json` and the lockfile was reverted before the commits.
+  Marketing's `pnpm check && pnpm build` was run the same way and was clean.
