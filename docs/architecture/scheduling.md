@@ -6,7 +6,8 @@ room each lesson is held in. It is the largest module in the codebase, and the o
 second deployable (the signaling service) next to it.
 
 **Describes backend `18888b2` · dashboard `e61e23e`** (the `origin/main` heads on 2026-10-18,
-the typed read API from `ana-scheduling-read-api` included). A change to the module updates
+the typed read API from `ana-scheduling-read-api` included; the lesson close-out of
+`ana-session-outcomes` is written up here but lands after those SHAs). A change to the module updates
 the section it touches in the same PR; the SHAs above say how fresh the rest is.
 
 Specs: `2026-06-25-scheduling-availability-design.md` (availability) ·
@@ -17,7 +18,8 @@ Specs: `2026-06-25-scheduling-availability-design.md` (availability) ·
 `2026-09-07-phase-c3e-a-call-diagnostics-design.md` (C3e-a) ·
 `2026-09-07-phase-c3e-b-browser-hardening-design.md` (C3e-b) ·
 `2026-09-07-shared-signaling-service-design.md` · `2026-09-12-call-fixes-design.md` (C5) ·
-`2026-09-12-schedule-call-audit-fixes-design.md` (C6) · `2026-10-18-ana-scheduling-read-api-design.md`.
+`2026-09-12-schedule-call-audit-fixes-design.md` (C6) · `2026-10-18-ana-scheduling-read-api-design.md` ·
+`2026-10-18-ana-session-outcomes-design.md` (lesson close-out).
 ADRs: 0033 (depends on curriculum and billing) · 0034 (custom WebRTC, group lessons deferred) ·
 0035 (signaling as a separate service) · 0036 (feature components split hook and presentation) ·
 0037 (signaling is shared, not blue-green) · 0039 (pre-negotiated transceivers) · 0046 (v1
@@ -49,7 +51,8 @@ into a model or `save()` one. The DTOs carry ids, times, status, subject and peo
 | --- | --- |
 | Availability | `get_availability`, `set_availability`, `merge_ranges`, `to_utc_intervals`, `to_utc_intervals_for` |
 | Quota | `get_quota` |
-| User-scoped reads | `upcoming_sessions`, `sessions_between`, `session_history`, `next_sessions`, `next_session_per_child`, `active_assignments` |
+| User-scoped reads | `upcoming_sessions`, `sessions_between`, `session_history`, `next_sessions`, `next_session_per_child`, `active_assignments`, `sessions_to_close` |
+| Close-out window | `CLOSE_OUT_WINDOW`, `close_out_window`, `may_close` |
 | Id-scoped reads | `get_session`, `is_session_party`, `is_assignment_party`, `is_active_teacher_of` |
 
 `services.py` keeps two rules apart, and so must a caller:
@@ -65,6 +68,8 @@ into a model or `save()` one. The DTOs carry ids, times, status, subject and peo
 
 Bounds are constants: `MAX_WINDOW` 31 days for `sessions_between`, `MAX_HISTORY_LIMIT` 100 for
 `session_history` (a keyset page, newest first), `MAX_NEXT_LIMIT` 50 for `next_sessions`.
+`SessionInfo.outcome` is `None` until a lesson is closed out, and a caller must never read `None`
+as an outcome (see "Closing a lesson").
 Every read except `get_quota` takes UTC-aware instants and raises `ValidationError` on a naive
 one. Turning a viewer's local day into instants, DST included, is the caller's job.
 
@@ -175,7 +180,10 @@ erDiagram
   row exists on ordinary weeks, not only on deviating ones. `unique_session_instant` on
   `(assignment, starts_at)` makes generation idempotent. `duration_minutes` defaults to
   `SESSION_DURATION_MINUTES` (60). It also stores `cancelled_by`, `cancelled_at`, `cycle_end`
-  (the billing period it counts against, identified by its end) and `consumes_quota`.
+  (the billing period it counts against, identified by its end) and `consumes_quota`. A
+  closed-out lesson also carries `outcome` (`held` / `student_absent` / `teacher_absent`) and
+  `outcome_recorded_at`, both nullable. The check constraint `session_outcome_only_when_completed`
+  refuses an outcome on a lesson that is not `completed`, for every writer.
 - **Room** — a video room for one session, a row over time rather than a field on `Session`
   (rule #7): a provider failure or a rescheduled lesson can mean a second room. `provider`
   records which adapter minted it; `signaling_url` records where it lives. At most one is
@@ -324,8 +332,32 @@ Cancelling also ends the lesson's room (see Rooms).
 **Ending a slot.** `end_slot` (a party to the assignment only) cancels the future `scheduled`
 sessions of that slot under the same rule, then marks the slot `ended`.
 
-**Completing.** `complete_session` is teacher-only, because the teacher knows whether the
-lesson happened. A completed session keeps consuming its unit, and its room is ended.
+**Closing a lesson.** Spec `2026-10-18-ana-session-outcomes-design.md`, resolving
+dec-lesson-outcomes. `completed` means "closed out", and `Session.outcome` says how it went:
+
+- `held` and `student_absent` are recorded by the lesson's teacher, through `complete_session`
+  and `mark_student_absent`. Both keep `consumes_quota` true: the unit stays spent.
+- `teacher_absent` exists in the enum but nothing in this module writes it. It is set only by
+  staff adjudication, built later by `sched-teacher-no-show`.
+- **The window** is `starts_at <= now < starts_at + CLOSE_OUT_WINDOW` (7 days), measured from the
+  *start*, in UTC instants. It is written once, in `services.close_out_window`; `booking` uses it
+  to refuse and `services.may_close` uses it to answer, so they cannot disagree. A lesson nobody
+  closes stays `scheduled` with no outcome. Nothing auto-closes it.
+- **The ordered sequence.** Both writers call `booking._close_out`, inside one transaction:
+  (1) lock the row, (2) the actor is the lesson's teacher (403), (3) the lesson is `scheduled`
+  (409), (4) the window (409, a message per side), (5) write status, outcome and
+  `outcome_recorded_at`, (6) *reserved: the earning line, `pay-earnings-ledger`*, (7) end the
+  lesson's rooms, (8) *reserved: the `on_commit` publish and notices, `eng-event-bus` and the
+  notification units*. The refusal order is the order of steps 2 to 4, so a non-party learns
+  nothing about another person's lesson. Each later unit adds its step in its slot and extends
+  `tests/test_close_out_matrix.py`, the one table of action x actor x prior status x clock.
+- **Closing ends the call.** The window opens at the start, so a teacher can close a lesson
+  while its call is running, and that ends the room.
+- **Cancelling is unchanged and has no time bound:** a party can cancel a lesson that has already
+  ended. The matrix pins that behaviour; it is flagged, not fixed here.
+- **Blue-green.** Both columns are nullable with no default, so the previous release keeps
+  working beside this one. A lesson it completes during a deploy keeps a NULL outcome.
+  Migration `0013_session_outcome` backfilled existing `completed` rows as `held`.
 
 ## Rooms
 
@@ -375,7 +407,7 @@ host, so that split can no longer happen. The column stays as the durable record
 tripwire if a per-host scheme returns; `get_join_url` still prefers the row's value over
 settings.
 
-**Rooms end** when a session is cancelled or completed (`end_rooms_for_session`), which is what
+**Rooms end** when a session is cancelled or closed out (`end_rooms_for_session`), which is what
 gives `Room.Status.ENDED` a production path. The local row is marked `ended` even if the
 provider call fails, because reusing a room the provider has dropped is worse than minting a new
 one. Migration `0009_end_active_rooms` ended every active room once, for rooms written under
@@ -481,7 +513,7 @@ mid-lesson. `signaling.app` likewise fails loudly, not silently, without its sec
 
 ## HTTP surface
 
-All under `/api/v1/scheduling/`, mounted through `config.api_router` (ADR-0029). Fifteen routes.
+All under `/api/v1/scheduling/`, mounted through `config.api_router` (ADR-0029). Seventeen routes.
 "Profile" means the user holds that profile; a person may hold several.
 
 | Method | Path | Who | Notes |
@@ -495,9 +527,11 @@ All under `/api/v1/scheduling/`, mounted through `config.api_router` (ADR-0029).
 | `GET` | `slot-options/` | student | Computed candidates, not rows |
 | `GET` `POST` | `slots/` | student | `POST` claims (201); `GET` is 404 when there is no active slot |
 | `DELETE` | `slots/<int:slot_id>/` | student | 204; the service requires a party to the assignment |
-| `GET` | `sessions/` | student, teacher or parent profile | Upcoming, every status; payload adds `may_cancel`, `cancellation_refunds`, `can_join_at`, `may_join` |
+| `GET` | `sessions/` | student, teacher or parent profile | Upcoming, every status; payload adds `may_cancel`, `cancellation_refunds`, `can_join_at`, `may_join`, `may_complete`, `outcome` |
+| `GET` | `sessions/to-close/` | teacher | The teacher's `scheduled` lessons that have started and are inside the 7-day window, oldest first; 403 without a teacher profile |
 | `POST` | `sessions/<int:session_id>/cancel/` | the student, the teacher or a parent of the student | Refund rule applied; ends the room |
-| `POST` | `sessions/<int:session_id>/complete/` | the session's teacher | Ends the room |
+| `POST` | `sessions/<int:session_id>/complete/` | the session's teacher | Records `held`. 409 before the start, after the window, or when not `scheduled`. Ends the room |
+| `POST` | `sessions/<int:session_id>/no-show/` | the session's teacher | Records `student_absent`, same guard as `complete/`. Ends the room |
 | `POST` | `sessions/<int:session_id>/join/` | a participant (teacher or student, not a parent) | Throttled `session-join`, 30 per hour; `POST` because it can create a room |
 | `POST` | `sessions/<int:session_id>/diagnostics/` | a participant | Throttled `call-diagnostics`, 20 per hour; 201 |
 | `GET` | `quota/` | student | 404 when billing reports no allowance |
@@ -529,6 +563,11 @@ Described here, not changed by this doc (ADR-0023). Scheduling holds, per person
 - **Slots and sessions**: the standing weekly time and each lesson's instant, status, and, for a
   cancelled lesson, who cancelled it and when.
 - **Rooms**: provider, an external id and the signaling host. No media.
+- **Attendance**: whether a student attended a lesson (`outcome`: `held` / `student_absent`)
+  and when the teacher recorded it (`outcome_recorded_at`). Students may be minors, so this is
+  children's attendance data. Kept for the life of the `Session` row, visible to the lesson's
+  student, teacher and the student's parents, and to staff in Django admin. It is the basis for
+  attendance, reports, pay and no-show handling.
 - **Call diagnostics**: the reporting user, the user agent, and redacted client stats.
 
 The signaling service keeps user ids in process memory for the life of a socket and persists
@@ -564,7 +603,8 @@ and are not repeated here.
 - **Trials** (ADR-0046) and **group lessons** (ADR-0034).
 - **Booking across more than one subject.** One active assignment per student for `claim_slot`.
 - **Rescheduling** a single lesson (`sched-reschedule`): today a lesson is cancelled, not moved.
-- **Session reports, ratings and outcomes** (`assessment`, `ana-session-outcomes`).
+- **Session reports and ratings** (`assessment`). The outcome itself lives here.
+- **Setting `teacher_absent`** and its remedy (`sched-teacher-no-show`).
 - **Teacher earnings** (`billing`).
 - **Parents acting on a child's behalf** beyond viewing and cancelling (`lb-parent-acts-for-child`).
 - **Recording**, and any media path beyond a TURN relay.

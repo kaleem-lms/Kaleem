@@ -1,6 +1,6 @@
 ---
 spec: docs/superpowers/specs/2026-10-18-ana-session-outcomes-design.md
-status: draft
+status: built
 ---
 
 Backend only. Worktree `/home/abdulkhalek/Projects/kaleem-worktrees/backend-ana-session-outcomes`
@@ -12,7 +12,7 @@ All paths below are under `backend/kaleem/scheduling/`.
 
 ## Steps
 
-1. [ ] **Model and migration.**
+1. [x] **Model and migration.**
    - Tests first, in `tests/test_booking_models.py`:
      - `Session.Outcome` has exactly `held`, `student_absent` and `teacher_absent`.
      - A scheduled row with an outcome raises `IntegrityError`, and a completed row with a NULL
@@ -30,7 +30,7 @@ All paths below are under `backend/kaleem/scheduling/`.
        `readonly_fields` so admin cannot bypass the sequence.
      - Cover the admin change with `tests/test_admin.py`.
 
-2. [ ] **The read side.**
+2. [x] **The read side.**
    - Tests first, in `tests/test_read_api.py`:
      - `SessionInfo.outcome` round-trips.
      - `CLOSE_OUT_WINDOW == timedelta(days=7)`.
@@ -47,7 +47,7 @@ All paths below are under `backend/kaleem/scheduling/`.
        `starts_at__gt=now - CLOSE_OUT_WINDOW`.
      - Add all of it to the module docstring.
 
-3. [ ] **The close-out sequence and its guard.**
+3. [x] **The close-out sequence and its guard.**
    - Tests first, in a new `tests/test_close_out_matrix.py`. It holds the combined matrix from
      the spec as a list of `Case(action, actor, prior, clock, expect)` rows.
      - Each row expects either an exception type or the `_observed(session)` dict:
@@ -73,7 +73,7 @@ All paths below are under `backend/kaleem/scheduling/`.
      - Drop `outcome=` from the write → every success row goes red.
      - Restore each and see green.
 
-4. [ ] **HTTP.**
+4. [x] **HTTP.**
    - Tests first, in `tests/test_booking_api.py`:
      - `no-show/` by the teacher on a started lesson → 200, with `status: "completed"` and
        `outcome: "student_absent"`.
@@ -101,7 +101,7 @@ All paths below are under `backend/kaleem/scheduling/`.
        `sessions/<int:session_id>/no-show/` (`session-no-show`).
    - Mutation check: hardcode `may_complete=True` → the payload tests go red.
 
-5. [ ] **Docs, in the meta worktree.**
+5. [x] **Docs, in the meta worktree.**
    - Rewrite the "Completing" paragraph of `docs/architecture/scheduling.md` (around line 319)
      into "Closing a lesson". It covers the outcomes, the window, the ordered sequence with its
      reserved steps, the to-close read and the payload flags.
