@@ -15,7 +15,7 @@ Decision: `docs/adr/0048-export-erase-hook-contract.md`.
 | Typed exceptions | `exceptions.py` | `KaleemError` and its subtypes (`NotFoundError`, `PermissionDeniedError`, `ConflictError`, `ValidationError`, `ExternalServiceError`) |
 | DRF exception handler | `drf.py` | Maps those exceptions to HTTP statuses; an unmapped `KaleemError` falls back to 400 |
 | Pagination | `pagination.py` | `StandardPagination` |
-| Permissions | `permissions.py` | `DocsPermission` for the API docs |
+| Permissions | `permissions.py` | `DocsPermission` for the API docs; `IsStaff`, the server control behind every staff endpoint (authenticated and `is_staff`; imports only DRF; ADR-0057) |
 | Throttling | `throttling.py` | `EmailScopedThrottle` |
 | Middleware | `middleware.py` | `RequestIDMiddleware` |
 | Logging | `logging.py` | `JSONFormatter` for structured logs |
