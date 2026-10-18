@@ -1,7 +1,7 @@
 ---
 number: 0050
 title: Chat transport
-status: proposed
+status: accepted
 date: 2026-10-18
 ---
 
@@ -266,7 +266,10 @@ costs nothing extra today and removes the coupling the day the gate lands.
 - **Option 4** costs almost nothing at v1 scale (P1) and is the fallback in every other
   option. Its cost is latency: a reply appears up to one interval late.
 
-## Decision (proposed)
+## Decision
+
+Accepted by the owner on 2026-10-18 (dec-msg-realtime), as recommended below. The staging
+measurements S1/S2 were not waited for.
 
 1. **Ship messaging with polling (option 4) first.** It is what `msg-core-backend` and
    `msg-dashboard-ui` need, it is the fallback of every other option, and P1 says 2000 online
