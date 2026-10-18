@@ -97,7 +97,7 @@ readings below mean something.
 Added latency to a live call's signaling, by inbox sockets held and chat messages published
 per second. Baseline (unmodified signaling, 50 pairs, no inbox): p99 1.9 to 3.4 ms and max
 3.2 to 7.6 ms across six baseline runs, bracketing the cells. Every cell delivered 2400 of
-2400 probe frames.
+2400 probe frames. (2000-socket rows: the `nofile=65536` rerun, see below.)
 
 | Option | Inbox sockets | Publish/s | p99 | Max stall | Loop lag max (server side) |
 | --- | --- | --- | --- | --- | --- |
@@ -116,7 +116,9 @@ per second. Baseline (unmodified signaling, 50 pairs, no inbox): p99 1.9 to 3.4 
 
 **Threshold, fixed before measuring:** option 1 is "no measurable runtime coupling" only if
 every cell adds at most 50 ms to p99 and at most 250 ms to the maximum stall over baseline.
-**Held**, by a wide margin: the worst p99 in any cell is 1.4 ms above the baseline mean (3.8
+**Held only with the descriptor limit raised (`nofile=65536`). Not held at the container
+default of 1024**, where both 2000-socket cells failed (below). With the limit raised, by a
+wide margin: the worst p99 in any cell is 1.4 ms above the baseline mean (3.8
 against 2.4 ms) and the worst maximum is 1.3 ms above the baseline mean (6.4 against 5.2 ms). At this scale the
 chat load is not a CPU question for either option. Inbox delivery itself (Redis to socket,
 loopback) had p99 2 to 4 ms and a maximum of up to 9 ms in the complete cells.
@@ -130,9 +132,8 @@ With option 2 the same load filled the inbox container's own table (1010 sockets
 call probe in the unmodified signaling container was unaffected. So at the default limit
 option 1 **did not meet the threshold**: chat sockets and lesson joins draw on one descriptor
 budget. The grid was re-run with `nofile=65536` for the 2000-socket cells
-(`results-relay-2000.*`); the table above uses those rows. Whether staging's `signaling`
-container runs at 1024 is not known here: `docker exec kaleem-signaling-1 sh -c 'ulimit -n'`
-answers it. Whatever the answer, option 1 needs the limit raised in the compose file as part
+(`results-relay-2000.*`); the table above uses those rows. The production limit is to be
+confirmed before an option-1 build; whatever it is, option 1 needs the limit raised in the compose file as part
 of the change, and a per-process socket cap well under it.
 
 ### R2: fault coupling
@@ -183,7 +184,7 @@ times.
 | 2000, 15 s | 133 | 7.8% | 22.2% | 44.4% |
 
 Positive control: with a 50 ms sleep injected into the view's path the measured mean rose by
-54.0 ms; with the injection removed it rose by 0.2 ms and the control failed, as it should.
+54.0 ms; with the injection removed it rose by 0.28 ms (review rerun) and the control failed, as it should.
 
 ### R4: what one signaling restart costs, locally
 
@@ -253,7 +254,7 @@ costs nothing extra today and removes the coupling the day the gate lands.
 | Memory | +50 MB at 2000 sockets | 41 MB idle, +50 MB at 2000 sockets | 78 MB idle floor | none |
 | Session or token | token | token | session cookie works, with an origin check | session |
 
-## Alternatives, one line each
+## Alternatives considered
 
 - **Option 1** is the least infrastructure, and R1 shows it is not a CPU problem. It loses on
   R2 (a blocking bug stalls every call), on the shared descriptor budget, and on deploy
