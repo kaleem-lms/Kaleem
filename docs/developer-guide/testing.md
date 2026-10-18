@@ -29,3 +29,29 @@ merge or deploy. See ADR-0021.
   settings, and generated files are excluded at the config level.
 - **End-to-end tests (Playwright)** ship with every user-facing feature, covering the primary
   happy path and key failure paths, run in CI against a real built app.
+
+## e2e fixtures
+
+The e2e job (`ci.yml`) migrates, runs `python manage.py seed_e2e_all`, then starts the API,
+the signaling service and a Celery worker. `seed_e2e_all` runs the management commands listed
+in `backend/config/e2e_seeds.txt`, in file order. The job also runs the worker (no beat), so a
+task queued with `.delay()` is executed during the suite; a probe step fails the job before the
+Playwright tests if the worker cannot run a task.
+
+Adding fixture state for a new area:
+
+1. Write a `seed_e2e_<x>` command in your own module. Guard it on `settings.DEBUG`, use
+   `@kaleem.test` addresses only, and make it converge on the declared state when run twice.
+2. Append **one line** to `backend/config/e2e_seeds.txt`. Do not edit `ci.yml`. The runner
+   refuses an empty manifest, a repeated name, a name that is not a command, and `DEBUG=False`,
+   before it runs anything.
+3. Scope your sweeps. Seeds share one database, and run order is file order. Pass a student
+   or teacher filter wherever a service takes one (for example
+   `booking.generate_sessions(student_id=...)`), so your seed never creates rows for an
+   account another seed owns.
+4. Do not leave an account entitled, with a subject interest and availability but no
+   assignment, unless you want it matched. `matching.sync_match_requests()` is global and runs
+   on every matching read, so the next read opens a request for that account, which can become a
+   second offer and break flows that assert exactly one.
+
+Locally, the same command seeds a dev database: `python manage.py seed_e2e_all`.

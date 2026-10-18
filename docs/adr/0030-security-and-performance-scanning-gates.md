@@ -43,6 +43,10 @@ Standing the gate up immediately found things:
    over the **checked-out tree including every submodule**, which is where a secret
    would actually reach staging from. Submodule *histories* are not scanned by this
    job; their pre-commit hooks are the only cover there, and that is a known gap.
+   **AMENDED BY ADR-0047 (2026-10-18): submodule histories are now scanned too, `pnpm audit`
+   and `trivy` were added, and both dependency scans are report-only until
+   `SCA_BLOCKING_FROM` in `ci.yml` and blocking from it. `semgrep` is the one scanner still
+   absent.**
 
 2. **The historical leaks are allowlisted by fingerprint in `.gitleaksignore`, one
    annotated line each — not by disabling the rule and not by rewriting history.** A
@@ -95,7 +99,7 @@ Standing the gate up immediately found things:
 - **`--redact` off in CI so failures are readable.** Rejected: CI logs are the least
   private place in the project. A fingerprint plus a file and line is enough to find it
   locally.
-- **`semgrep` and `trivy` in the same PR.** Deferred deliberately. Both need triage
+- **`semgrep` and `trivy` in the same PR.** Deferred deliberately (`trivy` added by ADR-0047). Both need triage
   budgets of their own — a SAST tool adopted with 200 findings gets muted within a
   week. `ISSUES.md` keeps them named.
 - **Lighthouse as a blocking PR check against a preview build.** Rejected for now:
@@ -119,8 +123,8 @@ Standing the gate up immediately found things:
 
 - Two more required checks per PR (~1 min combined) and a nightly workflow to keep
   green.
-- **Submodule git histories are unscanned.** Only the meta history and the current
-  tree are covered.
+- ~~**Submodule git histories are unscanned.** Only the meta history and the current
+  tree are covered.~~ **Closed by ADR-0047.**
 - `.gitleaksignore` is a suppression list, and suppression lists rot. It is annotated
   per line so a stale entry is visible, but nothing enforces that.
 - The Lighthouse floors are tied to staging's current shape; a real regression and a

@@ -2,8 +2,9 @@
 
 ## What it is
 
-`ci.yml` (meta repo) runs the eight-job suite — `backend-lint`, `backend-test`,
-`dashboard-lint`, `dashboard-build`, `marketing-build`, `e2e`, `security`, `deploy-staging` —
+`ci.yml` (meta repo) runs the nine-job suite — `backend-lint`, `backend-test`,
+`dashboard-lint`, `dashboard-build`, `marketing-build`, `e2e`, `security`, `image-scan`,
+`deploy-staging` —
 only when a change can actually break something, and only once per proven tree. ADR-0038
 records why; this page is for reading a run and knowing which behaviour is a bug and which
 is the design working as intended.
@@ -98,6 +99,55 @@ The guard is only useful if it can both hit and miss correctly. Check both direc
 Do not trust one direction alone: a guard hard-wired to always report `true` would look
 identical to a working one if you only ever check the hit case.
 
+## Reading the security scans (ADR-0030, amended by ADR-0047)
+
+Two jobs scan: `security` (secrets in every repository's history and in the checked-out tree,
+`pip-audit`, `pnpm audit --prod`) and `image-scan` (`trivy` over the three production images,
+built the way `deploy-staging` builds them and not pushed). The `security` job begins with a
+self-test of its own wrappers; if that step is red, the scanners are broken, not the code.
+
+**Report-only, then blocking.** `SCA_BLOCKING_FROM` at the top of `ci.yml` is one date. The two
+dependency scans (`pnpm audit`, `trivy`) only warn before it and fail from it. A warning is
+not noise: the job's log and **step summary** give the count per severity. They give counts
+only, because the audited repositories are private and this page is public. To see the
+itemised list, run `PNPM_AUDIT_DETAILS=1 .github/scripts/pnpm-audit.sh dashboard` or scan a
+local build with trivy (`--format table`), and keep triage notes in the private record. A scanner *error* (registry or database
+down, an unreadable report) fails the step on any day, because an error is not a clean result.
+The two secret scans have no such window: a finding blocks at once.
+
+**Never move the date later without an ADR.** It is a ratchet in the ADR-0026 sense. If the
+date is near and the fixes are not in, the options are to land the dependency bumps or to
+write the ADR; deleting the guard is not one.
+
+**A secret scan that says `INCOMPLETE SCAN` (exit 4)** did not look at everything, so it did
+not pass. The usual causes are a shallow checkout (the job must use `fetch-depth: 0`) and git
+failing inside the container. Do not rerun until green; find out which. A real finding exits
+1; report it privately, never in `ISSUES.md`, and rotate first.
+
+**Allowlisting a finding** is for one case only: the finding is not reachable in what ships.
+Fix everything reachable.
+
+- `pnpm audit`: add `<GHSA-id> <review-by YYYY-MM-DD> <reason>` to
+  `.github/security/pnpm-audit-allowlist.txt`. The review-by date may be at most 90
+  days ahead of the day the job runs (checked by `pnpm-audit.sh`; the rule does not depend on
+  `SCA_BLOCKING_FROM`, so it keeps working after that date). An entry past its date fails the
+  job even if the advisory is gone, so delete a line when its package is fixed.
+- `trivy`: add `<id> exp:<YYYY-MM-DD>` to `.trivyignore`, with a comment above it. Trivy
+  enforces the expiry; keep `exp:` within 90 days by review (no code checks the horizon).
+- State the reason in the file; keep the detailed reasoning in the private record.
+
+**Running them locally.** `bash .github/scripts/test-security-scripts.sh` needs only docker and
+git. A history scan of one repository: `.github/scripts/gitleaks-history.sh <dir>`. An audit of
+one lockfile: `.github/scripts/pnpm-audit.sh dashboard` (needs `pnpm` 10 and network).
+
+**Known behaviours that look like bugs.**
+
+- The history scans use `--all`, so a finding on any open branch that the checkout fetched
+  can fail a PR that did not cause it.
+- `image-scan` rebuilds the three images (a few minutes). That is deliberate: it scans what
+  would be deployed.
+- Third-party runtime images (traefik, postgres, redis, coturn) are not scanned.
+
 ## Related
 
 - ADR-0038 — CI runs only what the change can break (the decision this runbook operates)
@@ -105,3 +155,5 @@ identical to a working one if you only ever check the hit case.
   and what shipped verified versus what did not
 - `.github/scripts/classify-changes.sh` / `test-classify-changes.sh` — the classifier and its
   self-test, which runs as a `triage` step on every run
+- `.github/scripts/{gitleaks-history,pnpm-audit,sca-gate}.sh` and `test-security-scripts.sh` — the
+  security wrappers and their self-test (ADR-0047)
