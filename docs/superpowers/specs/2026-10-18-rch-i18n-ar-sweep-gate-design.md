@@ -144,9 +144,10 @@ they go on the parity test's own shrink-only allowlist (ceiling 5) and that unit
 
 The projected step is about 5½ minutes. That is under the budget, so **sharding is not done in this
 unit.** The `globalTimeout` is the trigger. A suite that crosses 9 minutes fails as a Playwright
-timeout. Playwright still writes its report, and the job's `if: failure()` step uploads it. Without
-the budget the job would hit the 15-minute kill. That run counts as cancelled, not failed, so no
-report would be uploaded. A red budget means sharding by area (a matrix job with one Postgres per
+timeout and the job is red, so its `if: failure()` step still uploads `test-results/` and the
+service logs. (Measured in the plan's step 5: on a global timeout Playwright does not write the HTML
+report.) Without the budget the job would hit the 15-minute kill. That run counts as cancelled, not
+failed, so nothing would be uploaded. A red budget means sharding by area (a matrix job with one Postgres per
 shard, specs grouped by the same areas as the route lists) is due as its own unit. Raising the
 budget needs an ADR. `ci.yml` is listed in the unit's `shared_files` for that sharding branch, and
 this unit does not edit it.
