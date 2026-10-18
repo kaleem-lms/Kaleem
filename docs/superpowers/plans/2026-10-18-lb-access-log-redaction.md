@@ -1,6 +1,6 @@
 ---
 spec: docs/superpowers/specs/2026-10-18-lb-access-log-redaction-design.md
-status: draft
+status: approved
 ---
 
 > **Publication hold (ADR-0045 §4).** Not pushed or merged to the public meta repo until

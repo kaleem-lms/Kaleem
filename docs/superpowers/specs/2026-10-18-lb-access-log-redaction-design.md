@@ -2,7 +2,7 @@
 name: lb-access-log-redaction
 phase: v1 programme (wave 1, security stream)
 modules: [identity, platform, nginx (dashboard, marketing), infra]
-status: draft
+status: approved
 created: 2026-10-18
 closed: null
 ---
