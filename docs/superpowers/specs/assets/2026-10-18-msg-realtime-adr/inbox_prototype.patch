@@ -1,0 +1,512 @@
+diff --git a/kaleem/messaging/tests/test_spike_poll.py b/kaleem/messaging/tests/test_spike_poll.py
+new file mode 100644
+index 0000000..b33e6a7
+--- /dev/null
++++ b/kaleem/messaging/tests/test_spike_poll.py
+@@ -0,0 +1,63 @@
++"""SPIKE P1 (msg-realtime-adr): never committed.
++
++Per-request cost of an authenticated GET /api/v1/identity/me/ through the Django
++test client -- a LOWER-BOUND proxy for a polled messaging endpoint, which does
++not exist yet. The test client omits gunicorn, the network and the production
++middleware stack, so the real cost is higher.
++
++Positive control first: a 50 ms sleep injected into the view's path must raise
++the measured mean by at least 50 ms, or the instrument cannot see a cost.
++"""
++
++import statistics
++import time
++
++import pytest
++from django.contrib.auth import get_user_model
++from django.test import Client
++
++from kaleem.identity.api import views
++
++ME = "/api/v1/identity/me/"
++
++
++@pytest.fixture
++def client(db):
++    user = get_user_model().objects.create_user(email="poll@example.com", password="pw-not-real-1", full_name="Poll")
++    http = Client()
++    http.force_login(user)
++    return http
++
++
++def measure(client, n):
++    for _ in range(20):  # warm-up
++        assert client.get(ME).status_code == 200
++    samples = []
++    for _ in range(n):
++        start = time.perf_counter()
++        response = client.get(ME)
++        samples.append((time.perf_counter() - start) * 1000)
++        assert response.status_code == 200
++    return samples
++
++
++def test_positive_control_sees_an_injected_50ms_sleep(client, monkeypatch):
++    clean = statistics.mean(measure(client, 100))
++    original = views._me_payload  # noqa: SLF001
++
++    def slow(user):
++        time.sleep(0.05)
++        return original(user)
++
++    monkeypatch.setattr(views, "_me_payload", slow)
++    slowed = statistics.mean(measure(client, 100))
++    print(f"\nP1-CONTROL clean_mean_ms={clean:.2f} slowed_mean_ms={slowed:.2f} delta_ms={slowed - clean:.2f}")
++    assert slowed - clean >= 50
++
++
++def test_poll_cost(client):
++    samples = sorted(measure(client, 2000))
++    mean = statistics.mean(samples)
++    print(
++        f"\nP1 n=2000 mean_ms={mean:.3f} p50_ms={samples[1000]:.3f} p99_ms={samples[1980]:.3f} max_ms={samples[-1]:.3f}"
++    )
+diff --git a/signaling/app.py b/signaling/app.py
+index 67c4ce5..ee43a6d 100644
+--- a/signaling/app.py
++++ b/signaling/app.py
+@@ -9,7 +9,6 @@ from __future__ import annotations
+ 
+ import json
+ import logging
+-import os
+ from typing import TYPE_CHECKING
+ 
+ from starlette.applications import Starlette
+@@ -19,6 +18,12 @@ from starlette.routing import WebSocketRoute
+ from starlette.websockets import WebSocket
+ from starlette.websockets import WebSocketDisconnect
+ 
++from signaling.handshake import CLOSE_UNAUTHORIZED
++from signaling.handshake import SUBPROTOCOL
++from signaling.handshake import offered_credential as _offered_credential
++from signaling.handshake import secret as _secret
++from signaling.inbox import inbox_endpoint
++from signaling.inbox import lifespan as inbox_lifespan
+ from signaling.rooms import RoomFull
+ from signaling.rooms import RoomRegistry
+ from signaling.tokens import RoomToken
+@@ -31,7 +36,6 @@ if TYPE_CHECKING:
+ 
+ # Application close codes (4000-4999). Distinct per reason so the client can
+ # tell "your token expired, fetch another" from "that lesson is already full".
+-CLOSE_UNAUTHORIZED = 4401
+ CLOSE_ROOM_FULL = 4409
+ CLOSE_BAD_MESSAGE = 4400
+ # Not an error: this participant opened a newer socket (a reconnect, or a
+@@ -39,13 +43,6 @@ CLOSE_BAD_MESSAGE = 4400
+ # client's response differs -- "you are connected elsewhere", never "retry".
+ CLOSE_REPLACED = 4410
+ 
+-# The WebSocket subprotocol. A browser cannot set headers on a WS handshake,
+-# but it CAN offer subprotocols -- so the credential rides here rather than in
+-# a query string, which would leak to `Referer`, browser history, and every
+-# proxy or CDN hop we ever add. The values are RFC 7230 tokens and our token
+-# is base64url plus a dot separator, so every character is a valid `tchar`
+-# and no escaping layer is needed.
+-SUBPROTOCOL = "kaleem.signaling.v1"
+ 
+ # `media-state` is the one non-negotiation type this relay carries, and it is
+ # here because the browser gives the two peers no other way to learn it. A
+@@ -74,58 +71,6 @@ registry = RoomRegistry()
+ logger = logging.getLogger(__name__)
+ 
+ 
+-def _secret() -> str:
+-    # Read at call time, not import time: the process must fail loudly on a
+-    # missing secret rather than at import, and tests set it per-test.
+-    secret = os.environ.get("DJANGO_SIGNALING_SECRET", "")
+-    if not secret:
+-        message = "DJANGO_SIGNALING_SECRET is not set"
+-        raise RuntimeError(message)
+-    return secret
+-
+-
+-def _offered_credential(websocket: WebSocket) -> tuple[bool, str]:
+-    """Whether the client offered `SUBPROTOCOL`, and the token offered
+-    alongside it.
+-
+-    A browser cannot attach a header to a WebSocket handshake, but it CAN
+-    offer a list of subprotocols -- what a real client sends is
+-    `[SUBPROTOCOL, token]`, in that order. Anything else (no header, the
+-    protocol name alone, extra entries, the wrong order) is not a credential
+-    this service recognises, so the token half comes back empty and the
+-    caller refuses it exactly like a bad signature or an expired token -- no
+-    partial acceptance, no new close code.
+-
+-    The `bool` half exists because two different kinds of "empty" need
+-    different responses at `accept()`. RFC 6455 cuts both ways: a client that
+-    offered subprotocols and gets an accept selecting NONE must fail the
+-    connection (which would erase this service's whole 4400/4401/4409/4410
+-    close-code vocabulary behind a generic handshake error) -- but a server
+-    that selects a subprotocol the client never offered is equally invalid.
+-    So "offered `[SUBPROTOCOL]` with no token" and "offered nothing at all"
+-    both yield an empty token, yet must be accepted differently. Collapsing
+-    them to a single `""` return would lose that distinction.
+-    """
+-    # `getlist`, not `get`: `get` returns the FIRST occurrence, and RFC 7230
+-    # makes two repeated `Sec-WebSocket-Protocol` lines semantically identical
+-    # to one comma-joined line. A client that sent the repeated form had its
+-    # token silently dropped and was refused. It failed closed, so this was
+-    # never a bypass -- and no browser and no Starlette TestClient can produce
+-    # that form, which is exactly why the assumption stayed invisible.
+-    raw = ",".join(websocket.headers.getlist("sec-websocket-protocol"))
+-    offered = [part.strip() for part in raw.split(",") if part.strip()]
+-    # The protocol name ANYWHERE in the offer means the client is speaking to
+-    # this service, so a refusal may select it and carry a real close code.
+-    # Only the credential half requires the documented `[SUBPROTOCOL, token]`
+-    # order: a reversed offer is still refused, but the client now learns
+-    # 4401 instead of a generic handshake error, which is the whole reason
+-    # this service has a close-code vocabulary.
+-    offered_protocol = SUBPROTOCOL in offered
+-    if len(offered) != 2 or offered[0] != SUBPROTOCOL:
+-        return offered_protocol, ""
+-    return offered_protocol, offered[1]
+-
+-
+ async def room_endpoint(websocket: WebSocket) -> None:
+     room_id = websocket.path_params["room_id"]
+     offered_protocol, raw = _offered_credential(websocket)
+@@ -286,5 +231,7 @@ app = Starlette(
+     routes=[
+         Route("/health/live/", health),
+         WebSocketRoute("/ws/rooms/{room_id}", room_endpoint),
+-    ]
++        WebSocketRoute("/ws/inbox", inbox_endpoint),
++    ],
++    lifespan=inbox_lifespan,
+ )
+diff --git a/signaling/handshake.py b/signaling/handshake.py
+new file mode 100644
+index 0000000..c812198
+--- /dev/null
++++ b/signaling/handshake.py
+@@ -0,0 +1,28 @@
++"""SPIKE: the subprotocol handshake shared by the room and inbox routes,
++moved out of app.py so inbox.py does not import app.py."""
++
++from __future__ import annotations
++
++import os
++
++from starlette.websockets import WebSocket
++
++CLOSE_UNAUTHORIZED = 4401
++SUBPROTOCOL = "kaleem.signaling.v1"
++
++
++def secret() -> str:
++    value = os.environ.get("DJANGO_SIGNALING_SECRET", "")
++    if not value:
++        message = "DJANGO_SIGNALING_SECRET is not set"
++        raise RuntimeError(message)
++    return value
++
++
++def offered_credential(websocket: WebSocket) -> tuple[bool, str]:
++    raw = ",".join(websocket.headers.getlist("sec-websocket-protocol"))
++    offered = [part.strip() for part in raw.split(",") if part.strip()]
++    offered_protocol = SUBPROTOCOL in offered
++    if len(offered) != 2 or offered[0] != SUBPROTOCOL:
++        return offered_protocol, ""
++    return offered_protocol, offered[1]
+diff --git a/signaling/inbox.py b/signaling/inbox.py
+new file mode 100644
+index 0000000..fc19c8b
+--- /dev/null
++++ b/signaling/inbox.py
+@@ -0,0 +1,110 @@
++"""SPIKE (msg-realtime-adr): a per-user inbox socket. Never merged.
++
++One socket per browser tab, keyed by user id. Messages arrive over Redis
++pub/sub (`inbox:<user_id>`), which stands in for publish-on-commit.
++"""
++
++from __future__ import annotations
++
++import contextlib
++import logging
++import os
++from collections import defaultdict
++from typing import Any
++
++from starlette.websockets import WebSocket
++from starlette.websockets import WebSocketDisconnect
++
++from signaling.handshake import CLOSE_UNAUTHORIZED
++from signaling.handshake import SUBPROTOCOL
++from signaling.handshake import offered_credential
++from signaling.handshake import secret
++from signaling.tokens import TokenError
++from signaling.tokens import verify_inbox
++
++logger = logging.getLogger(__name__)
++
++REDIS_URL_ENV = "SIGNALING_INBOX_REDIS_URL"
++
++
++class InboxRegistry:
++    def __init__(self) -> None:
++        self._sockets: dict[int, list[Any]] = defaultdict(list)
++
++    def add(self, user_id: int, socket: Any) -> None:
++        self._sockets[user_id].append(socket)
++
++    def remove(self, user_id: int, socket: Any) -> None:
++        remaining = [s for s in self._sockets.get(user_id, []) if s is not socket]
++        if remaining:
++            self._sockets[user_id] = remaining
++        else:
++            self._sockets.pop(user_id, None)
++
++    def sockets(self, user_id: int) -> list:
++        return list(self._sockets.get(user_id, []))
++
++    def count(self) -> int:
++        return sum(len(v) for v in self._sockets.values())
++
++
++registry = InboxRegistry()
++
++
++async def on_frame(websocket: WebSocket, user_id: int, raw: str) -> None:
++    """A client sends nothing meaningful on the inbox. Module-level so a test
++    or a fault-injection harness can replace it."""
++
++
++async def deliver(socket: Any, data: str) -> None:
++    with contextlib.suppress(Exception):
++        await socket.send_text(data)
++
++
++async def inbox_endpoint(websocket: WebSocket) -> None:
++    offered_protocol, raw = offered_credential(websocket)
++    try:
++        token = verify_inbox(raw, secret())
++    except TokenError as exc:
++        logger.warning("refused inbox join: %s", exc)
++        await websocket.accept(subprotocol=SUBPROTOCOL if offered_protocol else None)
++        await websocket.close(code=CLOSE_UNAUTHORIZED)
++        return
++
++    await websocket.accept(subprotocol=SUBPROTOCOL)
++    registry.add(token.user_id, websocket)
++    try:
++        while True:
++            await on_frame(websocket, token.user_id, await websocket.receive_text())
++    except WebSocketDisconnect:
++        pass
++    finally:
++        registry.remove(token.user_id, websocket)
++
++
++async def run_subscriber(redis_url: str) -> None:
++    import redis.asyncio as aioredis
++
++    client = aioredis.from_url(redis_url)
++    pubsub = client.pubsub()
++    await pubsub.psubscribe("inbox:*")
++    async for message in pubsub.listen():
++        if message["type"] != "pmessage":
++            continue
++        user_id = int(message["channel"].decode().split(":", 1)[1])
++        data = message["data"].decode()
++        for socket in registry.sockets(user_id):
++            await deliver(socket, data)
++
++
++@contextlib.asynccontextmanager
++async def lifespan(app: Any):
++    import asyncio
++
++    url = os.environ.get(REDIS_URL_ENV)
++    task = asyncio.create_task(run_subscriber(url)) if url else None
++    try:
++        yield
++    finally:
++        if task is not None:
++            task.cancel()
+diff --git a/signaling/tests/test_spike_inbox.py b/signaling/tests/test_spike_inbox.py
+new file mode 100644
+index 0000000..af161c4
+--- /dev/null
++++ b/signaling/tests/test_spike_inbox.py
+@@ -0,0 +1,115 @@
++"""SPIKE (msg-realtime-adr): never committed. Proves the token-purpose control
++the inbox route needs under options 1 and 2."""
++
++import base64
++import json
++import signal
++import time
++
++import pytest
++from starlette.testclient import TestClient
++from starlette.websockets import WebSocketDisconnect
++
++from signaling.app import CLOSE_UNAUTHORIZED
++from signaling.app import SUBPROTOCOL
++from signaling.app import app
++from signaling.inbox import registry as inbox_registry
++from signaling.tokens import InboxToken
++from signaling.tokens import RoomToken
++from signaling.tokens import TokenError
++from signaling.tokens import _sign
++from signaling.tokens import mint
++from signaling.tokens import mint_inbox
++from signaling.tokens import verify
++from signaling.tokens import verify_inbox
++
++SECRET = "test-secret-not-a-real-one"
++
++
++@pytest.fixture(autouse=True)
++def _secret(monkeypatch):
++    monkeypatch.setenv("DJANGO_SIGNALING_SECRET", SECRET)
++
++
++def _exp(ttl=300):
++    return int(time.time()) + ttl
++
++
++def room_token(room="r1", user=1):
++    return mint(RoomToken(room_id=room, user_id=user, is_teacher=False, expires_at=_exp()), SECRET)
++
++
++def inbox_token(user=1, ttl=300):
++    return mint_inbox(InboxToken(user_id=user, expires_at=_exp(ttl)), SECRET)
++
++
++def _closes_with(url, token):
++    """The close code the server answers with. An ACCEPTED socket would block
++    here forever, so a wrongly accepted token fails the test instead of
++    hanging it."""
++
++    def _timed_out(*_):
++        message = "socket was accepted and held open"
++        raise AssertionError(message)
++
++    signal.signal(signal.SIGALRM, _timed_out)
++    signal.alarm(3)
++    try:
++        client = TestClient(app)
++        with client.websocket_connect(url, subprotocols=[SUBPROTOCOL, token]) as ws:
++            with pytest.raises(WebSocketDisconnect) as exc:
++                ws.receive_text()
++        return exc.value.code
++    finally:
++        signal.alarm(0)
++
++
++def test_room_token_is_refused_on_inbox():
++    assert _closes_with("/ws/inbox", room_token()) == CLOSE_UNAUTHORIZED
++
++
++def test_inbox_token_is_refused_on_room():
++    assert _closes_with("/ws/rooms/r1", inbox_token()) == CLOSE_UNAUTHORIZED
++
++
++def test_inbox_token_is_accepted_and_seated():
++    client = TestClient(app)
++    with client.websocket_connect("/ws/inbox", subprotocols=[SUBPROTOCOL, inbox_token(7)]) as ws:
++        ws.send_text("hello")
++        assert len(inbox_registry.sockets(7)) == 1
++    assert inbox_registry.sockets(7) == []
++
++
++def test_expired_inbox_token_is_refused():
++    assert _closes_with("/ws/inbox", inbox_token(ttl=-10)) == CLOSE_UNAUTHORIZED
++
++
++def _forge(claims, key_of):
++    payload = base64.urlsafe_b64encode(json.dumps(claims, sort_keys=True).encode()).decode().rstrip("=")
++    return f"{payload}.{_sign(payload, key_of)}"
++
++
++def test_inbox_signature_is_not_the_room_signature():
++    """Layer 1: the keys differ. Inbox-shaped claims signed with the ROOM key
++    are refused by the inbox verifier, so a leaked room secret path alone is
++    not enough and a room token cannot be re-labelled."""
++    claims = {"purpose": "inbox", "user_id": 1, "expires_at": _exp()}
++    with pytest.raises(TokenError, match="bad signature"):
++        verify_inbox(_forge(claims, SECRET), SECRET)
++
++
++def test_room_verifier_refuses_an_inbox_signed_token():
++    from signaling.tokens import _inbox_key
++
++    claims = {"room_id": "r1", "user_id": 1, "is_teacher": False, "expires_at": _exp()}
++    with pytest.raises(TokenError, match="bad signature"):
++        verify(_forge(claims, _inbox_key(SECRET)), SECRET)
++
++
++def test_inbox_claims_must_name_the_inbox_purpose():
++    """Layer 2: right key, wrong claim set."""
++    from signaling.tokens import _inbox_key
++
++    claims = {"user_id": 1, "expires_at": _exp()}
++    with pytest.raises(TokenError, match="malformed payload"):
++        verify_inbox(_forge(claims, _inbox_key(SECRET)), SECRET)
+diff --git a/signaling/tokens.py b/signaling/tokens.py
+index d7c925c..f6c71f1 100644
+--- a/signaling/tokens.py
++++ b/signaling/tokens.py
+@@ -108,3 +108,52 @@ def verify(raw: str, secret: str, *, now: int | None = None) -> RoomToken:
+     if now > token.expires_at:
+         raise TokenError("expired")
+     return token
++
++
++# --- SPIKE (msg-realtime-adr): a second token purpose --------------------------
++#
++# The control an inbox route needs under options 1 and 2: a room token must not
++# open an inbox and an inbox token must not open a room. Two independent layers,
++# each tested on its own: the HMAC key is derived per purpose, and the claim set
++# names the purpose.
++
++INBOX_PURPOSE = "inbox"
++
++
++@dataclass(frozen=True)
++class InboxToken:
++    user_id: int
++    expires_at: int
++
++
++def _inbox_key(secret: str) -> str:
++    return hmac.new(secret.encode(), b"kaleem.inbox.v1", hashlib.sha256).hexdigest()
++
++
++def mint_inbox(token: InboxToken, secret: str) -> str:
++    claims = {"purpose": INBOX_PURPOSE, **asdict(token)}
++    payload = _b64(json.dumps(claims, sort_keys=True).encode())
++    return f"{payload}.{_sign(payload, _inbox_key(secret))}"
++
++
++def verify_inbox(raw: str, secret: str, *, now: int | None = None) -> InboxToken:
++    if now is None:
++        now = int(time.time())
++    parts = raw.split(".")
++    if len(parts) != 2 or not all(parts) or not raw.isascii():
++        raise TokenError("malformed token")
++    payload, signature = parts
++    if not hmac.compare_digest(signature, _sign(payload, _inbox_key(secret))):
++        raise TokenError("bad signature")
++    try:
++        claims = json.loads(_unb64(payload))
++        if claims.pop("purpose", None) != INBOX_PURPOSE:
++            raise TokenError("malformed payload")
++        token = InboxToken(**claims)
++    except Exception as exc:
++        raise TokenError("malformed payload") from exc
++    if not isinstance(token.user_id, int) or not isinstance(token.expires_at, int):
++        raise TokenError("malformed payload")
++    if now > token.expires_at:
++        raise TokenError("expired")
++    return token
