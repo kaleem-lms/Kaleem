@@ -1,6 +1,6 @@
 ---
 spec: docs/superpowers/specs/2026-10-18-rch-pwa-manifest-head-design.md
-status: draft
+status: approved
 ---
 
 Size S, about one day. Dashboard only, on branch `feat/rch-pwa-manifest-head` in

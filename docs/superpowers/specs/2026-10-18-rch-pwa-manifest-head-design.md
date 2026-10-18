@@ -2,7 +2,7 @@
 name: rch-pwa-manifest-head
 phase: v1 (wave 1, PWA stream)
 modules: [dashboard index.html, dashboard public/]
-status: draft
+status: approved
 created: 2026-10-18
 closed: null
 ---
