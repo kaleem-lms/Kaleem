@@ -9,7 +9,7 @@ closed: null
 
 ## Result
 
-[ADR-0049, chat transport](../../adr/0049-chat-transport.md) (`proposed`), with its evidence in
+[ADR-0050, chat transport](../../adr/0050-chat-transport.md) (`proposed`), with its evidence in
 `assets/2026-10-18-msg-realtime-adr/`. S1 and S2 (the staging window) were not measured; the ADR
 says so and lists what they need. `dec-msg-realtime` is asked with that ADR.
 

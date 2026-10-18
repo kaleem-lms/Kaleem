@@ -63,7 +63,7 @@ follows.
 7. [x] **Export evidence.** Run `git -C <backend wt> diff > inbox_prototype.patch`. Copy
    `probe_relay.py`, the patch and the CSVs into the evidence folder. Check that no secret,
    hostname or credential is in any of them.
-8. [ ] (not done: no staging access or pool pair for the agent; see ADR-0049 "Not measured") **Staging window (S1, S2).** Under the staging lock, with the pool pair from the
+8. [ ] (not done: no staging access or pool pair for the agent; see ADR-0050 "Not measured") **Staging window (S1, S2).** Under the staging lock, with the pool pair from the
    conductor. Write `staging_call_probe.mjs`: Playwright Chromium with
    `--use-fake-device-for-media-stream`, the URL from an env var, credentials typed from
    env vars and never written to disk. Each side joins the lesson and logs once a second:

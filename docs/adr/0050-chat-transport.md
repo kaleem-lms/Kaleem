@@ -1,5 +1,5 @@
 ---
-number: 0049
+number: 0050
 title: Chat transport
 status: proposed
 date: 2026-10-18

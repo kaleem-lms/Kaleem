@@ -1,4 +1,4 @@
-# Evidence for ADR-0049 (chat transport)
+# Evidence for ADR-0050 (chat transport)
 
 Spike `msg-realtime-adr`. Everything the ADR quotes is in this folder. The prototype was
 never merged; the backend branch was deleted at close-out.
