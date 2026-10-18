@@ -143,7 +143,8 @@ about 12 s (three sign-in attempts, one reload).
   with no rows to check.
 - M4 (backend `ChangePasswordView`): remove `update_session_auth_hash`. Flow B step 3 goes
   red.
-- M5 (backend `change_password` service): skip `user.save`. Flow B step 6 goes red.
+- M5 (backend `change_password` service): skip `user.save`. Flow B step 3 goes red (the post-reload heading): the session holds the new hash, the database the old one, so the next request ends the session.
+- M7 (review): `change_password` sets nothing and saves nothing but still reports success. Flow B step 5 goes red (the old password is NOT refused). This is the check that proves the refusal is load-bearing.
 - M6 (seed): remove the link-pruning line. Backend test 2 goes red.
 
 ## Open questions
