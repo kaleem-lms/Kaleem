@@ -1,6 +1,6 @@
 ---
 spec: docs/superpowers/specs/2026-10-18-lb-gdpr-data-export-design.md
-status: draft
+status: approved
 ---
 
 Worktrees: `backend-lb-gdpr-data-export` and `dashboard-lb-gdpr-data-export` on

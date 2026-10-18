@@ -2,7 +2,7 @@
 name: lb-gdpr-data-export
 phase: v1 (wave 2, legal stream)
 modules: [identity, billing, scheduling, curriculum, platform]
-status: draft
+status: approved
 created: 2026-10-18
 closed: null
 ---
@@ -68,7 +68,7 @@ Three rules every new hook follows:
 - **Staff-only fields are withheld**: `StudentProfile.notes`, `TeacherProfile.internal_notes`
   (written only in Django admin), and `BillingIncident.detail`, `severity`,
   `occurrences`, `resolved_by`. A person who wants those makes a written request, which
-  staff handle by hand. **Owner to confirm at approval.**
+  staff handle by hand. **Confirmed by the owner at approval (2026-10-18).**
 
 Per hook (lists ordered by id; dates and times as ISO strings):
 
