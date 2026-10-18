@@ -102,31 +102,6 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
   pin to outlive. Implemented and unit-tested; **not yet verified by a live staging colour
   flip** — see the new entry below.)*
 
-- **Traefik logs no request path for any route, and C3c did NOT make it safe to restore.**
-  The token itself is fixed — since C3c it rides `Sec-WebSocket-Protocol`, not a query string.
-  But the plan to then restore Traefik's dropped `RequestPath` field **does not survive contact
-  with the URLconf and is withdrawn.** `config/urls.py` includes `allauth.urls`, which serves
-  `/accounts/confirm-email/<key>/` and `/accounts/password/reset/key/<uidb36>-<key>/` — single-use
-  **account-takeover** credentials in the **path**, not the query string. Removing the signaling
-  token changed nothing about whether `RequestPath` is safe to log, and Traefik still has no
-  per-router access-log config and no partial-field redaction.
-  The remedy is therefore not a Traefik rollback: **give dashboard and marketing path-level
-  logging from their own container access logs**, the same compensating control Django already
-  has through gunicorn. Until that lands, those two surfaces have no path-level visibility at the
-  gateway.
-
-- **The gunicorn access log captures account-takeover credentials, and the compose comment
-  claiming otherwise is wrong (C3b, spotted in C3c's final review).**
-  `infra/docker-compose.production.yml`'s django-blue/django-green comment used to assert "safe
-  to log in full: no capability token ever appears in an API URL." That is true of the video
-  signaling token, but the entry directly above establishes the opposite for `allauth.urls`:
-  `/accounts/confirm-email/<key>/` and the password-reset key are single-use account-takeover
-  credentials carried **in the path**, and those requests go through Django, so
-  `gunicorn --access-logfile -` records them in full. Pre-existing since C3b; C3c nominated that
-  same compensating control as the model for dashboard and marketing to copy (the bullet above),
-  which is what surfaced the contradiction. The compose comment has been corrected to say so; the
-  underlying leak is not fixed here.
-
 - **No `turns:` TLS listener, so a TLS-443-only egress filter still blocks the relay (C3c).**
   coturn listens on `3478` UDP and TCP only. Traefik owns 443 on the staging box, and a `turns:`
   listener on 5349 would need a certificate delivered to a container Traefik does not front, so
