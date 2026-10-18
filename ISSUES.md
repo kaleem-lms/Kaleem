@@ -16,17 +16,6 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
 
 ## Blocks launch
 
-- **`--font-display` names a family nothing ships: the dashboard renders Georgia, not
-  Fraunces.** `@kaleem/tokens` sets `--font-display: "Fraunces", Georgia, serif`, but the only
-  face imported anywhere is `@fontsource-variable/fraunces`, whose `@font-face` declares the
-  family **`"Fraunces Variable"`**. The names never match, so every heading in the app falls
-  through to Georgia — in production, today. Found 2026-09-14 by the design-sync font gate,
-  which is the first check anywhere that compares referenced families against shipped
-  `@font-face` rules; no existing gate looks at this. `--font-quran: "Amiri Quran"` has the
-  same shape — no Amiri package is installed at all — but that token has no consumer yet, so
-  it is latent rather than live. Fix is one of: import the non-variable `@fontsource/fraunces`,
-  or change the token to `"Fraunces Variable"`. Needs a token release either way.
-
 - ~~**`text-primary` links fail AA in dark mode wherever they sit on a card.**~~ **FIXED
   2026-09-13** in `@kaleem/tokens` v0.2.2 + dashboard #63. The root cause was not a bad
   value but an **undeclared pair**: `--primary` is a SURFACE colour, and nothing asserted it
@@ -348,6 +337,22 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
 - Dunning UX beyond mirroring `past_due` (retry/notice flow) is deferred.
 
 ## Someday
+
+- **Two leftovers from the lesson-to-session wording change (`cur-session-wording`).**
+  `src/routes/design-preview.tsx` still shows "lesson" in its hard-coded sample copy (a
+  primitives gallery, not product copy). And `billing.plan*Desc` in the Arabic locale say
+  حصة where the rest of the app says جلسة; a pre-existing split outside the `call`, `booking`
+  and `prefs` namespaces that unit covered. The terminology guard
+  (`dashboard/src/locales/terminology.test.ts`) walks only those three namespaces; widen its
+  list when billing's copy is next touched.
+
+- **Arabic `font-display` headings fall past Fraunces and Georgia to the platform's generic
+  serif.** In RTL `body` switches to `--font-arabic`, but `font-display` does not, and
+  Fraunces has no Arabic glyphs (its `unicode-range` subsets never load), so an Arabic
+  heading renders in whatever serif the OS picks. True before and after `@kaleem/tokens`
+  v0.2.3, which fixed the Latin case only. Deciding which Arabic display face the brand
+  wants is a design choice for the brand work (`inf-brand-tokens-pipeline`), not a patch.
+  `e2e/display-font.spec.ts` runs in English for this reason. Found 2026-10-18.
 
 - **One failed `getUserMedia` tap writes TWO `calldiagnostic` rows, so the table
   over-counts failures (spotted during the per-kind split fix, dashboard #71).** `acquire`
