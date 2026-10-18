@@ -23,7 +23,7 @@ Specs: `2026-06-25-scheduling-availability-design.md` (availability) ·
 ADRs: 0033 (depends on curriculum and billing) · 0034 (custom WebRTC, group lessons deferred) ·
 0035 (signaling as a separate service) · 0036 (feature components split hook and presentation) ·
 0037 (signaling is shared, not blue-green) · 0039 (pre-negotiated transceivers) · 0046 (v1
-roadmap reconciliation, which drops trials). Operations live in `docs/runbook/signaling.md`,
+roadmap reconciliation, which drops trials) · 0054 (live-lesson captions: the stated gap). Operations live in `docs/runbook/signaling.md`,
 `turn.md` and `video-call.md`, not here.
 
 ## The four fixed fields
@@ -608,4 +608,6 @@ and are not repeated here.
 - **Teacher earnings** (`billing`).
 - **Parents acting on a child's behalf** beyond viewing and cancelling (`lb-parent-acts-for-child`).
 - **Recording**, and any media path beyond a TURN relay.
+- **Captions, real-time text and an audio-activity indicator in the call.** None exist, and
+  the call has no data channel. A stated launch gap, not an oversight (ADR-0054).
 - **Joining the personal-data registry** (see above).
