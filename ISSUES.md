@@ -29,17 +29,6 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
   the answer. If counsel asks for a gate, it comes back through a new owner decision; the unit
   that would build it, `rch-legal-age-gate`, is parked in the programme plan.
 
-- **`--font-display` names a family nothing ships: the dashboard renders Georgia, not
-  Fraunces.** `@kaleem/tokens` sets `--font-display: "Fraunces", Georgia, serif`, but the only
-  face imported anywhere is `@fontsource-variable/fraunces`, whose `@font-face` declares the
-  family **`"Fraunces Variable"`**. The names never match, so every heading in the app falls
-  through to Georgia — in production, today. Found 2026-09-14 by the design-sync font gate,
-  which is the first check anywhere that compares referenced families against shipped
-  `@font-face` rules; no existing gate looks at this. `--font-quran: "Amiri Quran"` has the
-  same shape — no Amiri package is installed at all — but that token has no consumer yet, so
-  it is latent rather than live. Fix is one of: import the non-variable `@fontsource/fraunces`,
-  or change the token to `"Fraunces Variable"`. Needs a token release either way.
-
 - ~~**`text-primary` links fail AA in dark mode wherever they sit on a card.**~~ **FIXED
   2026-09-13** in `@kaleem/tokens` v0.2.2 + dashboard #63. The root cause was not a bad
   value but an **undeclared pair**: `--primary` is a SURFACE colour, and nothing asserted it
@@ -365,6 +354,22 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
 
 ## Someday
 
+- **Two leftovers from the lesson-to-session wording change (`cur-session-wording`).**
+  `src/routes/design-preview.tsx` still shows "lesson" in its hard-coded sample copy (a
+  primitives gallery, not product copy). And `billing.plan*Desc` in the Arabic locale say
+  حصة where the rest of the app says جلسة; a pre-existing split outside the `call`, `booking`
+  and `prefs` namespaces that unit covered. The terminology guard
+  (`dashboard/src/locales/terminology.test.ts`) walks only those three namespaces; widen its
+  list when billing's copy is next touched.
+
+- **Arabic `font-display` headings fall past Fraunces and Georgia to the platform's generic
+  serif.** In RTL `body` switches to `--font-arabic`, but `font-display` does not, and
+  Fraunces has no Arabic glyphs (its `unicode-range` subsets never load), so an Arabic
+  heading renders in whatever serif the OS picks. True before and after `@kaleem/tokens`
+  v0.2.3, which fixed the Latin case only. Deciding which Arabic display face the brand
+  wants is a design choice for the brand work (`inf-brand-tokens-pipeline`), not a patch.
+  `e2e/display-font.spec.ts` runs in English for this reason. Found 2026-10-18.
+
 - **One failed `getUserMedia` tap writes TWO `calldiagnostic` rows, so the table
   over-counts failures (spotted during the per-kind split fix, dashboard #71).** `acquire`
   coalesces a request that arrives mid-flight into `pendingAcquireRef` and runs
@@ -611,8 +616,16 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
 - **The C3a e2e is time-bombed on seed age.** `seed_e2e_matching` puts the joinable session at
   `now`, and its window closes 75 minutes later. A suite run long after seeding would find the
   button still enabled but the POST returning 409. Fine in CI, which seeds immediately.
-- **`call.spec.ts`'s "the lobby has a way back" measures 44px with zero tolerance, and it is
-  runner-sensitive.** Failed on meta#221 at **43** (initial run AND the automatic retry, so
+- ~~**`call.spec.ts`'s "the lobby has a way back" measures 44px with zero tolerance, and it is
+  runner-sensitive.**~~ **FIXED 2026-10-18** (dashboard `feat/ci-fix-known-flakes`; spec
+  `2026-10-18-ci-fix-known-flakes-design.md`). The check now hit-tests four points 42px apart,
+  the way `touch-targets.spec.ts` does. **Real cause, measured:** the control it finds is the
+  device-check dialog's, and the dialog enters with `scale(0.98)`, so a box read mid-entry is
+  43.1px; it was 43 on every local run, 3 of 3. Mutation-checked: `h-10` on that button and an
+  overlay on top of it both go red; restored, green. A *separate* gap, noticed and left alone
+  (D10): `ExitToSchedule`'s own `h-11` is only class-asserted in jsdom, because the lobby flow
+  reaches the dialog's button, not that one.
+  Original report: Failed on meta#221 at **43** (initial run AND the automatic retry, so
   stable within the job), then **passed in 1.6s on a fresh runner at the identical commit**.
   Ruled out as a code cause first: the same test passed on the previous run, the diff between
   the two dashboard SHAs is seven files touching curriculum queries, the invite card and two
@@ -1084,6 +1097,11 @@ proves; all are robustness of an unattended job.
   `/account` load plus a console error that is a red herring for anyone debugging a real 403.
 
 - **The dashboard unit suite flakes: jsdom intermittently crashes creating a Window.**
+  **NOT FIXED, NOT REPRODUCED here (2026-10-18, ci-fix-known-flakes).** A CI-shaped harness
+  (vitest 3.2.6 / jsdom 29.1.1, `taskset` to 4 cores, `--coverage`, no `--maxWorkers`, burners on
+  the same cores) ran 24 times on `origin/main` and dropped no file: 0/12 with 4 burners
+  (median 130s) and 0/12 with 8 (median 185s). The spec's rule is to ship no unproven cap, so
+  none was shipped. CPU load alone does not trigger it; the gotcha below says *memory* pressure.
   Roughly 1 run in 4 on a loaded machine, `vitest` reports an unhandled
   `SyntaxError: Invalid or unexpected token` from `jsdom/living/interfaces.js`
   `installInterfaces` -> `createWindow`, one test *file* is dropped from the run, and the

@@ -39,7 +39,21 @@ and import in their Tailwind v4 entry CSS:
     @import "@kaleem/tokens/theme.css";
 
 To change the brand: edit the tokens repo, commit, tag `vX.Y.Z`, push the tag; then bump
-the dependency ref in each consumer and reinstall. Current release: **v0.2.2**.
+the dependency ref in each consumer and reinstall. Current release: **v0.2.3**.
+
+**A font token names the family the consumer's `@font-face` rules DECLARE, not the
+family the font is called.** The variable fontsource package declares
+`"Fraunces Variable"`, so `--font-display` is `"Fraunces Variable", "Fraunces", Georgia,
+serif` (the second entry keeps a consumer on the static `@fontsource/fraunces` matching).
+Asking for plain `"Fraunces"` matched nothing and every display heading rendered Georgia
+until v0.2.3. A token also ships WITH its face: `--font-quran` was removed because no
+consumer installs Amiri Quran; the release that first renders Quranic script adds the face
+and the token together. `build.mjs` derives the emitted font list from `scale.font`, so
+adding or removing one is a one-file change. `tokens` cannot read the fontsource
+packages (it has no dependencies, ADR-0041), so the check that names and faces agree
+lives in the dashboard: `src/test/font-faces.test.ts` (names, from source) and
+`e2e/display-font.spec.ts` (a loaded `FontFace`, in a real browser). Marketing has no test
+suite, so its side is a built-CSS grep and a staging check.
 
 ### Rule: tokens are shared, components are not
 
