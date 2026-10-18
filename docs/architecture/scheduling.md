@@ -102,6 +102,14 @@ model import fails. Scheduling's own tests are exempted, because they build fixt
 other modules' models. The last contract sets `include_external_packages`, without which the
 `django` half would silently pass.
 
+**Scheduling provides the teaching link without being imported** (ADR-0049).
+`SchedulingConfig.ready()` registers `is_active_teacher_of` and `active_student_ids_of`
+(ACTIVE assignments, any subject) with `kaleem.platform.teaching`, so `content` and
+`curriculum` can ask who teaches whom through the port. The `scheduling imports no business
+modules ...` contract also ignores exactly one transitive edge, `kaleem.curriculum.** ->
+kaleem.content.services`, because curriculum may now call content and scheduling reaches
+curriculum; a direct `scheduling -> content` import still breaks it.
+
 **No other module imports scheduling today.** It is wired in only from `config` (the API
 router, the app list, the beat schedule, the `VIDEO_PROVIDER` setting). The roadmap's planned
 `scheduling -> notifications` edge does not exist yet; `ntf-*` opens it.
