@@ -13,7 +13,7 @@ Decision: `docs/adr/0048-export-erase-hook-contract.md`.
 | Piece | File | What it is |
 | --- | --- | --- |
 | Typed exceptions | `exceptions.py` | `KaleemError` and its subtypes (`NotFoundError`, `PermissionDeniedError`, `ConflictError`, `ValidationError`, `ExternalServiceError`) |
-| DRF exception handler | `drf.py` | Maps those exceptions to HTTP statuses; an unmapped `KaleemError` falls back to 400 |
+| DRF exception handler | `drf.py` | Maps those exceptions to HTTP statuses; an unmapped `KaleemError` falls back to 400. Adds a stable `error_code` to every dict body (below) |
 | Pagination | `pagination.py` | `StandardPagination` |
 | Permissions | `permissions.py` | `DocsPermission` for the API docs; `IsStaff`, the server control behind every staff endpoint (authenticated and `is_staff`; imports only DRF; ADR-0057) |
 | Throttling | `throttling.py` | `EmailScopedThrottle` |
@@ -24,6 +24,21 @@ Decision: `docs/adr/0048-export-erase-hook-contract.md`.
 | Seed command | `management/commands/seed.py` | `manage.py seed basic|rich` |
 | Personal-data registry | `personal_data.py`, `personal_data_contract.py` | below |
 | Teaching-link port | `teaching.py` | below |
+
+## The API text contract
+
+Spec: `docs/superpowers/specs/2026-10-18-rch-i18n-server-strings-design.md`.
+Decision: `docs/adr/0058-api-text-contract.md`.
+
+| Piece | What it is |
+| --- | --- |
+| `error_code` | Stable, untranslated name of the failure, in every dict error body. `KaleemError.code` for our exceptions (`not_found`, `permission_denied`, `conflict`, `validation_error`, `external_service_error`), `default_code` for DRF's, with `invalid` renamed `validation_error`. A list body is left as it is. Reserved key: no serializer field may use the name |
+| Message templates | `exceptions.py` builds each message from a gettext template with named placeholders. The noun, action or service fragment is passed in by the caller, translated with `pgettext_lazy` under the context `error resource`, `error action` or `error service`. `KaleemError.message` is resolved to a plain `str` when the error is built, in the language of that request |
+| Language | `Accept-Language` through Django's `LocaleMiddleware` (`en`, `ar`; anything else is `en`). The dashboard sends its own locale |
+| Catalogs | One per app, `kaleem/<app>/locale/ar/LC_MESSAGES/django.po`, compiled at image build. `platform`'s holds only the four templates |
+
+Two identity bodies are written by hand and set their own code (`email_not_verified`,
+`invalid_verification_key`); the handler never overwrites a code already present.
 
 ## The registry pattern
 
