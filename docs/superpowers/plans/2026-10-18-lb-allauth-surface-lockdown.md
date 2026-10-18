@@ -1,6 +1,6 @@
 ---
 spec: docs/superpowers/specs/2026-10-18-lb-allauth-surface-lockdown-design.md
-status: draft
+status: done
 ---
 
 > **Publication hold (ADR-0045 §4).** Not pushed or merged to the public meta repo until the
@@ -16,7 +16,7 @@ builder that unit left (step 3 reuses it, it does not create a second one).
 Each step: write the test, run it red with `_tools/backend-gate.sh <WT> <test file>`, write the
 code, run it green, then mutation-check (revert the code, see red, restore).
 
-1. [ ] **Closed surface, failing first.** New `backend/tests/test_allauth_surface_closed.py`:
+1. [x] **Closed surface, failing first.** New `backend/tests/test_allauth_surface_closed.py`:
    - `test_no_route_is_served_under_accounts`: walk `get_resolver()` (copy the `_routes` walker
      from `tests/test_api_versioning_is_enforced.py`); assert none starts with `accounts/`.
    - `test_former_allauth_paths_404` parametrized over GET and POST to `/accounts/signup/`,
@@ -30,19 +30,20 @@ code, run it green, then mutation-check (revert the code, see red, restore).
    - `test_login_url_is_the_dashboard`: `resolve_url(settings.LOGIN_URL) ==
      f"{settings.FRONTEND_URL}/login"`.
    Code: delete the `accounts/` include and its comment from `config/urls.py`;
-   `LOGIN_URL = f"{FRONTEND_URL}/login"` in `config/settings/base.py` (move the line below
-   `FRONTEND_URL`, or define it there).
-2. [ ] **Signup closed + allowlist shrinks.**
+   `LOGIN_URL = f"{FRONTEND_URL}/login"` in `config/settings/base.py` below `FRONTEND_URL`,
+   **and again in `production.py`**, which re-reads `FRONTEND_URL` from the environment after
+   base has derived the line from the dev default (`tests/settings/test_login_url.py`).
+2. [x] **Signup closed + allowlist shrinks.**
    - `kaleem/identity/tests/test_adapter.py::test_native_signup_is_closed`:
      `CeleryAccountAdapter().is_open_for_signup(RequestFactory().get("/")) is False`.
    - `tests/test_api_versioning_is_enforced.py`: remove `"accounts/"` from
      `ALLOWED_UNVERSIONED`, count `5 → 4`, docstrings "three" → "two" product exceptions citing
      the ADR-0010 amendment.
-   Code: `ACCOUNT_ALLOW_REGISTRATION = False` in `base.py` with a one-line comment (signup is
-   `RegisterView`'s job); drop the env read. No adapter override needed: allauth's
-   `is_open_for_signup` reads the setting. `adapter.py` is touched only if a test shows a
-   method still reverses an allauth route.
-3. [ ] **Teacher set-password through the dashboard.**
+   Code: **as built**, `CeleryAccountAdapter.is_open_for_signup` returns `False` and the
+   `ACCOUNT_ALLOW_REGISTRATION` env read is dropped. The plan assumed allauth 65.20 read that
+   setting; the test went red with it set, and the installed adapter returns `True`
+   unconditionally, so the override is the control.
+3. [x] **Teacher set-password through the dashboard.**
    Tests in `kaleem/identity/tests/test_admin.py` (new class `TestTeacherPasswordSetLink`):
    - `services.send_password_set_link(user_id)` on a `create_teacher_account` user enqueues one
      `send_email_message` (patch `.delay`, as `test_async_email.py` does) to the teacher's
@@ -59,7 +60,7 @@ code, run it green, then mutation-check (revert the code, see red, restore).
    `send_password_set_link(user_id: int) -> None` (gets the user, calls it). `admin.py`: the
    action loops `queryset.values_list("user_id", flat=True)` and calls the service; drop the
    `ResetPasswordForm` import.
-4. [ ] **No alert on a first password.**
+4. [x] **No alert on a first password.**
    Test in `test_password_management.py`, next to
    `test_a_child_setting_their_first_password_is_not_alerted`:
    `test_a_teacher_setting_their_first_password_is_not_alerted` (verified email, unusable
@@ -67,17 +68,17 @@ code, run it green, then mutation-check (revert the code, see red, restore).
    `test_completing_a_reset_alerts_the_primary_address` must stay green.
    Code (`confirm_password_reset`): read `had_password = user.has_usable_password()` before
    `set_password`; alert only when `was_already_verified and had_password`. Update the comment.
-5. [ ] **API flows do not lean on allauth routes.** `kaleem/identity/tests/test_api_auth.py`,
+5. [x] **API flows do not lean on allauth routes.** `kaleem/identity/tests/test_api_auth.py`,
    new test under `override_settings(ACCOUNT_EMAIL_VERIFICATION="mandatory",
    FRONTEND_URL="https://app.example.com")`: register → the verification mail's link starts
    `https://app.example.com/verify-email?key=`; POST that key to `verify-email/` → 200; login →
    200. (Expected green on arrival; mutation-check it by temporarily restoring the default
    `get_email_confirmation_url` — it must go red with `NoReverseMatch`.)
-6. [ ] **Full gate + hand-back.** `_tools/backend-gate.sh <WT>` (migrate, `makemigrations
+6. [x] **Full gate + hand-back.** `_tools/backend-gate.sh <WT>` (migrate, `makemigrations
    --check`, pytest with coverage at the existing floor, ruff, ruff format, lint-imports);
    runbook §3's five hand-back checks incl. `gitleaks-range.sh`. Never edit `fail_under`
    (`dec-floor-ownership`).
-7. [ ] **Docs (meta, same branch, held).** Amend `docs/adr/0010-allauth-wrap-strategy.md` with a
+7. [x] **Docs (meta, same branch, held).** Amend `docs/adr/0010-allauth-wrap-strategy.md` with a
    dated section: allauth mounts no HTTP views; operator emails go through services; this
    amends ADR-0029 clause 2 to two product exceptions. Add a one-line pointer in ADR-0029.
    `docs/architecture/identity.md`: auth surface = API only. Conductor-only at close-out:

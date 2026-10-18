@@ -2,7 +2,7 @@
 name: lb-allauth-surface-lockdown
 phase: v1 programme (wave 1, security stream)
 modules: [identity]
-status: draft
+status: done
 created: 2026-10-18
 closed: null
 ---
@@ -60,8 +60,8 @@ tables stay); removing them would drop tables and is a separate contract step (o
 - Removed: every route under `/accounts/` (allauth's server-rendered views). Not part of the
   product API and not called by any client.
 - `/api/v1/` unchanged.
-- Settings: `ACCOUNT_ALLOW_REGISTRATION = False` (no longer read from the environment);
-  `LOGIN_URL` points at the dashboard login (`f"{FRONTEND_URL}/login"`) instead of an allauth
+- Native signup closed in `CeleryAccountAdapter.is_open_for_signup` (allauth 65 does not read
+  `ACCOUNT_ALLOW_REGISTRATION`, so the env-driven setting is dropped); `LOGIN_URL` points at the dashboard login (`f"{FRONTEND_URL}/login"`) instead of an allauth
   route name that no longer resolves.
 
 **Expand/contract and blue-green.** No schema change. The previous dashboard bundle never calls

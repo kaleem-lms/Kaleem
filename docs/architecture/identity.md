@@ -52,8 +52,16 @@ Errors are typed (`platform.exceptions.ValidationError` / `NotFoundError`) — n
 
 ## Auth & HTTP (`identity/api/`)
 
-- Session cookies + real CSRF, same-origin. No JWT. allauth handles email verification
-  (mandatory) and password reset; landing pages live under `/accounts/`.
+- Session cookies + real CSRF, same-origin. No JWT. The auth surface is this API only:
+  allauth is the library behind `services.py` and mounts no HTTP views (ADR-0010,
+  amended 2026-10-18; nothing is served under `/accounts/`). Email verification
+  (mandatory) and password-reset links point at the dashboard (`/verify-email`,
+  `/reset-password`). Native allauth sign-up is closed in
+  `CeleryAccountAdapter.is_open_for_signup`; `LOGIN_URL` is the dashboard login.
+- Operator emails also go through services: the admin's "Send password-set email" for
+  teachers calls `services.send_password_set_link` (the same dashboard set-password link as
+  child activation). A first password on an account with no usable password sends no
+  "password changed" alert (ADR-0023).
 - URL-path versioned under `/api/v1/` (ADR-0017). Endpoints: `register/`,
   `resend-verification/`, `verify-email/`, `login/`, `logout/`, `me/` (GET+PATCH),
   `me/emails/` (GET+POST), `me/emails/<id>/primary/`, `me/emails/<id>/` (DELETE),
