@@ -363,6 +363,14 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
 
 ## Someday
 
+- **No call diagnostic for a connect timeout.** The client's 10 s signaling deadline lands on
+  "Couldn't reach the session server" but reports nothing: it needs a new `CallDiagnostic.Code`
+  on the backend plus the contract test. Found 2026-10-18 by lb-call-connection-failure-path.
+- **`lost` shows at the first signaling drop and a later open does not clear it.** The hook keeps
+  reconnecting behind the screen, so a call that recovers still shows the failure. Existing
+  behaviour; the connect timeout follows the same path on purpose. Found 2026-10-18 by
+  lb-call-connection-failure-path.
+
 - **Build captioning and real-time text for live lessons (after launch, own spec).**
   ADR-0054 recommends the order: the audio-activity indicator (6.5.5, smallest; the
   lobby's `useMicLevel` can be reused on the remote stream), then
