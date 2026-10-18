@@ -202,3 +202,10 @@ a teacher's subjects — the e2e specs converge their own fixture instead.
   these tables.
 - **Subject proficiency or level** (beginner vs advanced Arabic). A matching refinement; C1
   adds it if the ranking needs it.
+
+## Personal-data export
+
+`curriculum.subjects` (`personal_data.py`, registered from `CurriculumConfig.ready()`)
+exports the subjects a person teaches and the subjects they want to study, as
+`{subject (slug), since}`. `Subject` itself is a `NOT_PERSONAL` catalogue row. The erase hook
+is lb-gdpr-erasure.

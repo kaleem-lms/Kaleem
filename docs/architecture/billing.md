@@ -220,3 +220,12 @@ is_entitled_to` directly for gating — `billing` never imports `scheduling`.
 `identity.services.get_parent_user_ids(student_user_id: int) -> list[int]` was added for
 this module: resolves every parent linked to a student, empty list if none, used only
 for Family entitlement chaining.
+
+## Personal-data export
+
+`billing.subscriptions` (`personal_data.py`, registered from `BillingConfig.ready()`) exports
+the customer-since date, each subscription's plan type, sessions per cycle, amount, currency,
+status and dates, and the user's incidents as `{kind, first_seen_at, resolved_at}`. Withheld:
+every Stripe id and the provider's event clock, and an incident's detail, severity,
+occurrences and resolver (staff-only). `SubscriptionPlan` and `StripeEventLog` are listed
+`NOT_PERSONAL`. The erase hook is lb-gdpr-erasure.
