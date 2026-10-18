@@ -204,12 +204,16 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
   prune keeps 24h of images, which after this incident's `prune -a` means there is
   currently NO local rollback target — `restore_signaling()` and a rollback would have to
   re-pull from GHCR. Worth a cheap disk alarm before it bites in production.
-- **EN 301 549 clause 7: no captions or audio description for live lessons.** ADR-0040
-  adopts EN 301 549, and for the design system its delta over WCAG 2.2 AA is ~zero
-  (clause 9 incorporates WCAG by reference). **Clause 7 is the one with real teeth** and
-  kaleem cannot currently meet it: the call carries no captioning. Belongs to the call
-  feature, needs its own spec, deliberately out of scope for the design-system work.
-  Logged here rather than left unstated so "EN 301 549 conformant" is never claimed flat.
+- **Live lessons have no captions, no real-time text and no audio-activity indicator; the
+  accessibility statement that says so is not published yet.** Decided 2026-10-18
+  (ADR-0054, amends ADR-0040): state the gap and build after launch. The clause named
+  here before was wrong. ADR-0040 said clause 7, but clause 7 only governs displaying
+  captions that exist; the clauses with teeth for a two-way voice and video lesson are
+  EN 301 549 V4.1.1 **6.2.1.1** (real-time text) and **6.5.5** (indicator of audio
+  activity). What still blocks launch: the statement is drafted
+  (`docs/decisions/2026-10-18-accessibility-statement-draft.md`, owner commits it,
+  counsel reviews it) but not published; `rch-mkt-legal-pages` publishes it. This entry
+  closes when it is live. The build work is under **Someday**.
 - **Throwaway users in the staging DB.** `stg.smoke@example.com`, `ses.smoke@example.com`,
   and `c0.subjects.check@example.com` (a child of `billing.clickthrough@`, created
   2026-09-05 while verifying C0 and left unverified — it cannot log in). Clear via
@@ -358,6 +362,19 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
 - Dunning UX beyond mirroring `past_due` (retry/notice flow) is deferred.
 
 ## Someday
+
+- **Build captioning and real-time text for live lessons (after launch, own spec).**
+  ADR-0054 recommends the order: the audio-activity indicator (6.5.5, smallest; the
+  lobby's `useMicLevel` can be reused on the remote stream), then
+  real-time text over a data channel (6.2.1.1, ADR-0039 fourth line), then captions only
+  through on-device recognition or a vendor behind its own ADR. Owner orders it. Arabic and
+  recitation recognition quality is unmeasured; Safari and iOS cannot be verified here.
+- **`Button variant="outline"` borders with the decorative `--border` at 1.29:1** — the same
+  SC 1.4.11 boundary question as the secondary button, across about 45 buttons. Found
+  2026-10-18 by lb-known-wcag-gaps; out of its scope.
+- **A secondary Button inside a `bg-secondary`/`bg-muted` well has a 2.78:1 edge in light**
+  (3.03 dark): `control-border` is asserted on background/card/popover only. None sits in
+  such a well today. Found 2026-10-18 by lb-known-wcag-gaps.
 
 - **`SessionAdmin` still lets staff edit `status`.** Moving a closed lesson back to `scheduled`
   in the admin now violates `session_outcome_only_when_completed` and returns a 500 rather
@@ -1026,7 +1043,7 @@ proves; all are robustness of an unattended job.
   the user could not tell a failed copy from a slow one. The message now says to select the
   code by hand, because the code is still on screen and reporting only "failed" would leave
   the user stuck beside a working alternative.
-- `StudentPreferencesCard`: the per-row validation message is a sibling `<p role="alert">`,
+- ~~`StudentPreferencesCard`: the per-row validation message is a sibling `<p role="alert">`,~~ **FIXED 2026-10-18** (lb-known-wcag-gaps): the entry was stale for that card; the real gap was `InlineEditor` in `WeeklyAvailabilityEditor`, whose error is now a linked `FormError` with `aria-invalid` on the offending select(s), and `Select` gained `Input`'s invalid styling.
   not `aria-describedby`-linked to the offending input, and the time inputs carry no
   `aria-invalid`. Also the "required times" message anchors on `end_time` even when
   `start_time` is the empty one. And it hand-rolls a `SELECT_CLASS` string replicating the
@@ -1048,7 +1065,7 @@ proves; all are robustness of an unattended job.
   was stale, verified 2026-09-13.** `grep -rn "bg-black/" dashboard/src` returns nothing; the
   per-theme `--overlay` token landed with the `Dialog` primitive and was confirmed rendering as
   `#191c1b8c` light / `#000000ad` dark during the staging walk.
-- **A `secondary` button is nearly invisible as a SURFACE against the page.**
+- ~~**A `secondary` button is nearly invisible as a SURFACE against the page.**~~ **FIXED 2026-10-18** (lb-known-wcag-gaps, tokens v0.2.4): a `control-border` edge at 3:1 on background/card/popover; darkening the fill could not work (the label would drop to 4.09:1).
   `--secondary` on `--background` measures **1.09:1** in light (it was 1.13:1 on
   v0.1.1, so this is pre-existing and only marginally worse, not a v2 regression);
   dark is 1.75:1. `Button variant="secondary"` carries no border, so on a page
