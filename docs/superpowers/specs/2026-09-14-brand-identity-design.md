@@ -23,9 +23,10 @@ changes in this spec:
 - **E10** the transactional-email line in User flow stands as the goal, but the backend
   sends text-only mail today. `ntf-email-foundation` builds the header slot, and
   `inf-brand-email-header` swaps the hosted raster into it.
-- **E1-E5, E7, E8, E11** change only the plan or the brief: flat theme aliases (E1), the
+- **E1-E5, E7, E8, E11-E13** change only the plan or the brief: flat theme aliases (E1), the
   tokens CI install step (E3), HarfBuzz shaping (E4), outlined lockup text (E5), the split
-  of Task 8 into 8a and 8b (E7), the two dashboard wordmarks (E8). E2 corrects ADR-0043. E11 marks
+  of Task 8 into 8a and 8b (E7), the two dashboard wordmarks (E8), the drift mutation check (E12),
+  the absolute `og:image` under the test container (E13). E2 corrects ADR-0043. E11 marks
   the brief as being rewritten (`inf-brand-brief-rewrite`).
 
 ## Goal

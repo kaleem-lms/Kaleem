@@ -39,8 +39,10 @@ Each row was checked against the code at tokens `68567a3`, dashboard `d3101e5`, 
 | E9 | plan Task 11 | (a) `<h1 role="img">` takes away the heading's role. (b) A relative `og:image` is ignored by link previews, and `astro.config.mjs` sets no `site`. (c) Marketing now has a test suite with a 100/100/100 floor and an e2e harness. `tests/home.test.ts` matches `<h1[^>]*>kaleem`, so Step 4's "no test suite" is stale and the swap would fail CI. (d) It copies `site.webmanifest` (E6). | The mark goes **inside** the `<h1>` as a `role="img"` span. `og:image` is an absolute URL built from the site origin. Step 4 runs `pnpm test`, `pnpm check`, `pnpm build` and the e2e, and updates `tests/home.test.ts`. The manifest is not copied. The spec's Out of scope and Self-Review lines about "no marketing test suite" are corrected. |
 | E10 | plan Task 12, File Structure line 56 | It says to "modify the SES email template header". The backend sends text-only email (`kaleem/templates/account/email/*.txt`), so there is no HTML header. The owner decided that `ntf-email-foundation` builds the header slot and the brand raster is swapped in later. | Task 12 swaps the hosted raster into the slot that `ntf-email-foundation` builds. The URL comes from an environment variable. The raster is hosted by marketing (Task 11 copies `email-header*.png`). This work is `inf-brand-email-header`. |
 | E11 | `docs/brand/brief.md` | The owner decided to rewrite the brief before any further exploration. | A status line at the top says that the brief is being rewritten (`inf-brand-brief-rewrite`) and that no direction work may be judged against this version. |
+| E12 | plan Task 8a Step 7 | The drift mutation check runs `node brand.mjs --check` on the shipped manifest, which is empty in 8a (E7). It emits nothing, finds no drift and exits 0 after the fixture byte is changed, and its "suite goes red" never runs the suite. It is a check that cannot go red. | `brand.mjs` takes an optional manifest path. Step 7 runs it against the fixture (rc=1 naming the file) and runs the suite, then restores and expects rc=0 for both. The same CLI produces the committed fixture `dist/`. |
+| E13 | plan Task 11 Step 3 | `new URL("/og.png", Astro.site)` throws `TypeError: Invalid URL` under vitest. `tests/home.test.ts` and `tests/layout.test.ts` render through `AstroContainer`, which ignores `astro.config.mjs` (astro 6.1.5 `dist/container/index.js:116`), and `Astro.site` comes from `manifest.site`, which the container never sets. Every Layout render in the suite would break. `tests/layout.test.ts` was not in Task 11's files. | The URL is built from `Astro.url`, which cannot be undefined. `tests/layout.test.ts` is added to the files, with a test that `og:image` is absolute and ends in `/og.png`. The production origin is proven on the built `dist/index.html`, where `site` applies. |
 
-Each amended document gets a dated **Errata** section at the top, listing E1–E11. The task
+Each amended document gets a dated **Errata** section at the top, listing E1–E13. The task
 text is also corrected in place, so the plan can be followed without reconstructing it from
 the list.
 
@@ -70,7 +72,7 @@ None in this unit. It changes the instructions that `inf-brand-dashboard` and
 - Rewriting the brief (`inf-brand-brief-rewrite`, owner-gated by `hg-brand-brief`).
 - Choosing a direction, a typeface or any artwork.
 - ADR-0044 (`inf-brand-close`).
-- Errors in #232 beyond E1–E11. If more turn up, they go to `ISSUES.md` (D10).
+- Errors in #232 beyond E1–E13. If more turn up, they go to `ISSUES.md` (D10).
 - Facts recorded in #232 as "verified 2026-09-14" (for example the `v0.2.2` pin). They are
   dated records, not instructions, and stay as written.
 

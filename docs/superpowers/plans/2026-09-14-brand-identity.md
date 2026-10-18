@@ -51,6 +51,16 @@ list (`docs/superpowers/specs/2026-09-14-brand-identity-design.md`, Errata).
   swaps the hosted raster into it.
 - **E11 brief.** `docs/brand/brief.md` is being rewritten by owner decision
   (`inf-brand-brief-rewrite`). Task 1's output is marked accordingly.
+- **E12 drift mutation check.** Task 8a Step 7 ran a bare `node brand.mjs --check`, which
+  checks the shipped manifest. That is empty in 8a (E7), so it emits nothing and exits 0
+  after the fixture byte is changed: it could not go red. `brand.mjs` now takes an optional
+  manifest path (`node brand.mjs [manifest.json] [--check]`), Step 7 points it at the fixture
+  and also runs the suite, and the same CLI produces the committed fixture `dist/`.
+- **E13 `og:image` under the test container.** `new URL("/og.png", Astro.site)` throws under
+  vitest: `AstroContainer` ignores `astro.config.mjs`, so `Astro.site` is undefined, and
+  setting `site` does not change that. Task 11 builds the URL from `Astro.url`, adds
+  `tests/layout.test.ts` to its files, and proves the production origin on the built
+  `dist/index.html`, the one place `site` applies.
 
 ## Global Constraints
 
@@ -328,8 +338,9 @@ Create `tokens/brand.mjs`:
 // what lets a palette change repaint every asset without touching a path.
 //
 // Mirrors build.mjs's contract:
-//   node brand.mjs          write brand/dist/*
-//   node brand.mjs --check  rebuild in memory, diff against what is committed, exit 1
+//   node brand.mjs                    write brand/dist/*
+//   node brand.mjs --check            rebuild in memory, diff against what is committed, exit 1
+//   node brand.mjs <manifest> [--check]   the same, for another manifest (the fixtures)
 import { readFileSync, existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
@@ -908,9 +919,13 @@ export const iconSetIssues = (m = manifest) => {
 };
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-	const artefacts = emit();
+	// `node brand.mjs [manifest.json] [--check]`: the manifest path is optional and
+	// defaults to the shipped one, so the same CLI can drive the fixtures (E12).
+	const path = process.argv.slice(2).find((a) => !a.startsWith("--"));
+	const m = path ? loadManifest(path) : manifest;
+	const artefacts = emit(m);
 	if (process.argv.includes("--check")) {
-		const drifted = drift(manifest, artefacts);
+		const drifted = drift(m, artefacts);
 		for (const f of drifted) console.error(`${f} has drifted — run \`node brand.mjs\``);
 		process.exit(drifted.length ? 1 : 0);
 	}
@@ -921,8 +936,14 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
 }
 ```
 
-The fixture's committed `dist/` is produced once by `emit(FIXTURE)` and committed with the fixtures.
-The fixture's mutation check is the "notices a changed byte" test above; it never touches real assets.
+The fixture's committed `dist/` is produced once, with the same CLI, and committed with the fixtures:
+
+```bash
+cd tokens && node brand.mjs test/fixtures/brand/brand.json
+```
+
+The fixture's mutation check is Step 7 below plus the "notices a changed byte" test above; neither
+touches real assets.
 
 - [ ] **Step 5: Run the tests**
 
@@ -963,12 +984,26 @@ The CI's existing `node build.mjs --check` and `node --test` steps stay as they 
 
 - [ ] **Step 7: Mutation-check the drift gate**
 
+Two commands, because the shipped manifest is empty in 8a (E7): a bare `node brand.mjs --check` emits
+nothing, finds no drift and exits 0 whatever the fixture holds, so it proves nothing here (E12). Point
+the CLI at the fixture, and run the suite, which holds the drift test:
+
 ```bash
-cd tokens && printf '\n' >> test/fixtures/brand/dist/favicon.svg && node brand.mjs --check; echo "rc=$?"; git checkout test/fixtures/brand/dist/favicon.svg
+cd tokens
+printf '\n' >> test/fixtures/brand/dist/favicon.svg
+node brand.mjs test/fixtures/brand/brand.json --check; echo "cli rc=$?"
+node --test test/brand.test.mjs; echo "suite rc=$?"
+git checkout test/fixtures/brand/dist/favicon.svg
+node brand.mjs test/fixtures/brand/brand.json --check; echo "restored cli rc=$?"
+node --test test/brand.test.mjs; echo "restored suite rc=$?"
 ```
 
-Expected: the drift test in the suite goes red naming the fixture file, and restoring it turns it green.
-Run the same check against the real tree in Task 8b, targeting `brand/dist/favicon.svg`.
+Expected: while the byte is changed, the CLI prints `test/fixtures/brand/dist/favicon.svg has drifted`
+and `cli rc=1`, and the suite fails in "committed fixture output matches what the emitter produces now"
+(`suite rc=1`). After the restore both are rc=0. A bare `node brand.mjs --check` is run only as the
+CI step, not as this check.
+Run the same check against the real tree in Task 8b, targeting `brand/dist/favicon.svg`; there the
+default manifest is the real one, so the bare `node brand.mjs --check` is meaningful.
 
 - [ ] **Step 8: Commit**
 
@@ -1238,7 +1273,7 @@ git commit -m "feat: one shared wordmark and the real favicon, replacing the pur
 *Owner: `inf-brand-marketing`.*
 
 **Files:**
-- Modify: `marketing/src/pages/index.astro`, `marketing/src/layouts/Layout.astro`, `marketing/tests/home.test.ts`, `marketing/astro.config.mjs` (`site`), `marketing/public/`, `marketing/package.json`
+- Modify: `marketing/src/pages/index.astro`, `marketing/src/layouts/Layout.astro`, `marketing/tests/home.test.ts`, `marketing/tests/layout.test.ts`, `marketing/astro.config.mjs` (`site`), `marketing/public/`, `marketing/package.json`
 
 **Interfaces:**
 - Consumes: `@kaleem/tokens` at the brand release tag (already a dependency — this is a pin bump, not new wiring).
@@ -1286,13 +1321,22 @@ path here. Confirm in the built output that the mark takes the token colour in b
 - [ ] **Step 3: Add icons and OG meta to the layout**
 
 `og:image` must be an **absolute** URL (E9b): link previews ignore a relative one. `astro.config.mjs` sets
-no `site` today, so `inf-brand-marketing` sets it, and the layout builds the URL from `Astro.site`.
+no `site` today, so `inf-brand-marketing` sets it (the production marketing origin). The layout builds the
+URL from `Astro.url`, **not** `Astro.site` (E13):
+
+⚠ `AstroContainer`, which both `tests/home.test.ts` and `tests/layout.test.ts` render through, validates
+`ASTRO_CONFIG_DEFAULTS` and ignores `astro.config.mjs` (astro 6.1.5, `dist/container/index.js:116`), and the
+pipeline takes `Astro.site` from `manifest.site`, which the container never sets
+(`core/base-pipeline.js:55`). So under vitest `Astro.site` is `undefined`, and
+`new URL("/og.png", Astro.site)` throws `TypeError: Invalid URL`, breaking every Layout render in the
+suite. Setting `site` in the config does not help. `Astro.url` always exists, so it cannot throw, and its
+origin is `site` in a static build.
 
 In `src/layouts/Layout.astro`'s `<head>`:
 
 ```astro
 ---
-const ogImage = new URL("/og.png", Astro.site).href;
+const ogImage = new URL("/og.png", Astro.url).href;
 ---
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
@@ -1301,6 +1345,19 @@ const ogImage = new URL("/og.png", Astro.site).href;
   <meta property="og:image" content={ogImage} />
   <meta name="twitter:card" content="summary_large_image" />
 ```
+
+There is no fallback branch, so the 100/100/100 floor needs no extra test for one. Prove it in two
+places, because each sees something the other cannot:
+
+- **`tests/layout.test.ts`** (write it first and watch it fail): render the Layout and assert
+  `og:image` is absolute and ends in `/og.png`, e.g. `toMatch(/<meta property="og:image" content="https?:\/\/[^"]+\/og\.png"/)`.
+  It cannot name the production origin, because the container has no `site`; it proves the call does not
+  throw and the URL is absolute.
+- **The built output** (`pnpm build`): assert `dist/index.html` has `og:image` starting with the
+  configured `site` origin. This is the only place `site` is applied. Do it with a command in this step
+  (`grep -o 'property="og:image" content="[^"]*"' dist/index.html`) and, if the e2e harness can read the
+  built page, an assertion there too. Verify here that `Astro.url`'s origin really is `site` in the static
+  build; if it is not, stop and escalate rather than hardcoding the origin.
 
 No `rel="manifest"` link is added here: marketing has no web manifest of its own, and the brand
 release does not supply one.

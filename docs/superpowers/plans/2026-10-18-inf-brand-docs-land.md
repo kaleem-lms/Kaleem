@@ -6,7 +6,7 @@ status: draft
 This unit touches only the meta repo, and only docs. Work in
 `/home/abdulkhalek/Projects/kaleem-worktrees/meta-inf-brand-docs-land` on
 `feat/inf-brand-docs-land`. It involves no submodule worktree, migration, dependency or
-coverage floor, and needs no e2e flow (spec, Test plan). Read the code facts behind E1–E11
+coverage floor, and needs no e2e flow (spec, Test plan). Read the code facts behind E1–E13
 as git objects at the SHAs the spec names. Never read them from the owner's checkouts.
 
 ## Steps
@@ -137,4 +137,4 @@ the change is docs only, so triage skips the gate jobs and runs `security`.
 
 The fact check goes red after Step 1 and green after Step 8. `gitleaks-range.sh` is clean.
 The `security` job in CI passes on the PR. Before the commit, read the four diffs once
-against spec E1–E11.
+against spec E1–E13.
