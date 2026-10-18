@@ -11,7 +11,7 @@ env var. Never edit a coverage floor.
 
 ### Backend (`kaleem-worktrees/backend-lb-gdpr-data-export`)
 
-1. [ ] **Export-only contract helper.** Tests first in
+1. [x] **Export-only contract helper.** Tests first in
    `kaleem/platform/tests/test_personal_data_contract.py`: `assert_export_honours_contract`
    raises with `registered` for an export-less name (and passes with no erase hook),
    `export-json`, `export-deterministic`, `export-read-only` and `unseeded-user` on a bad
@@ -19,15 +19,15 @@ env var. Never edit a coverage floor.
    `assert_hooks_honour_contract` in `kaleem/platform/personal_data_contract.py` into the
    new function, called first by the pair helper. The existing contract tests stay green
    unchanged.
-2. [ ] **curriculum.subjects.** Test first `kaleem/curriculum/tests/test_personal_data.py`:
+2. [x] **curriculum.subjects.** Test first `kaleem/curriculum/tests/test_personal_data.py`:
    the contract helper with a seed of one taught and one interest row, and an exact
    expected dict. Then `kaleem/curriculum/personal_data.py` and `ready()` in
    `kaleem/curriculum/apps.py` (import inside `ready()`, `# noqa: PLC0415`, as assessment).
-3. [ ] **billing.subscriptions.** Test first `kaleem/billing/tests/test_personal_data.py`:
+3. [x] **billing.subscriptions.** Test first `kaleem/billing/tests/test_personal_data.py`:
    contract helper; expected dict for a customer, two subscriptions and one incident;
    asserts no `stripe_` key, no `detail`, `severity`, `occurrences` or `resolved_by`.
    Then `kaleem/billing/personal_data.py` and `ready()` in `kaleem/billing/apps.py`.
-4. [ ] **scheduling.lessons.** Test first `kaleem/scheduling/tests/test_personal_data.py`,
+4. [x] **scheduling.lessons.** Test first `kaleem/scheduling/tests/test_personal_data.py`,
    reusing the module's conftest factories: a seed with the user as student AND as teacher
    (assignment, slot, two lessons, one cancelled by the user, a room, a decline, a
    diagnostic with `stats`, availability). Assert the contract helper; `role` and
@@ -35,25 +35,25 @@ env var. Never edit a coverage floor.
    room `external_id`; `cancelled_by_me` true only for the user's own cancellation. Then
    `kaleem/scheduling/personal_data.py`, registered from the existing
    `SchedulingConfig.ready()` beside the teaching provider.
-5. [ ] **identity.account.** Test first `kaleem/identity/tests/test_personal_data.py`:
+5. [x] **identity.account.** Test first `kaleem/identity/tests/test_personal_data.py`:
    contract helper; expected dict for a user with all three profiles, a child link, a
    parent link, an invite and two email addresses; no `password`, invite `code`, `notes`
    or `internal_notes`. Then `kaleem/identity/personal_data.py` and `ready()` in
    `kaleem/identity/apps.py`.
-6. [ ] **Coverage guard.** In `tests/test_personal_data_hooks_cover_every_model.py`: empty
+6. [x] **Coverage guard.** In `tests/test_personal_data_hooks_cover_every_model.py`: empty
    `PENDING_EXPORT`; add the three `NOT_PERSONAL` entries with reasons; rewrite
    `test_a_pending_app_whose_models_are_all_covered_is_stale` to pass its own
    `pending_export={"curriculum": "x"}` so it no longer leans on the live map. Red first:
    run the guard after emptying the map and before steps 2-5 land to see each uncovered
    model named.
-7. [ ] **Service.** Tests first in `kaleem/identity/tests/test_data_export.py`:
+7. [x] **Service.** Tests first in `kaleem/identity/tests/test_data_export.py`:
    `export_account_data` returns the envelope (`format`, `version == 1`, `generated_at`
    UTC ISO, `user_id`, `sections` equal to `export_user(user)`); wrong password raises
    `ValidationError(field="current_password")` and enqueues no email;
    success enqueues exactly one `send_email_message` with the `data_exported` body.
    `_send_email_security_alert` gets the `data_exported` branch; the unknown-action test
    still raises.
-8. [ ] **Endpoint.** Tests first in the same file through the API client:
+8. [x] **Endpoint.** Tests first in the same file through the API client:
    `POST identity/me/export/` 200 with `Content-Disposition` attachment and
    `Cache-Control: no-store`; every registered export hook name is a key of `sections`;
    the user's password hash is not a substring of the body; 400 shape on a wrong password;
@@ -62,30 +62,30 @@ env var. Never edit a coverage floor.
    (`ScopedRateThrottle`, `throttle_scope = "data-export"`, `extend_schema`), the
    `me/export/` URL, and `"data-export": "10/hour"` in `config/settings/base.py`
    `DEFAULT_THROTTLE_RATES`. One structured log line: user id, section names, byte size.
-9. [ ] **Seed check.** Assert in `kaleem/scheduling/tests/test_seed_e2e_matching.py` (or
+9. [x] **Seed check.** Assert in `kaleem/scheduling/tests/test_seed_e2e_matching.py` (or
    the existing seed test) that `e2e.booked` has at least one session, since the e2e flow
    depends on it. No seed change expected.
 
 ### Dashboard (`kaleem-worktrees/dashboard-lb-gdpr-data-export`)
 
-10. [ ] **Download helper.** Test first `src/lib/download.test.ts` (stub
+10. [x] **Download helper.** Test first `src/lib/download.test.ts` (stub
     `URL.createObjectURL`/`revokeObjectURL`): `saveJson(data, filename)` clicks an anchor
     with that `download` name, pretty-prints the JSON and revokes the URL. Then
     `src/lib/download.ts`.
-11. [ ] **API + schema + mutation.** Tests first in `src/features/identity/api.test.ts`,
+11. [x] **API + schema + mutation.** Tests first in `src/features/identity/api.test.ts`,
     `schemas.test.ts`, `queries.test.tsx`: `identityApi.exportData` posts to
     `identity/me/export/`; `dataExportSchema` requires `current_password`;
     `useExportData` is a mutation. Then `api.ts`, `schemas.ts`, `queries.ts`.
-12. [ ] **DataExportCard.** Test first
+12. [x] **DataExportCard.** Test first
     `src/features/identity/components/DataExportCard.test.tsx`: opens the dialog; success
     calls `saveJson` with `kaleem-data-export-<date>.json` and shows the toast; 400 shows
     "Incorrect password." on the field; 429 shows `account.throttled`; axe clean. Then the
     component (existing `@/ui` dialog, field and button; tokens only; logical properties).
-13. [ ] **Account page + locales.** Update `src/routes/_authed/account.test.tsx` first (the
+13. [x] **Account page + locales.** Update `src/routes/_authed/account.test.tsx` first (the
     card renders for every role), then `src/routes/_authed/-pages/Account.tsx` and the
     `account.export.*` keys in `src/locales/en/common.json` and `src/locales/ar/common.json`
     (parity and terminology tests must pass).
-14. [ ] **e2e.** `e2e/data-export.spec.ts`, two flows, budget 20 s:
+14. [x] **e2e.** `e2e/data-export.spec.ts`, two flows, budget 20 s:
     `booked` downloads via `page.waitForEvent("download")`, parses the saved file, and
     asserts `format`, `version`, the five section keys, its own email, at least one lesson,
     and no `pbkdf2_`/`argon2` substring; `student` with a wrong password sees the field
