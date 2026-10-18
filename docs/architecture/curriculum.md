@@ -77,15 +77,27 @@ touch.
 
 ## Boundaries
 
-`curriculum` depends on `identity` only, and only through `identity.services` plus the
-`AUTH_USER_MODEL` string. Two import-linter contracts hold it there:
+`curriculum` depends on `identity` and `content`, each only through its `services` module
+plus the `AUTH_USER_MODEL` string. Three import-linter contracts hold it there:
 
-- `curriculum imports no business modules except identity`
+- `curriculum imports no business modules except identity and content`
 - `curriculum does not reach past identity's public API` — `allow_indirect_imports`, so the
   legitimate `curriculum.services → identity.services → identity.models` chain stays legal
   while a direct model import fails.
+- `curriculum does not reach past content's public API` — the same shape for
+  `kaleem.content.models`.
 
-Both were written **before** any code and the second was verified by breaking it. That is the
+The `content` edge is allowed by ADR-0049 and nothing uses it yet; cur-lesson-resources
+creates it. Scheduling's contract ignores that one import (`curriculum → content.services`)
+so the transitive rule does not turn it red.
+
+**`curriculum` never imports `scheduling`** (`scheduling → curriculum` exists, ADR-0033, and
+the reverse would be a cycle). "Does this teacher teach this student?" is answered by the
+platform port `kaleem.platform.teaching` (`teaches`, `student_ids_taught_by`), which
+scheduling fills from its `ready()`. Both raise `ImproperlyConfigured` when nothing is
+registered rather than answering False. Nothing in curriculum calls it yet.
+
+The identity mirror was written **before** any code and verified by breaking it. That is the
 lesson from `scheduling`, which shipped without the mirror and where a direct
 `from kaleem.identity.models import User` passed CI until 2026-09-04.
 
