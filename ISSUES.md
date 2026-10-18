@@ -338,6 +338,14 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
 
 ## Someday
 
+- **Two leftovers from the lesson-to-session wording change (`cur-session-wording`).**
+  `src/routes/design-preview.tsx` still shows "lesson" in its hard-coded sample copy (a
+  primitives gallery, not product copy). And `billing.plan*Desc` in the Arabic locale say
+  حصة where the rest of the app says جلسة; a pre-existing split outside the `call`, `booking`
+  and `prefs` namespaces that unit covered. The terminology guard
+  (`dashboard/src/locales/terminology.test.ts`) walks only those three namespaces; widen its
+  list when billing's copy is next touched.
+
 - **Arabic `font-display` headings fall past Fraunces and Georgia to the platform's generic
   serif.** In RTL `body` switches to `--font-arabic`, but `font-display` does not, and
   Fraunces has no Arabic glyphs (its `unicode-range` subsets never load), so an Arabic
