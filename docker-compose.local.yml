@@ -185,7 +185,7 @@ services:
       - traefik.http.services.flower.loadbalancer.server.port=5555
 
   mailpit:
-    # Pinned to the version the CI e2e job runs (ADR-0051): the e2e inbox helper's HTTP
+    # Pinned to the version the CI e2e job runs (ADR-0052): the e2e inbox helper's HTTP
     # API is per version, and local e2e runs read this mailpit.
     image: axllent/mailpit:v1.30.1
     ports:

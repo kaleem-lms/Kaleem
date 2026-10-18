@@ -158,7 +158,7 @@ Biome still lints it.
 
 ## Deviations found while building
 
-- **ADR number.** 0050 was already taken (`chat-transport`), so the ADR is 0051,
+- **ADR number.** 0050 was already taken (`chat-transport`), so the ADR was drafted as 0051 and renumbered 0052 by the conductor (0051 went to asm-module-foundation),
   provisional until the conductor confirms the number.
 - **`e2e/` is not linted by biome.** The plan said the dashboard gate lints it; `biome.json`
   has `files.includes: ["src/**"]`. The new files were formatted by piping them through

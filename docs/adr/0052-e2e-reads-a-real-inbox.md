@@ -1,5 +1,5 @@
 ---
-number: 0051
+number: 0052
 title: The e2e job reads a real inbox
 status: accepted
 date: 2026-10-18
@@ -46,7 +46,7 @@ serves local development in `docker-compose.local.yml`.
 
 Mailpit proves the app sends the right message to the right address with a working link.
 It proves nothing about the production mail provider, SPF/DKIM, spam placement, or how the
-HTML part renders. The D3 row says so, and delivery stays a staging check.
+HTML part renders. The CLAUDE.md D3 row says so, and delivery stays a staging check.
 
 ## Alternatives considered
 

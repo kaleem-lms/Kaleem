@@ -102,7 +102,7 @@ No product change. Test-only files in `dashboard`:
     mailpit, so a broken mail path fails before Playwright starts.
 - `docker-compose.local.yml` pins the same `v1.30.1`, because the helper's API contract
   is per version and local runs use that mailpit.
-- **ADR**: a new ADR amending ADR-0027 (ADR-0051; 0050 was taken, number provisional until the conductor confirms). It
+- **ADR**: a new ADR amending ADR-0027 (ADR-0052; 0050 was taken, number provisional until the conductor confirms). It
   records that e2e now reads a real inbox and what that does not prove.
 
 Personal data (ADR-0023): none real. Every address is a fixture at `@kaleem.test`.

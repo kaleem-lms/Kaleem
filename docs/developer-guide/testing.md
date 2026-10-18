@@ -41,7 +41,7 @@ mailpit.
 
 ## e2e inbox
 
-A flow that ends in an email reads it from the job's mailpit (`axllent/mailpit:v1.30.1`, ADR-0051)
+A flow that ends in an email reads it from the job's mailpit (`axllent/mailpit:v1.30.1`, ADR-0052)
 through `dashboard/e2e/support/inbox.ts`: `clearInbox` before the triggering action,
 `waitForMail` for an exact recipient and subject, and `linkIn` for a link whose origin must be the
 app's. End the flow by signing in as the account the link was for, because a page can say

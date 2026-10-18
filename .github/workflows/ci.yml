@@ -393,7 +393,7 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
-      # The inbox the e2e flows read (ADR-0051, amending ADR-0027). Pinned, because the
+      # The inbox the e2e flows read (ADR-0052, amending ADR-0027). Pinned, because the
       # helper's HTTP API (dashboard/e2e/support/inbox.ts) is per version; the same
       # version is pinned in docker-compose.local.yml. A bump goes through an API re-check.
       mailpit:
