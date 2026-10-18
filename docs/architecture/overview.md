@@ -8,7 +8,7 @@ graph TD
 
     identity[identity<br/>users, profiles, auth]
     billing[billing<br/>plans, subscriptions, stripe]
-    scheduling[scheduling<br/>availability, bookings, sessions]
+    scheduling[scheduling<br/>availability, matching, sessions, video]
     assessment[assessment<br/>reports, ratings, progress]
     curriculum[curriculum<br/>courses, lessons]
     content[content<br/>resources, files]
@@ -19,6 +19,7 @@ graph TD
 
     scheduling --> identity
     scheduling --> billing
+    scheduling --> curriculum
     scheduling --> notifications
     billing --> identity
     assessment --> identity
