@@ -598,7 +598,8 @@ jobs:
 
       # Runs from the COMMITTED lockfiles with no install, so it needs neither the
       # tokens git dependency nor a token. Report-only until SCA_BLOCKING_FROM, then
-      # blocking (sca-gate.sh); the advisory table lands in the step summary.
+      # blocking (sca-gate.sh). The log and step summary carry counts per severity only: the
+      # audited repositories are private and this page is public.
       - uses: pnpm/action-setup@v6
         with:
           version: 10
@@ -722,20 +723,13 @@ jobs:
               aquasec/trivy:0.72.0@sha256:cffe3f5161a47a6823fbd23d985795b3ed72a4c806da4c4df16266c02accdd6f \
               image --scanners vuln --severity HIGH,CRITICAL --ignore-unfixed \
               --ignorefile /src/.trivyignore --no-progress --exit-code 5 \
-              --format table --table-mode detailed --output "/out/$app.txt" \
+              --format json --output "/out/$app.json" \
               "scan/$app:ci" || rc=$?
-            [ ! -s "$RUNNER_TEMP/trivy-out/$app.txt" ] || cat "$RUNNER_TEMP/trivy-out/$app.txt"
-            {
-              echo "### trivy: \`$app\` production image"
-              echo
-              if [ -s "$RUNNER_TEMP/trivy-out/$app.txt" ]; then
-                echo '```'
-                head -c 200000 "$RUNNER_TEMP/trivy-out/$app.txt"
-                echo '```'
-              else
-                echo "No HIGH or CRITICAL vulnerabilities with a fix (scanner exit $rc)."
-              fi
-            } >> "$GITHUB_STEP_SUMMARY"
+            # Counts only: the images come from private repositories and this log is
+            # public. The detail is for a local run (docs/runbook/ci.md).
+            counts=0
+            .github/scripts/trivy-counts.sh "$app" "$RUNNER_TEMP/trivy-out/$app.json" "$rc" || counts=$?
+            [ "$counts" -eq 0 ] || worst="$counts"
             gate=0
             .github/scripts/sca-gate.sh "trivy ($app)" "$rc" 5 || gate=$?
             [ "$gate" -eq 0 ] || worst="$gate"

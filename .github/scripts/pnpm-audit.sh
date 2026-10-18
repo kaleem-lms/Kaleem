@@ -3,6 +3,12 @@
 #
 #   pnpm-audit.sh <dir>                       audit <dir>/pnpm-lock.yaml, no install
 #   pnpm-audit.sh <dir> --from-json <file>    read a saved report (the self-test uses this)
+#   PNPM_AUDIT_DETAILS=1 pnpm-audit.sh <dir>  also print the itemised rows to stdout (local use)
+#
+# Output is COUNTS ONLY by default, in the log and in the step summary. The audited
+# repositories are private and the Actions page of this repository is public, so the
+# severity/package/advisory/patched list is never written to the step summary and reaches
+# stdout only when PNPM_AUDIT_DETAILS=1 is set by whoever is running it.
 #
 # Exit codes:  0 no findings   5 findings   3 the audit itself failed (not a result)
 #
@@ -22,7 +28,8 @@
 #   * The allowlist is `.github/security/pnpm-audit-allowlist.txt` (override with
 #     $PNPM_AUDIT_ALLOWLIST): `<GHSA-id> <review-by YYYY-MM-DD> <reason...>`, one per line.
 #     An entry past its review-by date is exit 3 even when its advisory is gone or fixed,
-#     so a suppression cannot outlive the reason it was written for.
+#     so a suppression cannot outlive the reason it was written for. A review-by date more
+#     than 90 days ahead ($PNPM_AUDIT_MAX_REVIEW_DAYS) is exit 3 too, so none is permanent.
 set -Eeuo pipefail
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -57,6 +64,11 @@ command -v jq >/dev/null 2>&1 || fail "jq is not installed"
 # --- the allowlist ---------------------------------------------------------------
 [ -f "$allowlist" ] || fail "allowlist file not found: $allowlist"
 today="$(date -u +%F)"
+# A review-by date may lie at most this many days ahead of the day the check runs, so an
+# entry can never be parked for good: it has to be re-triaged at least this often.
+max_days="${PNPM_AUDIT_MAX_REVIEW_DAYS:-90}"
+[[ "$max_days" =~ ^[0-9]+$ ]] || fail "PNPM_AUDIT_MAX_REVIEW_DAYS must be a whole number of days, got '$max_days'"
+horizon="$(date -u -d "$today + $max_days days" +%F)"
 allowed=" "
 lineno=0
 while IFS= read -r line || [ -n "$line" ]; do
@@ -68,6 +80,9 @@ while IFS= read -r line || [ -n "$line" ]; do
 	[ -n "${rest// /}" ] || fail "allowlist line $lineno: '$id' needs a reason after the date"
 	if [[ "$review" < "$today" ]]; then
 		fail "allowlist entry '$id' expired on $review (line $lineno): re-triage it, fix the dependency, or delete the line"
+	fi
+	if [[ "$review" > "$horizon" ]]; then
+		fail "allowlist entry '$id' (line $lineno) is reviewed on $review, more than $max_days days ahead: pick a date on or before $horizon"
 	fi
 	allowed+="$id "
 done <"$allowlist"
@@ -106,21 +121,34 @@ remaining=0
 [ -z "$rows" ] || remaining="$(printf '%s\n' "$rows" | wc -l | tr -d ' ')"
 filtered=$((total - remaining))
 
+# Counts per severity of what is left to act on, e.g. "critical 1, high 2". The scanned
+# code is private and this output lands on a public Actions page, so CI sees counts only;
+# the itemised rows are printed to stdout on request, for a local run.
+by_severity=""
+counted=0
+for sev in critical high moderate low info; do
+	n=0
+	[ -z "$rows" ] || n="$(printf '%s\n' "$rows" | awk -F'\t' -v s="$sev" '$1 == s { n++ } END { print n + 0 }')"
+	counted=$((counted + n))
+	[ "$n" -eq 0 ] || by_severity+="${by_severity:+, }$sev $n"
+done
+# A severity this script does not know is still counted, so the parts always add up.
+[ "$counted" -eq "$remaining" ] || by_severity+="${by_severity:+, }other $((remaining - counted))"
+[ -n "$by_severity" ] || by_severity="none"
+
 {
 	echo "### pnpm audit --prod: \`$dir\`"
 	echo
-	echo "$total advisories reported, $filtered allowlisted, **$remaining to act on**."
-	if [ "$remaining" -gt 0 ]; then
-		echo
-		echo "| Severity | Package | Advisory | Patched in |"
-		echo "| --- | --- | --- | --- |"
-		printf '%s\n' "$rows" | awk -F'\t' '{ printf "| %s | %s | %s | `%s` |\n", $1, $2, $3, $4 }'
-	fi
+	echo "$total advisories reported, $filtered allowlisted, **$remaining to act on** ($by_severity)."
 	echo
 } >>"${GITHUB_STEP_SUMMARY:-/dev/null}"
 
-echo "pnpm audit --prod $dir: $total advisories, $filtered allowlisted, $remaining to act on"
+echo "pnpm audit --prod $dir: $total advisories, $filtered allowlisted, $remaining to act on ($by_severity)"
 if [ "$remaining" -gt 0 ]; then
-	printf '%s\n' "$rows" | awk -F'\t' '{ printf "  %-9s %-28s %-24s patched: %s\n", $1, $2, $3, $4 }'
+	if [ "${PNPM_AUDIT_DETAILS:-}" = "1" ]; then
+		printf '%s\n' "$rows" | awk -F'\t' '{ printf "  %-9s %-28s %-24s patched: %s\n", $1, $2, $3, $4 }'
+	else
+		echo "  (itemised list withheld: run PNPM_AUDIT_DETAILS=1 .github/scripts/pnpm-audit.sh $dir locally)"
+	fi
 	exit 5
 fi

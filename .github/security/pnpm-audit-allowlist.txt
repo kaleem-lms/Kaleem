@@ -9,7 +9,7 @@
 # them from the audit; this file is how a build-time-only finding is recorded as triaged.
 #
 # `pnpm-audit.sh` fails the job on any entry past its review-by date, whether or not the
-# advisory still exists, so a suppression cannot outlive its reason. No review-by date
-# may be later than the blocking date (SCA_BLOCKING_FROM in ci.yml).
+# advisory still exists, so a suppression cannot outlive its reason. A review-by date more
+# than 90 days ahead of the day the job runs is rejected too, so no entry is permanent.
 #
 # Do NOT add a line to make a red run green. Same rule as .gitleaksignore.

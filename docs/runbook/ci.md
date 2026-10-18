@@ -108,8 +108,10 @@ self-test of its own wrappers; if that step is red, the scanners are broken, not
 
 **Report-only, then blocking.** `SCA_BLOCKING_FROM` at the top of `ci.yml` is one date. The two
 dependency scans (`pnpm audit`, `trivy`) only warn before it and fail from it. A warning is
-not noise: the findings are in the job's **step summary** (`pnpm audit`: severity, package,
-advisory, patched range; `trivy`: its detailed table). A scanner *error* (registry or database
+not noise: the job's log and **step summary** give the count per severity. They give counts
+only, because the audited repositories are private and this page is public. To see the
+itemised list, run `PNPM_AUDIT_DETAILS=1 .github/scripts/pnpm-audit.sh dashboard` or scan a
+local build with trivy (`--format table`), and keep triage notes in the private record. A scanner *error* (registry or database
 down, an unreadable report) fails the step on any day, because an error is not a clean result.
 The two secret scans have no such window: a finding blocks at once.
 
@@ -126,10 +128,12 @@ failing inside the container. Do not rerun until green; find out which. A real f
 Fix everything reachable.
 
 - `pnpm audit`: add `<GHSA-id> <review-by YYYY-MM-DD> <reason>` to
-  `.github/security/pnpm-audit-allowlist.txt`. The review-by date may not be later than
-  `SCA_BLOCKING_FROM`. An entry past its date fails the job even if the advisory is gone, so
-  delete a line when its package is fixed.
-- `trivy`: add `<id> exp:<YYYY-MM-DD>` to `.trivyignore`, with a comment above it.
+  `.github/security/pnpm-audit-allowlist.txt`. The review-by date may be at most 90
+  days ahead of the day the job runs (checked by `pnpm-audit.sh`; the rule does not depend on
+  `SCA_BLOCKING_FROM`, so it keeps working after that date). An entry past its date fails the
+  job even if the advisory is gone, so delete a line when its package is fixed.
+- `trivy`: add `<id> exp:<YYYY-MM-DD>` to `.trivyignore`, with a comment above it. Trivy
+  enforces the expiry; keep `exp:` within 90 days by review (no code checks the horizon).
 - State the reason in the file; keep the detailed reasoning in the private record.
 
 **Running them locally.** `bash .github/scripts/test-security-scripts.sh` needs only docker and

@@ -16,7 +16,7 @@ the style of `.github/scripts/classify-changes.sh`.
 | `.github/scripts/test-security-scripts.sh` | new: table-driven self-test, written first |
 | `.github/scripts/sca-gate.sh` | new: date guard (`<scanner> <rc> <finding-rc>`) |
 | `.github/scripts/gitleaks-history.sh` | new: gitleaks git mode plus completeness guard |
-| `.github/scripts/pnpm-audit.sh` | new: `pnpm audit --prod --json`, allowlist filter, step-summary table, `--from-json` for tests |
+| `.github/scripts/pnpm-audit.sh` | new: `pnpm audit --prod --json`, allowlist filter, counts-only log and summary, 90-day review horizon, `--from-json` for tests |
 | `.github/scripts/fixtures/pnpm-audit-*.json` | new: synthetic advisories (fake GHSA ids) |
 | `.github/security/pnpm-audit-allowlist.txt` | new: `<GHSA> <review-by> <reason>` |
 | `.trivyignore` | new: header comment only, plus any triaged `exp:` entries |
@@ -64,8 +64,9 @@ Conductor-only files are not edited: `CLAUDE.md`'s D3 scanner table, `ISSUES.md`
    - Run `pnpm audit --prod --json` in the given directory, or read `--from-json`.
    - Do not pass `--ignore-registry-errors`. A missing `metadata` key is an error, exit 3.
    - Drop allowlisted advisories, and exit 3 on an expired entry.
-   - Write the remainder to `$GITHUB_STEP_SUMMARY` as a table of severity, package,
-     advisory and patched range, then exit 5 if anything remains.
+   - Write the remainder to `$GITHUB_STEP_SUMMARY` as counts per severity only (the
+     itemised list is opt-in for a local run, `PNPM_AUDIT_DETAILS=1`), then exit 5 if
+     anything remains.
    - Run the self-test until it is fully green.
 
 5. [ ] **Wire `ci.yml`.**
@@ -104,7 +105,7 @@ Conductor-only files are not edited: `CLAUDE.md`'s D3 scanner table, `ISSUES.md`
      The frontend images need the tokens secret, which agents do not hold, so CI's
      first `image-scan` report is their baseline.
    - Allowlist only findings that are not reachable in what ships (build-time only),
-     each with a review-by date no later than 2026-11-30 and a one-line public reason.
+     each with a review-by date at most 90 days ahead and a one-line public reason.
    - The full triage, and the list of findings that need a fix, goes to
      `/home/abdulkhalek/Projects/kaleem-worktrees/_ops/private/lb-security-scanning-sca.md`.
      Nothing reachable is described in a public file.
@@ -120,7 +121,7 @@ Conductor-only files are not edited: `CLAUDE.md`'s D3 scanner table, `ISSUES.md`
 
 8. [ ] **Hand back** with the runbook's section-3 block, plus:
    - the mutation-check lines;
-   - the first CI run's counts and summary tables, with sensitive detail sent only to
+   - the first CI run's counts, with sensitive detail sent only to
      the private record;
    - replacement text for the `CLAUDE.md` D3 scanner table rows and for the two
      `ISSUES.md` entries ("semgrep, trivy and pnpm audit still do not run" narrowed to

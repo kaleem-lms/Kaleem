@@ -3,7 +3,8 @@
 #
 #   gitleaks-history.sh   history scan plus the completeness guard
 #   sca-gate.sh           the date guard (report-only before, blocking from)
-#   pnpm-audit.sh         pnpm audit, allowlist filter, expiry
+#   pnpm-audit.sh         pnpm audit, allowlist filter, expiry, counts-only output
+#   trivy-counts.sh       trivy report to counts-only output
 #
 # This runs as the first step of the `security` job, so the scanners that decide
 # whether a PR may merge are themselves checked on every run (the
@@ -19,6 +20,7 @@ here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 gitleaks_history="$here/gitleaks-history.sh"
 sca_gate="$here/sca-gate.sh"
 pnpm_audit="$here/pnpm-audit.sh"
+trivy_counts="$here/trivy-counts.sh"
 fixtures="$here/fixtures"
 fail=0
 
@@ -86,6 +88,9 @@ make_clean_repo() {
 today="$(date -u +%F)"
 past="2000-01-01"
 future="2999-12-31"
+soon="$(date -u -d '+30 days' +%F)"
+edge="$(date -u -d '+90 days' +%F)"
+beyond="$(date -u -d '+91 days' +%F)"
 
 # ---------------------------------------------------------------------------
 # sca-gate.sh <name> <rc> <finding-rc>
@@ -114,17 +119,28 @@ allow_future="$work/allow-future.txt"
 allow_expired="$work/allow-expired.txt"
 allow_empty="$work/allow-empty.txt"
 allow_bad="$work/allow-bad.txt"
-printf '# header\n\nGHSA-fake-aaaa-0001 %s build-time only, never reaches the shipped bundle\n' "$future" >"$allow_future"
+printf '# header\n\nGHSA-fake-aaaa-0001 %s build-time only, never reaches the shipped bundle\n' "$soon" >"$allow_future"
 printf 'GHSA-fake-aaaa-0001 %s build-time only\n' "$past" >"$allow_expired"
 printf '# nothing allowed\n' >"$allow_empty"
-printf 'GHSA-fake-aaaa-0001 %s\n' "$future" >"$allow_bad"
+printf 'GHSA-fake-aaaa-0001 %s\n' "$soon" >"$allow_bad"
 
 pa() { PNPM_AUDIT_ALLOWLIST="$1" "$pnpm_audit" "${@:2}"; }
 
 expect "pnpm-audit: a clean report passes" 0 - pa "$allow_empty" fixture --from-json "$fixtures/pnpm-audit-clean.json"
-expect "pnpm-audit: an unlisted advisory is a finding" 5 "GHSA-fake-aaaa-0001" pa "$allow_empty" fixture --from-json "$fixtures/pnpm-audit-one.json"
+expect "pnpm-audit: an unlisted advisory is a finding" 5 "1 to act on (high 1)" pa "$allow_empty" fixture --from-json "$fixtures/pnpm-audit-one.json"
 expect "pnpm-audit: an allowlisted advisory is filtered out" 0 - pa "$allow_future" fixture --from-json "$fixtures/pnpm-audit-one.json"
-expect "pnpm-audit: only the unlisted one remains" 5 "GHSA-fake-bbbb-0002" pa "$allow_future" fixture --from-json "$fixtures/pnpm-audit-two.json"
+expect "pnpm-audit: only the unlisted one remains" 5 "1 allowlisted, 1 to act on (critical 1)" pa "$allow_future" fixture --from-json "$fixtures/pnpm-audit-two.json"
+allow_edge="$work/allow-edge.txt"
+allow_beyond="$work/allow-beyond.txt"
+allow_forever="$work/allow-forever.txt"
+printf 'GHSA-fake-aaaa-0001 %s build-time only\n' "$edge" >"$allow_edge"
+printf 'GHSA-fake-aaaa-0001 %s build-time only\n' "$beyond" >"$allow_beyond"
+printf 'GHSA-fake-aaaa-0001 %s build-time only\n' "$future" >"$allow_forever"
+expect "pnpm-audit: a review-by date exactly 90 days ahead is accepted" 0 - pa "$allow_edge" fixture --from-json "$fixtures/pnpm-audit-one.json"
+expect "pnpm-audit: a review-by date 91 days ahead is an error" 3 "more than 90 days ahead" pa "$allow_beyond" fixture --from-json "$fixtures/pnpm-audit-one.json"
+expect "pnpm-audit: a review-by date in the year 2999 is an error" 3 "more than 90 days ahead" pa "$allow_forever" fixture --from-json "$fixtures/pnpm-audit-one.json"
+expect "pnpm-audit: the horizon is not tied to the blocking date" 0 - \
+	env SCA_BLOCKING_FROM=2026-11-30 PNPM_AUDIT_ALLOWLIST="$allow_edge" "$pnpm_audit" fixture --from-json "$fixtures/pnpm-audit-one.json"
 expect "pnpm-audit: an expired entry is an error" 3 "expired" pa "$allow_expired" fixture --from-json "$fixtures/pnpm-audit-clean.json"
 expect "pnpm-audit: an expired entry never silences its advisory" 3 "expired" pa "$allow_expired" fixture --from-json "$fixtures/pnpm-audit-one.json"
 expect "pnpm-audit: an entry with no reason is an error" 3 "reason" pa "$allow_bad" fixture --from-json "$fixtures/pnpm-audit-clean.json"
@@ -135,15 +151,42 @@ expect "pnpm-audit: malformed JSON is an error" 3 - pa "$allow_empty" fixture --
 expect "pnpm-audit: a registry error body is an error" 3 "metadata" pa "$allow_empty" fixture --from-json "$fixtures/pnpm-audit-no-metadata.json"
 expect "pnpm-audit: a missing report is an error" 3 - pa "$allow_empty" fixture --from-json "$work/missing.json"
 
+# The audited repositories are private and the Actions page is public, so CI output is
+# COUNTS ONLY: severity totals, never a package or advisory identifier. The itemised rows
+# are an opt-in for a local run, and even then never reach the step summary.
 summary="$work/summary.md"
 : >"$summary"
-GITHUB_STEP_SUMMARY="$summary" PNPM_AUDIT_ALLOWLIST="$allow_empty" "$pnpm_audit" fixture --from-json "$fixtures/pnpm-audit-two.json" >/dev/null 2>&1 || true
-if grep -qF "GHSA-fake-bbbb-0002" "$summary" && grep -qF "fake-package-two" "$summary" && grep -qF ">=3.1.0" "$summary"; then
-	echo "ok: pnpm-audit: the step summary lists severity, package, advisory and patched range"
+out_default="$(GITHUB_STEP_SUMMARY="$summary" PNPM_AUDIT_ALLOWLIST="$allow_empty" "$pnpm_audit" fixture --from-json "$fixtures/pnpm-audit-two.json" 2>&1 || true)"
+if grep -qF "critical 1, high 1" "$summary" && printf '%s' "$out_default" | grep -qF "critical 1, high 1"; then
+	echo "ok: pnpm-audit: the summary and the log carry the count per severity"
 else
-	echo "FAIL: pnpm-audit: the step summary lacks the advisory table"
+	echo "FAIL: pnpm-audit: the summary or log lacks the per-severity count"
 	sed 's/^/      | /' "$summary"
 	fail=1
+fi
+if grep -qE "fake-package|GHSA-fake|>=3.1.0" "$summary" || printf '%s' "$out_default" | grep -qE "fake-package|GHSA-fake|>=3.1.0"; then
+	echo "FAIL: pnpm-audit: a package, advisory or patched range reached the default output"
+	sed 's/^/      | /' "$summary"
+	printf '%s\n' "$out_default" | sed 's/^/      | /'
+	fail=1
+else
+	echo "ok: pnpm-audit: the default output names no package, advisory or patched range"
+fi
+: >"$summary"
+out_details="$(GITHUB_STEP_SUMMARY="$summary" PNPM_AUDIT_DETAILS=1 PNPM_AUDIT_ALLOWLIST="$allow_empty" "$pnpm_audit" fixture --from-json "$fixtures/pnpm-audit-two.json" 2>&1 || true)"
+if printf '%s' "$out_details" | grep -qF "GHSA-fake-bbbb-0002" && printf '%s' "$out_details" | grep -qF "fake-package-two" && printf '%s' "$out_details" | grep -qF ">=3.1.0"; then
+	echo "ok: pnpm-audit: PNPM_AUDIT_DETAILS=1 prints severity, package, advisory and patched range"
+else
+	echo "FAIL: pnpm-audit: the opt-in did not print the itemised rows"
+	printf '%s\n' "$out_details" | sed 's/^/      | /'
+	fail=1
+fi
+if grep -qE "fake-package|GHSA-fake|>=3.1.0" "$summary"; then
+	echo "FAIL: pnpm-audit: the opt-in leaked the itemised rows into the step summary"
+	sed 's/^/      | /' "$summary"
+	fail=1
+else
+	echo "ok: pnpm-audit: even with the opt-in the step summary stays counts only"
 fi
 
 # The real invocation must audit production dependencies only, as JSON, and must not
@@ -188,6 +231,33 @@ SHIM
 chmod +x "$jshim/jq"
 expect "pnpm-audit: a jq failure (exit 5) is an error, not a finding" 3 - \
 	env PATH="$jshim:$PATH" PNPM_AUDIT_ALLOWLIST="$allow_empty" "$pnpm_audit" fixture --from-json "$fixtures/pnpm-audit-one.json"
+
+# ---------------------------------------------------------------------------
+# trivy-counts.sh <app> <json> <trivy-rc>
+# ---------------------------------------------------------------------------
+tc() { "$trivy_counts" "$@"; }
+tsum="$work/trivy-summary.md"
+: >"$tsum"
+tout="$(GITHUB_STEP_SUMMARY="$tsum" "$trivy_counts" fixture "$fixtures/trivy-two.json" 5 2>&1 || true)"
+if grep -qF "**3** HIGH or CRITICAL" "$tsum" && grep -qF "critical 1, high 2" "$tsum" && printf '%s' "$tout" | grep -qF "critical 1, high 2"; then
+	echo "ok: trivy-counts: the summary and the log carry the count per severity"
+else
+	echo "FAIL: trivy-counts: the summary or log lacks the per-severity count"
+	sed 's/^/      | /' "$tsum"
+	fail=1
+fi
+if grep -qE "fake-trivy|CVE-0000|1\.0\.1|2\.0\.1" "$tsum" || printf '%s' "$tout" | grep -qE "fake-trivy|CVE-0000|1\.0\.1|2\.0\.1"; then
+	echo "FAIL: trivy-counts: a package, CVE or fixed version reached the output"
+	sed 's/^/      | /' "$tsum"
+	printf '%s\n' "$tout" | sed 's/^/      | /'
+	fail=1
+else
+	echo "ok: trivy-counts: the output names no package, CVE or fixed version"
+fi
+expect "trivy-counts: a clean report says none" 0 "0 HIGH or CRITICAL with a fix available (none)" tc fixture "$fixtures/trivy-clean.json" 0
+expect "trivy-counts: a scanner error is left to sca-gate.sh, not counted" 0 "scanner exit 1" tc fixture "$work/trivy-absent.json" 1
+expect "trivy-counts: a finished scan with no report is an error" 3 "no usable report" tc fixture "$work/trivy-absent.json" 5
+expect "trivy-counts: a finished scan with a garbage report is an error" 3 "no usable report" tc fixture "$work/garbage.json" 0
 
 # ---------------------------------------------------------------------------
 # gitleaks-history.sh <dir>

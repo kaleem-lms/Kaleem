@@ -48,7 +48,11 @@ covers those.
 **2. The blocking date is a value in `ci.yml`, and the date guard acts on it.**
 `SCA_BLOCKING_FROM` is `2026-11-30`. `.github/scripts/sca-gate.sh` is the only reader.
 A scanner **finding** (a dedicated exit code: 5) is a `::warning::` and a step-summary
-table before that day, and a failing step on and after it. Nobody has to remember to flip
+line of counts per severity before that day, and a failing step on and after it. Only
+counts are published: the scanned repositories are private and the Actions page is public,
+so the itemised list (package, advisory, fixed version) is never written to the log or
+summary. It is reachable by running `pnpm-audit.sh` (`PNPM_AUDIT_DETAILS=1`) or trivy
+locally; triage is kept in the private record. Nobody has to remember to flip
 a switch. A scanner **error** (registry or database outage, an unparseable report, a
 missing tool) fails the step on every day: a broken verifier is never reported as clean.
 
@@ -71,8 +75,12 @@ precedent: `.github/security/pnpm-audit-allowlist.txt` (advisory, review-by date
 an expired entry fails the job, whether or not the advisory still exists) and `.trivyignore`
 (trivy's own `exp:` syntax). An entry is allowed only for a finding triaged as **not
 reachable in what ships**, for example a build-time package that never reaches the
-nginx-served static bundle. A reachable finding is fixed, never allowlisted. No review-by
-date may be later than the blocking date.
+nginx-served static bundle. A reachable finding is fixed, never allowlisted. A review-by
+date may lie at most 90 days ahead of the day the check runs. `pnpm-audit.sh` enforces
+this, and it is deliberately relative to today and not to the blocking date: a rule tied
+to that date would leave no compliant date after it, making the allowlist unusable at the
+moment it matters. The trivy side is expired by trivy's own `exp:`; keeping it within 90
+days is a review rule that no code checks.
 
 **6. The scanners are tested on every run.** `.github/scripts/test-security-scripts.sh` is
 the first step of `security`, table-driven, with no network beyond the pinned image. It

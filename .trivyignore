@@ -3,7 +3,7 @@
 # One finding per line, in trivy's own syntax:  <CVE-or-GHSA-id> exp:<YYYY-MM-DD>
 # preceded by a comment saying WHY it is not reachable in what ships. `exp:` is
 # mandatory: trivy stops honouring the line on that date, so a suppression cannot
-# outlive its review.
+# outlive its review. Keep it within 90 days of adding the line (a review rule).
 #
 # An entry is allowed only for a finding triaged as NOT REACHABLE in the running image
 # (for example, a package present only in a build stage that is not copied into the

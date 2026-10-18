@@ -57,15 +57,21 @@ submodules.
 2. **Date guard.** The workflow sets one value, `SCA_BLOCKING_FROM: "2026-11-30"`. The
    wrapper `.github/scripts/sca-gate.sh` classifies what each scanner returns:
    - a **finding**, from a dedicated exit code: before the date it becomes a
-     `::warning::` plus a step-summary table and exits 0; on or after the date the step
-     fails;
+     `::warning::` plus a step-summary line of **counts per severity** and exits 0; on or
+     after the date the step fails. The itemised list (package, advisory, patched range) is
+     never written to the log or summary: the audited repositories are private and the
+     Actions page is public. It is available only by running `pnpm-audit.sh`
+     (`PNPM_AUDIT_DETAILS=1`) or trivy locally, and triage lives in the private record;
    - a **scanner error**, such as a registry or DB outage, unparseable output or a
      missing tool: the step **always fails**. A broken verifier is never reported as
      clean.
 3. **Annotated, expiring allowlists in meta**, after the `.gitleaksignore` precedent:
    - `.github/security/pnpm-audit-allowlist.txt` has one advisory per line, with a
      review-by date and a reason. The wrapper filters `pnpm audit --json` against it and
-     fails on an **expired** entry.
+     fails on an **expired** entry, and on one reviewed **more than 90 days ahead** of the
+     day it runs, so no entry is permanent and the rule still works after the blocking
+     date. The trivy side expires through `exp:`; its 90-day horizon is a review rule, not
+     checked by code.
    - `.trivyignore` uses trivy's native `exp:` syntax.
 
    An entry is allowed only for a finding triaged as **not reachable in what ships**,
@@ -123,7 +129,7 @@ instead:
   - the date forced into the past on a branch, where `image-scan` and `pnpm audit` must
     go red.
 - The first CI run is read in full: each submodule's scanned count, both audits' summary
-  tables, and the three image scans.
+  counts, and the three image scans.
 
 ## Open questions
 
