@@ -32,6 +32,8 @@ Not touched: `e2e/fixtures.ts` (it already has `teacher` and `booked`), `e2e/acc
      `starts_at` on both sides, and `/(Z|\+00:00)$/` on it;
    - for each shared row and each page: `expected = await page.evaluate(([iso, tz]) => new Intl.DateTimeFormat(document.documentElement.lang, { dateStyle: "medium", timeStyle: "short", timeZone: tz }).format(new Date(iso)), [row.starts_at, zone])`,
      then `expect(page.getByRole("button", { name: expected }).first()).toBeVisible()`;
+   and the same in-page formatter with `timeStyle: "short"` only gives the expected time,
+   which must be the exact text inside the card (the list item holding that button);
    - asserts the Cairo `expected` differs from the London `expected` for each row.
 
    A header comment states what the flow proves and what it does not: browser zone, not
@@ -39,7 +41,7 @@ Not touched: `e2e/fixtures.ts` (it already has `teacher` and `booked`), `e2e/acc
    why it is read-only and safe to run after `booking.spec.ts`'s cancellation (it filters
    to rows still scheduled in both views).
 2. [x] **See it pass on main, then mutation-check it.** This is a regression test over code
-   that is already right, so "failing first" means the mutations. Apply M1, M2 and M3 to
+   that is already right, so "failing first" means the mutations. Apply M1, M2, M3 and M5 to
    `src/features/booking/components/SessionCard.tsx` one at a time, and M4 to the spec.
    Run the flow and see it red each time, then revert. Record each red line for the PR body.
    Use e2e port slot 1 or 2 (runbook section 2): Django on the gate image with the shim,
@@ -73,7 +75,7 @@ Not touched: `e2e/fixtures.ts` (it already has `teacher` and `booked`), `e2e/acc
 
 ## Verification
 
-- Step 1 and 2: the flow is green on an unmodified build, and red under each of M1 to M4.
+- Step 1 and 2: the flow is green on an unmodified build, and red under each of M1 to M5.
 - Step 3: the full dashboard gate is green, and the five hand-back checks hold.
 - Whole unit: CI's e2e job log lists `timezone.spec.ts` as passed on the first attempt (a
   pass on retry is a finding). The D9 click-through on staging covers both themes, Arabic
@@ -88,4 +90,9 @@ Not touched: `e2e/fixtures.ts` (it already has `teacher` and `booked`), `e2e/acc
   context without `timezoneId`) failed at the precondition (`Expected "Africa/Cairo"`,
   `Received "UTC"`) when run with host `TZ=UTC`, as CI runs. On a host that already sits in
   Cairo's zone the same mutation stays green, which is why the check is run in a UTC host.
+- Review round 1 found that the first version asserted only the date inside the button
+  names, so a build showing UTC times on the card's time block still passed. Fixed: the
+  flow now also asserts the viewer's expected time inside the lesson's card. M5
+  (`timeZone: "UTC"` on the time block's formatter only) was green before and is red now.
+  M1 to M5 were re-run after the change.
 - Not run: full e2e suite locally; CI is the authority.

@@ -51,13 +51,17 @@ No change. The code under test, at dashboard `origin/main`:
   `Intl.DateTimeFormat(i18n.language, { dateStyle: "medium", timeStyle: "short" })`. It
   passes no `timeZone`, so it uses the browser's zone. It hands that string to `JoinButton`
   and `CancelSessionDialog`, which put it in their accessible names (`booking.joinFor`,
-  `booking.cancelFor`: "… on {{date}}").
+  `booking.cancelFor`: "… on {{date}}"). The card's leading time block is a **second,
+  separate** `Intl.DateTimeFormat(i18n.language, { timeStyle: "short" })` call, also with
+  no `timeZone`; it is the time a sighted viewer actually reads and is not part of any
+  button name, so it is asserted on its own.
 - The schedule route `/schedule` renders `SessionList` for both roles.
 
 What the assertion keys on: a button whose accessible name **contains** the expected date
 string. It does not match on the surrounding words, so it is independent of
 `cur-session-wording` (which rewrites `joinFor`). A disabled Join button still has its name,
-so future lessons count too.
+so future lessons count too. The time block is keyed on its exact text inside the card
+(the list item that holds that button).
 
 How the expected string is computed: inside the same page, with an **explicit** zone,
 `new Intl.DateTimeFormat(document.documentElement.lang, { dateStyle: "medium",
@@ -107,8 +111,10 @@ loads):
    compare UTC with UTC.
 2. **Same lesson:** at least one session id is in both responses (no vacuous pass), and each
    shared id has the identical `starts_at` in both, ending in `Z` or `+00:00`.
-3. **Per viewer, per shared upcoming lesson:** a button whose name contains that viewer's
-   expected string is visible.
+3. **Per viewer, per shared upcoming lesson:** both are visible: a button whose name
+   contains that viewer's expected date string, and, inside that lesson's card, the
+   viewer's expected time (`timeStyle: "short"` in the viewer's zone) as the exact text of
+   the card's own time block.
 4. **The zones really differ:** for each shared lesson, the Cairo string is not the London
    string. Cairo is UTC+2 or +3 and London UTC+0 or +1, so the two always differ by 1 to
    3 hours.
@@ -119,6 +125,9 @@ Mutation checks (each must turn the flow red, then be reverted):
   London alone would pass after 2026-10-25, which is why the teacher's side is in Cairo.
 - M2: `timeZone: "Europe/London"` hard-coded. Red for Cairo.
 - M3: parse `starts_at` with its offset stripped (read as local time). Red for Cairo.
+- M5: `timeZone: "UTC"` added to the time block's formatter only, leaving `formattedDate`
+  alone. The button-name assertion still passes, so only the time-block assertion in 3
+  turns it red for Cairo. Without that assertion this mutation stayed green.
 - M4 (test-side): drop `timezoneId` from the Cairo context. Assertion 1 goes red.
 
 ## Open questions
