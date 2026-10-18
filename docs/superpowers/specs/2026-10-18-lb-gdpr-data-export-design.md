@@ -50,6 +50,7 @@ on behalf of a child who cannot sign in is lb-parent-acts-for-child, not this un
     "billing.subscriptions": { "...": "..." },
     "curriculum.subjects": { "...": "..." },
     "identity.account": { "...": "..." },
+    "messaging.chats": { "...": "existing hook, unchanged" },
     "scheduling.lessons": { "...": "..." }
   }
 }
@@ -183,8 +184,10 @@ throttled message on 429; `download.ts` names the file and revokes the URL; loca
 e2e (`e2e/data-export.spec.ts`, budget 20 s, two flows):
 
 - `booked` signs in, downloads the file, and it parses with `format`, `version: 1`, the
-  five sections, its own email in `identity.account`, at least one lesson in
-  `scheduling.lessons`, and no `pbkdf2_` / `argon2` substring anywhere.
+  every registered hook's section (at least `assessment.records`, `billing.subscriptions`,
+  `curriculum.subjects`, `identity.account`, `messaging.chats`, `scheduling.lessons`; a
+  subset check, so a module joining later needs no change here), its own email in
+  `identity.account`, at least one lesson in `scheduling.lessons`, and no `pbkdf2_` / `argon2` substring anywhere.
 - `student` enters a wrong password: the field error shows and no download event fires.
 
 Staging (dec-d9-substitute): the agent click-through on `/account` in both themes, Arabic

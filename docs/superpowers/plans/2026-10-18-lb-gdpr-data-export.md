@@ -87,7 +87,7 @@ env var. Never edit a coverage floor.
     (parity and terminology tests must pass).
 14. [x] **e2e.** `e2e/data-export.spec.ts`, two flows, budget 20 s:
     `booked` downloads via `page.waitForEvent("download")`, parses the saved file, and
-    asserts `format`, `version`, the five section keys, its own email, at least one lesson,
+    asserts `format`, `version`, that the section keys include every registered hook (a subset check; messaging joined after the first draft), its own email, at least one lesson,
     and no `pbkdf2_`/`argon2` substring; `student` with a wrong password sees the field
     error and no download fires (a listener that fails the test on `download`). Both
     accounts are used read-only; neither belongs to another spec's mutations.
