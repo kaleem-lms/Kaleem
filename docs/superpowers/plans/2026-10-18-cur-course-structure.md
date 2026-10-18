@@ -1,12 +1,11 @@
 ---
 spec: docs/superpowers/specs/2026-10-18-cur-course-structure-design.md
-status: draft
+status: approved
 ---
 
 # Plan: cur-course-structure
 
-**Parked until dec-cur-ownership is answered.** Steps assume option 1. Another answer
-means rewriting the spec first.
+dec-cur-ownership is resolved (option 1, 2026-10-18); the spec is approved.
 
 Branch `feat/cur-course-structure` in three worktrees under
 `/home/abdulkhalek/Projects/kaleem-worktrees/`: `backend-cur-course-structure`,
@@ -163,8 +162,6 @@ One migration (`curriculum/0004_course_unit_lesson`). No dependency change. No f
 
 ## Risks
 
-- **Ownership answer differs.** Anything but option 1 changes the model and routes. The
-  unit stays parked until the answer is recorded.
 - **Deferred constraints hide in tests.** pytest-django never commits, so a deferred
   violation passes silently. Step 1 forces the check, and step 8 proves it bites.
 - **Route restructure.** Turning `curriculum.tsx` into a layout moves the page. The sweep's

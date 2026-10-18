@@ -2,7 +2,8 @@
 name: cur-course-structure
 phase: v1 (wave 2, curriculum stream)
 modules: [curriculum, platform]
-status: draft
+status: approved
+approved: 2026-10-18
 created: 2026-10-18
 closed: null
 ---
@@ -29,12 +30,9 @@ What exists today (backend `origin/main` fe415f1, dashboard `origin/main` c70a0f
 
 **Decision basis.** dec-cur-terminology (resolved: a live call is a *session*, *lesson*
 stays for the curriculum). dec-preview-mode (resolved: run alongside). **dec-cur-ownership
-is still open.** This spec is written on its recommended option 1 ("private to the teacher;
-students keep access after a teacher change"). Under option 1 this unit only needs the
-first half: a course has one owning teacher and nobody else reads it. The second half
-binds cur-lesson-assignment. Options 2-4 (opt-in sharing, curated by kaleem, global) would
-change the owner field, the queries and the routes, so the unit is parked until the owner
-answers.
+(resolved 2026-10-18: option 1, "private to the teacher; students keep access after a
+teacher change").** Under option 1 this unit only needs the first half: a course has one
+owning teacher and nobody else reads it. The second half binds cur-lesson-assignment.
 
 ## User flow
 
@@ -230,9 +228,10 @@ goes in `NOT_SWEPT` (it needs a course id), with flow 2 as its cover.
 
 ## Open questions
 
-- **dec-cur-ownership** (owner, before spec): who owns courses? This spec assumes
-  option 1.
+- None. **dec-cur-ownership** is resolved (option 1, 2026-10-18).
 
-Choices made here that the owner may overturn at approval: any active subject (not only
-those the teacher teaches); hard delete; the three limits; lessons stay within their unit.
-Arabic terms for course, unit and lesson go to hg-arabic-review, which holds spec closure.
+The owner approved the spec on 2026-10-18 with all its choices: any active subject (not
+only those the teacher teaches); hard delete; limits of 50 courses per teacher, 50 units
+per course and 100 lessons per unit; lessons stay within their unit; and the Arabic terms
+دورة (course), وحدة (unit) and درس (lesson). The Arabic terms still go to hg-arabic-review,
+which holds spec closure.
