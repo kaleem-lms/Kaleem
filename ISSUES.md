@@ -301,18 +301,18 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
   is normal and a lesson runs an hour — and raised in local/test settings so the e2e flows and
   CI's retry are unaffected. The test drives the real throttle rather than reading the
   attribute, because a `throttle_scope` with no matching rate silently does nothing.
-- **The C3a e2e does not cover "a parent sees no Join control".** The spec lists it; it shipped
+- ~~**The C3a e2e does not cover "a parent sees no Join control".**~~ **FIXED 2026-10-18** (lb-e2e-seed-gaps: `parent-schedule.spec.ts`, on a seeded guardian link). The spec lists it; it shipped
   covered at API level (403 against a real `ParentStudent` row) and at component level only.
   `seed_e2e` creates no parent↔student link, so the flow would be vacuous without seed work.
 
 - **e2e now covers every shipped user-facing area; what remains is listed below.** The
   2026-09-04 conversion took the suite from 6 flows to 20 — availability, family, account
   and email, and the app shell all have specs, and the `CLAUDE.md` D3 table names them.
-  Still uncovered, each for a stated reason: **change-password** (would rotate the shared
-  seed password mid-suite — needs its own throwaway account, a small slice), the
+  Still uncovered, each for a stated reason: ~~**change-password**~~ (covered 2026-10-18 by
+  `change-password.spec.ts` on its own account), the
   inbox-dependent flows below, and billing. A table that claims less than reality is
   harmless; one that claims more is how the gate stayed fictional for three months.
-- **Flows the harness structurally cannot reach without more infrastructure:** anything
+- ~~**Flows the harness structurally cannot reach without more infrastructure:**~~ **FIXED 2026-10-18** (ntf-mail-e2e-harness, ADR-0052: a pinned mailpit in the e2e job; registration, password reset and child activation are now covered). anything
   needing a real inbox — registration, password reset, child activation — because CI has no
   mail-catcher wired in. That is its own slice (a mailpit service plus a way to read the
   link). Note this is *not* the same as the billing exclusion below, which is permanent.
@@ -358,6 +358,17 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
 - Dunning UX beyond mirroring `past_due` (retry/notice flow) is deferred.
 
 ## Someday
+
+- **`@kaleem/tokens` will export `./brand.mjs`, which imports a devDependency at top level**
+  (brand plan E15): a consumer that imports it fails with `ERR_MODULE_NOT_FOUND`. Drop the
+  export or import `@resvg/resvg-js` lazily inside `emit()`. For `inf-brand-tokens-pipeline`.
+
+- **The allauth confirmation email greets "Hello from !"** — the site name is empty, so the
+  greeting has nothing after "from". Seen in the first real e2e inbox mail. Found 2026-10-18 by
+  ntf-mail-e2e-harness.
+- **`dashboard/public/icons.svg` is dead.** It is Vite's template sprite of social icons and
+  nothing references it (seen in `rch-pwa-manifest-head`). It ships in every build. Delete it
+  in a unit that already touches `public/`.
 
 - **Five Arabic plural families have no `_zero` form**, so at count 0 an Arabic page falls back
   to English: `availability.copyConfirmBody`, `availability.weeklyTotal`,
