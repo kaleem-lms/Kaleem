@@ -442,8 +442,10 @@ failure.
 **The room.** `RoomRegistry` is a process-local dict with `MAX_PEERS = 2`. A seat belongs to a
 *participant* (`user_id`), not to a socket: a second socket from the same person *replaces* the
 first (a reconnect after a dropped network, or a second tab) rather than filling the room and
-locking their teacher out. `peer-joined` and `peer-left` are announced as one fact, in one
-`finally`, and a displaced socket's cleanup does not announce a departure. The registry assumes one
+locking their teacher out. Freeing the seat and announcing `peer-left` are one fact,
+in one `finally`, so a socket that dies mid-announcement still frees its seat and the survivor
+always gets a `peer-left` to match its `peer-joined`. A displaced socket's cleanup announces nothing
+(`registry.leave` returns False). The registry assumes one
 process (ADR-0035's one-replica constraint, which the single shared host of ADR-0037 keeps), so
 two peers of a room always reach the same one. If that stops being true, `signaling/rooms.py`
 is the file that grows a fan-out layer.
