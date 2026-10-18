@@ -93,7 +93,7 @@ test-backend-host:
 lint: lint-backend lint-frontend check-boundaries
 
 lint-backend:
-    HOST_UID=$(id -u) HOST_GID=$(id -g) docker compose -f docker-compose.local.yml run --rm django sh -euc 'ruff check . && ruff format --check .'
+    HOST_UID=$(id -u) HOST_GID=$(id -g) docker compose -f docker-compose.local.yml run --rm django sh -euc 'ruff check . && ruff format --check . && mypy .'
 
 lint-frontend:
     HOST_UID=$(id -u) HOST_GID=$(id -g) docker compose -f docker-compose.local.yml run --rm dashboard pnpm dlx @biomejs/biome check .

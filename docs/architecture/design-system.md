@@ -116,12 +116,31 @@ to hand-roll:
 | `Card` (+ `as`) | 4 hand-rolled surfaces | **One radius, local density.** `as` exists because a session row must be an `<li>`. `CardFooter`/`CardAction` deleted — zero call sites. |
 | `Meter` | 2 impls | **Both roles kept.** `progressbar` = a task completing; `meter` = a measurement. `role` is required with no default. |
 | `PageHeader` | 5 auth headings | Its `<header>` is *not* a second banner: HTML-AAM scopes `banner` to headers outside `main`. Verified in Chromium; jsdom reports it wrongly. |
+| `Textarea` | none (new, 2026-10-18) | A **native `<textarea>`** on `Input`'s recipe. `resize-y` only: a horizontal handle lets a user drag it past a 320px viewport (1.4.10). Logical `text-start` and a `surface` prop, as `Select` has. |
+| `RatingInput` | none (new, 2026-10-18) | A **radiogroup, not a slider**: a rating is one choice out of N. It passes `dir` to Radix itself, because the app mounts no Radix direction provider and roving focus would otherwise treat every group as LTR. Its colours use only the asserted `primary` and `input` pairs, so `surface` is narrowed to `background` and `card`. |
 
 **Not folded in, deliberately.** `CallControlButton` keeps its own component: round
 controls in a round bar, 48px for one-handed use, and `tone` ≠ `variant` because
 `destructive` once coloured both "camera off" and "leave lesson". Those came from
 real-device feedback. Its `bg-secondary/95` was **measured** before being kept — worst
 case 7.15:1 over white video, above AAA — so the alpha is not a defect.
+
+### Upload, avatar and initials (cur-file-upload-primitive, 2026-10-18)
+
+Three primitives that the resources library, profile photo and message attachments
+build on instead of each writing their own:
+
+| Primitive | The decision worth remembering |
+| --- | --- |
+| `FileUpload` (`@/ui/file-upload`) | **Transport-agnostic.** The consumer passes `upload(file, { onProgress, signal })` and calls its own endpoint through `src/lib/api.ts`, so CSRF and the URL stay with the module that owns the endpoint. The browser-side `accept` and `maxBytes` checks are a convenience, not a control: the server decides. Starts on pick; one row per file (`uploading`, `failed`, `refused`, `done`); Retry resends the same `File`; Cancel aborts and drops the row; a result that lands after Cancel is ignored. A drop zone is an alternative to the Choose button (SC 2.5.7), never a replacement, and drops go through the same `accept` match because a drop bypasses the input's own. One polite live region speaks once per file. Focus never falls to `<body>`. |
+| `Avatar` | Radix `Avatar`: picture, else the person's initials, else the person icon. Named avatars are `role="img"`; `decorative`, or an empty name, hides it from assistive technology (an unnamed image is a violation and says nothing). |
+| `initials()` | Moved out of the call feature. Counts **grapheme clusters**, so Arabic harakat and characters outside the BMP are not cut in half; plain Latin and Arabic names give what they always gave. |
+
+**`FileUpload` is not in the `@/ui` barrel, on purpose.** The barrel is part of the
+initial bundle, and re-exporting this control measured +9.8 kB on the initial JS, over
+the bundle budget (a ratchet; raising it needs an ADR). It is imported by path, so it
+travels with the lazy routes that use it. Splitting the rest of the barrel is not done
+here (`rch-dashboard-code-splitting` listed it as out of scope).
 
 ### Target size (SC 2.5.8)
 

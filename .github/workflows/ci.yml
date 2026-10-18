@@ -152,6 +152,12 @@ jobs:
         run: ruff format --check .
       - name: Import linter
         run: lint-imports
+      - name: Type check (mypy)
+        # django-stubs imports config.settings.test, which reads DATABASE_URL.
+        # Nothing connects to it; the URL only has to parse.
+        env:
+          DATABASE_URL: postgres://kaleem:kaleem@localhost:5432/kaleem_test
+        run: mypy .
 
   backend-test:
     runs-on: ubuntu-latest

@@ -23,13 +23,33 @@ Decision: `docs/adr/0048-export-erase-hook-contract.md`.
 | Email task | `tasks.py` | `send_email_message`, the Celery send of one already-rendered email |
 | Seed command | `management/commands/seed.py` | `manage.py seed basic|rich` |
 | Personal-data registry | `personal_data.py`, `personal_data_contract.py` | below |
+| Teaching-link port | `teaching.py` | below |
 
 ## The registry pattern
 
 A module that needs a cross-module extension point without being imported by platform
 gets a registry in platform, and **fills it from its own `AppConfig.ready()`**. Platform
 holds only the interface and the runner; the modules supply the behaviour. This keeps the
-dependency pointing one way. The personal-data registry is the first user.
+dependency pointing one way. The personal-data registry is the first user; the teaching-link
+port is the second.
+
+## The teaching-link port
+
+Decision: `docs/adr/0049-teaching-link-port-and-content-curriculum-edges.md`.
+
+`content` and `curriculum` need "does this teacher teach this student?" but may not import
+`scheduling`, which owns `TeacherAssignment`. `scheduling` registers a provider from
+`SchedulingConfig.ready()` and the two callers use `kaleem.platform.teaching`:
+
+- `teaches(teacher_id, student_id) -> bool`: an ACTIVE assignment in any subject. The caller
+  authorizes.
+- `student_ids_taught_by(teacher_id) -> frozenset[int]`: one read for pickers and bulk checks.
+- No provider registered: both raise `ImproperlyConfigured`, never False.
+- The same provider pair registered twice is a no-op; a different pair raises.
+
+Parents are not part of it (`identity.services.is_parent_of`). import-linter cannot see this
+runtime dependency, so `scheduling/tests/test_read_api.py` proves the real registration
+against the database. No caller exists yet.
 
 ## The personal-data registry
 
