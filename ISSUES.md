@@ -312,7 +312,7 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
   `change-password.spec.ts` on its own account), the
   inbox-dependent flows below, and billing. A table that claims less than reality is
   harmless; one that claims more is how the gate stayed fictional for three months.
-- **Flows the harness structurally cannot reach without more infrastructure:** anything
+- ~~**Flows the harness structurally cannot reach without more infrastructure:**~~ **FIXED 2026-10-18** (ntf-mail-e2e-harness, ADR-0052: a pinned mailpit in the e2e job; registration, password reset and child activation are now covered). anything
   needing a real inbox — registration, password reset, child activation — because CI has no
   mail-catcher wired in. That is its own slice (a mailpit service plus a way to read the
   link). Note this is *not* the same as the billing exclusion below, which is permanent.
@@ -362,6 +362,9 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
 - **`SessionAdmin` still lets staff edit `status`.** Moving a closed lesson back to `scheduled`
   in the admin now violates `session_outcome_only_when_completed` and returns a 500 rather
   than a form error. Found 2026-10-18 by ana-session-outcomes.
+- **The allauth confirmation email greets "Hello from !"** — the site name is empty, so the
+  greeting has nothing after "from". Seen in the first real e2e inbox mail. Found 2026-10-18 by
+  ntf-mail-e2e-harness.
 - **`dashboard/public/icons.svg` is dead.** It is Vite's template sprite of social icons and
   nothing references it (seen in `rch-pwa-manifest-head`). It ships in every build. Delete it
   in a unit that already touches `public/`.
