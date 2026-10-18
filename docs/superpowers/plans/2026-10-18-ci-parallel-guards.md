@@ -33,8 +33,8 @@ There are no migrations. The dependencies, the floors and `CLAUDE.md` stay uncha
    See all six fail, then write `kaleem/platform/management/commands/seed_e2e_all.py`.
    It reads `--manifest`, which defaults to `settings.BASE_DIR / "config" /
    "e2e_seeds.txt"`, validates every entry, then runs `call_command(name)` for each.
-   Also write `config/e2e_seeds.txt`, whose header comment explains the format and the
-   append rule. Use no import of any business module.
+   Also write `config/e2e_seeds.txt`, whose header comment explains the format, the
+   append rule and the sweep rule (spec, Goal). Use no import of any business module.
 
 2. [ ] **Narrow the fixture's sweep. Test first.** In
    `kaleem/scheduling/tests/test_seed_e2e_matching.py`, add
@@ -101,6 +101,11 @@ There are no migrations. The dependencies, the floors and `CLAUDE.md` stay uncha
   turns red, that is a real finding. Report it and do not drop the worker.
 - **The probe hangs.** `.get(timeout=60)` bounds it, and the job keeps its 15-minute
   timeout.
+- **Cross-seed matching.** `sync_match_requests()` is global and runs on every matching
+  read, so a later seed's entitled, unassigned student with an interest gets a request,
+  which can become a second offer for `e2e.teacher` and break the "exactly one offer"
+  flows. The manifest header and the testing guide say so; reviewers of seed-adding
+  units check it.
 - **Manifest merge conflicts.** Units appending at the same end of the file conflict at
   freshness. The rule, stated in the file's header: keep both lines, in dependency
   order.

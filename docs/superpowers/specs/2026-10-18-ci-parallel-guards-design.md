@@ -29,6 +29,13 @@ create sessions for any other seed's students that have active slots. It must pa
 `student_id=` for its own booked student. `generate_sessions` already takes that keyword
 (`booking.py:489`).
 
+The seed's other sweep, `matching.sync_match_requests()`, takes no student filter, and
+the matching API views also run it on every read (`scheduling/api/views.py:114,154`).
+It stays as it is. The manifest header and the testing guide carry the rule instead: a
+seed must not leave an account entitled, with a subject interest and availability but
+no assignment, unless it wants that account matched, because the next matching read
+opens a request for it.
+
 ## User flow
 
 There is no end-user flow. Contributors see this:
@@ -106,7 +113,8 @@ CI (mutation checks, per the unit's e2e line):
   locally with `backend-gate.sh` against a throwaway field. The PR run's log must show
   the step ran and printed "No changes detected".
 - With the worker step removed, the probe step fails red. With it restored, the probe
-  passes. Proved locally in an e2e slot. The PR run must show the probe green and every
+  passes. The probe stands in for the e2e line's "a task-dependent flow": no shipped
+  flow observes a task's effect yet, so there is no flow to break. Proved locally in an e2e slot. The PR run must show the probe green and every
   existing e2e test passing.
 
 e2e time budget: worker start plus the probe should add 15 s or less to the e2e job.
