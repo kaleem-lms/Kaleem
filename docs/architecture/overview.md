@@ -28,6 +28,7 @@ graph TD
     curriculum --> content
     content --> identity
     messaging --> identity
+    messaging --> scheduling
     messaging --> notifications
     notifications --> identity
     engagement --> identity

@@ -363,6 +363,14 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
 
 ## Someday
 
+- **No call diagnostic for a connect timeout.** The client's 10 s signaling deadline lands on
+  "Couldn't reach the session server" but reports nothing: it needs a new `CallDiagnostic.Code`
+  on the backend plus the contract test. Found 2026-10-18 by lb-call-connection-failure-path.
+- **`lost` shows at the first signaling drop and a later open does not clear it.** The hook keeps
+  reconnecting behind the screen, so a call that recovers still shows the failure. Existing
+  behaviour; the connect timeout follows the same path on purpose. Found 2026-10-18 by
+  lb-call-connection-failure-path.
+
 - **Build captioning and real-time text for live lessons (after launch, own spec).**
   ADR-0054 recommends the order: the audio-activity indicator (6.5.5, smallest; the
   lobby's `useMicLevel` can be reused on the remote stream), then
@@ -379,10 +387,6 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
 - **`SessionAdmin` still lets staff edit `status`.** Moving a closed lesson back to `scheduled`
   in the admin now violates `session_outcome_only_when_completed` and returns a 500 rather
   than a form error. Found 2026-10-18 by ana-session-outcomes.
-- **`@kaleem/tokens` will export `./brand.mjs`, which imports a devDependency at top level**
-  (brand plan E15): a consumer that imports it fails with `ERR_MODULE_NOT_FOUND`. Drop the
-  export or import `@resvg/resvg-js` lazily inside `emit()`. For `inf-brand-tokens-pipeline`.
-
 - **The allauth confirmation email greets "Hello from !"** — the site name is empty, so the
   greeting has nothing after "from". Seen in the first real e2e inbox mail. Found 2026-10-18 by
   ntf-mail-e2e-harness.
@@ -426,7 +430,8 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
   Fraunces has no Arabic glyphs (its `unicode-range` subsets never load), so an Arabic
   heading renders in whatever serif the OS picks. True before and after `@kaleem/tokens`
   v0.2.3, which fixed the Latin case only. Deciding which Arabic display face the brand
-  wants is a design choice for the brand work (`inf-brand-tokens-pipeline`), not a patch.
+  wants is a design choice for the brand work (`inf-brand-direction` / `inf-brand-mark-assets`,
+  after `dec-brand-typeface`), not a patch.
   `e2e/display-font.spec.ts` runs in English for this reason. Found 2026-10-18.
 
 - **One failed `getUserMedia` tap writes TWO `calldiagnostic` rows, so the table
@@ -1117,6 +1122,14 @@ proves; all are robustness of an unattended job.
   guard.
 
 ---
+
+- **The chat list works out access for every chat a user has before it pages them
+  (`msg-core-backend`).** `messaging.services.list_chats` loads all of a user's chats, runs the
+  batched access lookups once over all of them, and the view then paginates the Python list.
+  Query count is flat in the number of chats (pinned by a test), but the work is linear, and a
+  teacher with several hundred students is polled for it. Fine at launch size; when it
+  isn't, page the member chats in the database (newest first) and compute access only for the
+  page. Not worth doing before a real teacher has that many.
 
 ## Known-good gotchas (not bugs — read before panicking)
 
