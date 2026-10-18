@@ -19,11 +19,25 @@ Decision: `docs/adr/0048-export-erase-hook-contract.md`.
 | Throttling | `throttling.py` | `EmailScopedThrottle` |
 | Middleware | `middleware.py` | `RequestIDMiddleware` |
 | Logging | `logging.py` | `JSONFormatter` for structured logs |
+| Access-log policy | `access_log.py`, `gunicorn_logging.py` | paths only, credential paths masked; below |
 | Health | `views.py` | `/health/live/` and `/health/ready/` (outside `/api/v1/`, on the closed allowlist) |
 | Email task | `tasks.py` | `send_email_message`, the Celery send of one already-rendered email |
 | Seed command | `management/commands/seed.py` | `manage.py seed basic|rich` |
 | Personal-data registry | `personal_data.py`, `personal_data_contract.py` | below |
 | Teaching-link port | `teaching.py` | below |
+
+## Access-log policy
+
+Decision: `docs/adr/0053-access-log-policy.md`.
+
+No log records a credential. `access_log.py` holds the pure helpers (`redact_path`,
+`redact_uri`) and `RedactCredentialPaths`, a `logging.Filter` attached to `django.request`
+in `LOGGING`. `gunicorn_logging.py` holds `RedactingLogger`, which `backend/gunicorn.conf.py`
+names as the `logger_class`: it builds the access-log atoms from an allowlist (time, method,
+path, status, size, duration), so no format string can bring back a query string, `Referer`,
+header or client address, and it redacts the error log's request URI. The production image
+and both compose colours start gunicorn with `-c gunicorn.conf.py`. The nginx images log the
+path only through their own `log_format`.
 
 ## The registry pattern
 

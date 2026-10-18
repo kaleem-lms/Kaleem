@@ -16,7 +16,7 @@ Each code step: write the test, run it red, write the code, run it green, then m
 
 ## Landing 1 (expand): logging + dashboard accepts both link forms
 
-1. [ ] **Backend: path redaction helpers.** Test first,
+1. [x] **Backend: path redaction helpers.** Test first,
    `kaleem/platform/tests/test_access_log.py`:
    - `test_redact_path_masks_credential_prefixes`, parametrized:
      `/accounts/confirm-email/PROBE/` → `/accounts/confirm-email/[redacted]`,
@@ -26,11 +26,11 @@ Each code step: write the test, run it red, write the code, run it green, then m
      both truncated and masked.
    Code: `kaleem/platform/access_log.py` with `CREDENTIAL_PATH_PREFIXES`, `redact_path`,
    `redact_uri`.
-2. [ ] **Backend: test env gets gunicorn.** `requirements/local.txt`: `-r base.txt` →
+2. [x] **Backend: test env gets gunicorn.** `requirements/local.txt`: `-r base.txt` →
    `-r production.txt`. `_tools/backend-gate.sh` exits 3 (new requirements hash): hand to the
    conductor to build `kaleem-gate:<hash>` (runbook section 7) before step 3. Declare
    "dependency change" in the hand-back; the owner's dev image needs a rebuild.
-3. [ ] **Backend: gunicorn logger + config.** Tests in `test_access_log.py` and
+3. [x] **Backend: gunicorn logger + config.** Tests in `test_access_log.py` and
    `tests/test_gunicorn_config.py`:
    - `test_config_file_loads`: `runpy.run_path("gunicorn.conf.py")` values set on a fresh
      `gunicorn.config.Config`; `accesslog == "-"`; `logger_class` resolves to
@@ -50,20 +50,20 @@ Each code step: write the test, run it red, write the code, run it green, then m
    `backend/gunicorn.conf.py`: `accesslog = "-"`, `access_log_format = '%(t)s "%(m)s %(U)s"
    %(s)s %(b)s %(M)sms'`, `logger_class = "kaleem.platform.access_log.RedactingLogger"`.
    `Dockerfile` production `CMD` gains `-c gunicorn.conf.py`.
-4. [ ] **Backend: `django.request` filter.** Test
+4. [x] **Backend: `django.request` filter.** Test
    `test_django_request_not_found_is_redacted`: `logging.getLogger("django.request").warning(
    "Not Found: %s", "/accounts/confirm-email/PROBE/")` under `caplog`: no `PROBE` in
    `caplog.text`. Code: `RedactCredentialPaths(logging.Filter)` in `access_log.py`; LOGGING gains
    `filters` and `loggers: {"django.request": {"filters": [...]}}` (level and propagation
    unchanged).
-5. [ ] **Backend full gate** `_tools/backend-gate.sh <WT>` green (migrate, makemigrations
+5. [x] **Backend full gate** `_tools/backend-gate.sh <WT>` green (migrate, makemigrations
    --check, pytest with coverage, ruff, lint-imports).
-6. [ ] **Infra: compose.** In `docker-compose.production.yml` both `django-blue` and
+6. [x] **Infra: compose.** In `docker-compose.production.yml` both `django-blue` and
    `django-green`: `gunicorn -c gunicorn.conf.py config.wsgi --bind … --workers 3 --timeout 120
    --graceful-timeout 30` (`--access-logfile -` moves into the config). Replace the "NOT
    blanket-safe … not fixed here" comment with one line citing the ADR. No env var, no `ship.sh`
    change. Check: `docker compose -f docker-compose.production.yml config -q` with dummy env.
-7. [ ] **Dashboard: credential capture.** Tests first:
+7. [x] **Dashboard: credential capture.** Tests first:
    - `src/lib/url-credentials.test.ts`: `readUrlCredentials(["key"], {hash:"#key=a",
      search:""})` → `{key:"a"}`; query fallback; fragment wins; missing → `""`; URL-encoded
      values decoded.
@@ -77,12 +77,12 @@ Each code step: write the test, run it red, write the code, run it green, then m
    a `useState` initializer from `useLocation()`, then `navigate({ to: <path>, search: {}, hash:
    "", replace: true })` in an effect); both route components use it; `validateSearch` keeps
    accepting the legacy params.
-8. [ ] **Dashboard + marketing: nginx path-only log.** In each `nginx.conf`, above `server`:
+8. [x] **Dashboard + marketing: nginx path-only log.** In each `nginx.conf`, above `server`:
    `map $request_uri $kaleem_log_path { ~^(?<p>[^?]*) $p; }` and `log_format kaleem_path
    '$time_iso8601 "$request_method $kaleem_log_path" $status $body_bytes_sent
    $request_time';` Inside `server`: `access_log /dev/stdout kaleem_path;`. Verified by step 9's
    check, not by hand.
-9. [ ] **Meta: CI log check.** New `.github/scripts/check-nginx-access-log.sh <nginx.conf>
+9. [x] **Meta: CI log check.** New `.github/scripts/check-nginx-access-log.sh <nginx.conf>
    <docroot>`: runs `nginx:alpine` (pinned tag) with the conf as `conf.d/default.conf` and the
    docroot; curls `/verify-email?key=PROBE`, `/reset-password?uid=PROBE&token=PROBE`,
    `/verify-pending?email=PROBE%40example.com`, `/assets/missing.js?x=PROBE` with
@@ -93,7 +93,7 @@ Each code step: write the test, run it red, write the code, run it green, then m
    requires exit 1. `ci.yml`: steps after Build in `dashboard-build` (`dist/`) and
    `marketing-build` (`dist/`), self-test once in `dashboard-build`. Mutation check: run the
    checker against `origin/main`'s `dashboard/nginx.conf`, see exit 1.
-10. [ ] **e2e** (`dashboard/e2e/identity.spec.ts`):
+10. [x] **e2e** (`dashboard/e2e/identity.spec.ts`):
     - new "verify-email reads the key from the fragment": `waitForRequest` on POST
       `identity/verify-email/` with `postDataJSON().key === "not-a-real-fragment-key"`, alert visible,
       `expect(page).not.toHaveURL(/probe/)`.
@@ -102,18 +102,18 @@ Each code step: write the test, run it red, write the code, run it green, then m
       `/reset-password#uid=MQ&token=e2e-probe`, fill and submit, body asserted, invalid state
       shown, URL stripped.
     Mutation check: revert step 7's route change; the two fragment flows go red.
-11. [ ] **ADR "access-log policy"** (number from the conductor): credentials only in fragments
+11. [x] **ADR "access-log policy"** (number from the conductor): credentials only in fragments
     or request bodies, never in a URL a server sees; access logs record method, path, status,
     size, duration and nothing else; credential prefixes redacted as defence in depth; each
     surface proven in CI; Traefik's `RequestPath` stays dropped. Supersedes the compensating-
     control comments in `traefik.yml` (left in place; the compose comment is replaced in step 6).
-12. [ ] **Hand-back, landing 1:** dashboard full gate (`_tools/dashboard-gate.sh <WT>`),
+12. [x] **Hand-back, landing 1:** dashboard full gate (`_tools/dashboard-gate.sh <WT>`),
     marketing `pnpm check && pnpm build`, gitleaks range per repo, hand-back blocks.
     Needs: dependency change (backend requirements), no env var, no `ship.sh` change.
 
 ## Landing 2 (switch): fragment links. Only after landing 1 has deployed.
 
-13. [ ] **Backend: link builders.** Tests first (update, do not add duplicates):
+13. [x] **Backend: link builders.** Tests first (update, do not add duplicates):
     - `kaleem/identity/tests/test_adapter.py:23` → `/verify-email#key=…`.
     - `test_email_branding.py:63,78` → `"/verify-email#key="` and assert `"?key="` absent.
     - `test_password_management.py:113`, `test_services.py:122` → `"/reset-password#uid="`;
@@ -121,7 +121,7 @@ Each code step: write the test, run it red, write the code, run it green, then m
     - `test_services.py:187` (a `not in` check): change to `"/reset-password#uid="` **and**
       `"/reset-password?uid="`, else it passes vacuously after the switch.
     Code: `adapter.py:28`, `services.py:191` and `:410`: `?` → `#`.
-14. [ ] **Hand-back, landing 2:** backend full gate, gitleaks range.
+14. [x] **Hand-back, landing 2:** backend full gate, gitleaks range.
 
 ## Gates
 
@@ -168,3 +168,16 @@ None.
   `#` and the URL is stripped after load.
 - Close-out: ADR merged, both ISSUES.md access-log entries removed, CLAUDE.md D3 identity row
   updated (fragment flows), follow-up for removing the query fallback recorded, journal line.
+
+## Execution notes (2026-10-18)
+
+- The gunicorn logger lives in `kaleem/platform/gunicorn_logging.py`, not in `access_log.py`,
+  so `config/settings/base.py` (which names `RedactCredentialPaths`) never imports gunicorn.
+- Access-log policy ADR number: 0053 (0052 went to ntf-mail-e2e-harness; the number is not conductor-allocated, so renumber if it clashes).
+- The infra compose comment cites ADR-0053 and `command` gained `-c gunicorn.conf.py`;
+  `--access-logfile -` moved into the config.
+- Gate image `kaleem-gate:4dfa501975b1` was built from the branch (Dockerfile and requirements
+  changed); landing 1 is a dependency change.
+- Landing 1 = backend `06e04b0`, dashboard, marketing, infra and meta commits; landing 2 =
+  backend `72b3a4a` only. The branch head contains both: the conductor pushes landing 1's
+  heads first, and holds landing 2 (`72b3a4a`) until landing 1 has deployed.
