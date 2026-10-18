@@ -359,6 +359,10 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
 
 ## Someday
 
+- **`dashboard/public/icons.svg` is dead.** It is Vite's template sprite of social icons and
+  nothing references it (seen in `rch-pwa-manifest-head`). It ships in every build. Delete it
+  in a unit that already touches `public/`.
+
 - **Five Arabic plural families have no `_zero` form**, so at count 0 an Arabic page falls back
   to English: `availability.copyConfirmBody`, `availability.weeklyTotal`,
   `billing.planFamilyDesc`, `billing.planIndividualDesc`, `booking.showPast`. Held on the parity
