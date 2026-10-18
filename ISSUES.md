@@ -364,7 +364,8 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
 ## Someday
 
 - **Build captioning and real-time text for live lessons (after launch, own spec).**
-  ADR-0054 recommends the order: the audio-activity indicator (6.5.5, smallest), then
+  ADR-0054 recommends the order: the audio-activity indicator (6.5.5, smallest; the
+  lobby's `useMicLevel` can be reused on the remote stream), then
   real-time text over a data channel (6.2.1.1, ADR-0039 fourth line), then captions only
   through on-device recognition or a vendor behind its own ADR. Owner orders it. Arabic and
   recitation recognition quality is unmeasured; Safari and iOS cannot be verified here.

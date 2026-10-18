@@ -34,9 +34,12 @@ the end.
   `ondatachannel`, so the call has **no path for text of any kind**.
 - Nothing in `dashboard/src` mentions captions, transcription or `SpeechRecognition`.
 - The dashboard shows whether the other person's microphone is switched off
-  (`ParticipantTile.tsx`, `micMuted`). A search of `dashboard/src` for audio-level and
-  voice-activity terms (`audioLevel`, `AnalyserNode`, `isSpeaking`, `voice activity`)
-  finds nothing, so there is **no indicator of live audio activity**.
+  (`ParticipantTile.tsx`, `micMuted`). The lobby shows the user's **own** microphone level
+  before joining (`Lobby.tsx` `MicLevelMeter`, `useMicLevel.ts`, a Web Audio analyser).
+  Nothing in the call room shows the **other** person's audio activity: `useMicLevel` is
+  imported only by `Lobby.tsx` (and its tests), no call-room component references it, and
+  no component measures the remote track. So there is **no indicator of the other person's
+  live audio activity during the call**.
 - Media is peer-to-peer or relayed by coturn; signaling (ADR-0035) never carries media.
   The backend call models (`Room`, `CallDiagnostic`) hold no recording, transcript or
   caption field.
@@ -84,7 +87,7 @@ browser is such a terminal. Two requirements follow that kaleem does not meet to
 | Clause (V4.1.1) | Text | kaleem today |
 | --- | --- | --- |
 | 6.2.1.1 RTT functionality | "Where ICT provides functionality that allows real-time bidirectional voice communication, the ICT shall provide functionality that allows real-time bidirectional RTT communication." RTT is text "perceived by the user as being continuous on a character-by-character basis" (Definitions), with under 1 s delay per the definition's note | **Not met.** No text path in the call at all. Chat (ADR-0050) is message-based, not character-by-character, and is not in the call |
-| 6.5.5 Indicator of audio with video | "the ICT shall provide a real-time indicator of audio activity" | **Not met** on the evidence of the grep above. The mic-muted indicator is a different thing: it reports a switch, not activity |
+| 6.5.5 Indicator of audio with video | "the ICT shall provide a real-time indicator of audio activity" | **Not met** on the evidence above: no call component shows the remote side's audio activity. The mic-muted indicator reports a switch, not activity, and the lobby meter measures the user's own microphone before joining; the clause's test needs the other person's activity during the call |
 
 Other clause 6 requirements (6.1 voice frequency range, 6.5.2 to 6.5.4 resolution, frame
 rate and audio/video sync) were **not examined** by this unit. 6.1.4 (subtitle delay under
@@ -151,7 +154,8 @@ only captions would understate the gap.
 
 **3. Recommended order after launch (a recommendation, not a decision; the owner
 orders it):** the audio-activity indicator first, because it is the smallest and is a
-"shall"; then O6 shaped as true RTT, because it is the clause that binds, adds no new
+"shall" (`useMicLevel` already measures a stream's level in the lobby and could be pointed
+at the remote stream; not prototyped here); then O6 shaped as true RTT, because it is the clause that binds, adds no new
 category of personal data and keeps the call peer-to-peer; then captions through O2 only
 on-device, or O4 behind its own ADR, because every captioning route that sends children's
 audio off the device needs a processor decision first. O3(a) is rejected outright: it
@@ -177,8 +181,9 @@ A sentence without a row is cut from the statement. Row ids are used in the draf
 | S3 | We are partially conformant | Follows from G1 to G4 |
 | G1 | Live lessons have no captions | Code claim above (grep at `c70a0f4`) |
 | G2 | Live lessons have no real-time text | Code claim above; EN 301 549 V4.1.1 6.2.1.1 |
-| G3 | Live lessons have no indicator of audio activity | Code claim above; 6.5.5 |
-| G4 | We have not verified Safari or iOS | D3 rows `call diagnostics (C3e-a)` and `browser hardening (C3e-b)` |
+| G3 | Live lessons have no indicator of the other person's audio activity | Code claim above (lobby meter present, call room has none, checked at `c70a0f4`); 6.5.5 |
+| G4 | We have not tested kaleem in Safari on a Mac, or in any browser on an iPhone or iPad | D3 rows `call diagnostics (C3e-a)` and `browser hardening (C3e-b)`; backed by B1 |
+| B1 | The automated checks run in Chromium, the engine behind Chrome and Edge | `dashboard/playwright.config.ts` at `c70a0f4` has one project, `chromium` ("Chromium only") |
 | E1 | Colour contrast is checked as rendered in a real browser, light and dark, both reading directions, on the design preview | D3 row `design-system - rendered contrast` |
 | E2 | The four sign-in routes are checked in both themes | D3 row `identity - rendered contrast` |
 | E3 | Every enabled control on the preview accepts a 24 by 24 pixel pointer; the sign-in routes are swept the same way | D3 row `design-system - target size` |
@@ -230,8 +235,16 @@ A sentence without a row is cut from the statement. Row ids are used in the draf
 
 Run 2026-10-18 against the pinned SHAs above, positive controls first. Dashboard: no
 `caption`, `transcri`, `SpeechRecognition`, `createDataChannel`, `ondatachannel` in `src`
-(control `addTransceiver` found). `MEDIA_LINES` entries: `audio`, `camera`, `screen`, and
+(control `addTransceiver` found). A first version of the audio-activity search used only
+`audioLevel`, `AnalyserNode`, `isSpeaking`, `voice activity` and wrongly reported nothing;
+review found `createAnalyser` in `useMicLevel.ts`. The corrected check also searches
+`createAnalyser`, `useMicLevel`, `MicLevelMeter`, has a positive control (it must find
+`useMicLevel`), and asserts the non-test importers of `useMicLevel` are exactly
+`Lobby.tsx`. `MEDIA_LINES` entries: `audio`, `camera`, `screen`, and
 the `MediaLine` type matches. Marketing: no `wcag`, `301 549`, `accessib` in `src`
 (control found). Backend: no `recording`, `transcript`, `caption` in
 `kaleem/scheduling/models.py` (control `Room`, `CallDiagnostic` found). Dashboard: no
-`audioLevel`, `AnalyserNode`, `isSpeaking`, `voice activity` in `src`.
+`audioLevel`, `isSpeaking`, `voice activity` in `src`; `createAnalyser`, `useMicLevel` and
+`MicLevelMeter` appear only in `Lobby.tsx`, `useMicLevel.ts` and their tests, and no
+call-room component (`CallRoom.tsx`, `ParticipantTile.tsx`, `VideoTile.tsx`) references
+them. `dashboard/playwright.config.ts` declares one project, `chromium`.
