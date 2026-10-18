@@ -1,6 +1,6 @@
 ---
 spec: docs/superpowers/specs/2026-10-18-lb-live-captions-decision-design.md
-status: not started
+status: in progress
 ---
 
 # Plan: lb-live-captions-decision
@@ -10,7 +10,7 @@ Size S, about one day, plus the wait for the owner's answer. Repo: meta only.
 - Meta worktree: `/home/abdulkhalek/Projects/kaleem-worktrees/meta-lb-live-captions-decision`,
   branch `feat/lb-live-captions-decision`.
 - No submodule worktree, no migrations, no dependency change, no env var, no floor edit, no
-  ship.sh change. The ADR number comes from the conductor (step 0). It is written `NNNN`
+  ship.sh change. The ADR number comes from the conductor (step 0). It is written `0054`
   below.
 - Nothing security-sensitive is expected. If something is, it goes to
   `_ops/private/lb-live-captions-decision.md` (mode 600) and never into the repo.
@@ -19,9 +19,9 @@ Size S, about one day, plus the wait for the owner's answer. Repo: meta only.
 
 | File | Change | Committed by |
 | --- | --- | --- |
-| `docs/adr/NNNN-live-lesson-captions-position.md` | new, `amends: ADR-0040` | agent |
-| `docs/adr/0040-replace-the-palette-and-adopt-en-301-549.md` | one `AMENDED BY ADR-NNNN` marker in Decision 5 (the ADR-0030 precedent) | agent, after the answer |
-| `ISSUES.md` | the clause-7 entry under Blocks launch cites ADR-NNNN and states what still blocks launch | agent, after the answer |
+| `docs/adr/0054-live-lesson-captions-position.md` | new, `amends: ADR-0040` | agent |
+| `docs/adr/0040-replace-the-palette-and-adopt-en-301-549.md` | one `AMENDED BY ADR-0054` marker in Decision 5 (the ADR-0030 precedent) | agent, after the answer |
+| `ISSUES.md` | the clause-7 entry under Blocks launch cites ADR-0054 and states what still blocks launch | agent, after the answer |
 | `docs/decisions/2026-10-18-accessibility-statement-draft.md` | new, **left uncommitted** | owner (`dec-legal-texts`) |
 | this spec and plan | status updates | agent |
 
@@ -57,11 +57,11 @@ TDD for a docs spike: write each check before the text it checks, and watch it f
    worth a post-launch unit, and if so under which clause.
 5. [ ] **Commit the spike's first half.** Run `claims.sh` and `links.sh` (both green), then
    `git add` the ADR, spec and plan by path. Message:
-   `docs: proposed ADR-NNNN, live-lesson captions position`.
+   `docs: proposed ADR-0054, live-lesson captions position`.
 6. [ ] **Ask.** Hand the ADR to the conductor, who puts `lb-dec-en301549` to the owner with
    it. The unit waits here. Other units are unaffected.
 7. [ ] **On the answer.** Set the ADR to `accepted`, with `decided:` and the answer. Add the
-   `AMENDED BY ADR-NNNN` marker to ADR-0040 Decision 5. Rewrite the ISSUES entry. For O1:
+   `AMENDED BY ADR-0054` marker to ADR-0040 Decision 5. Rewrite the ISSUES entry. For O1:
    it stays under Blocks launch until `rch-mkt-legal-pages` publishes the statement, and the
    captioning work goes under Someday with its clause. For "build now": the entry names the
    new captioning unit to be allocated, and the conductor escalates the scope growth. For
@@ -78,7 +78,7 @@ TDD for a docs spike: write each check before the text it checks, and watch it f
    `ISSUES.md`, no entity details.
 10. [ ] **Commit and hand back.** Commit the ADR, ADR-0040, ISSUES.md, spec and plan by
     path, with `PIP_CONFIG_FILE=/dev/null`, never `-A`, never `--no-verify`. Message:
-    `docs: accept ADR-NNNN; ISSUES clause-7 entry`. Then run the hand-back checks:
+    `docs: accept ADR-0054; ISSUES clause-7 entry`. Then run the hand-back checks:
     - `git -C <MW> fetch origin master`, then `merge-base --is-ancestor origin/master HEAD`;
     - `status --porcelain` shows only the uncommitted draft, which is expected and named in
       the hand-back;

@@ -2,7 +2,7 @@
 name: lb-live-captions-decision
 phase: v1 (wave 1, legal stream)
 modules: [call]
-status: draft
+status: approved
 created: 2026-10-18
 closed: null
 ---
