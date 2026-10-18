@@ -14,6 +14,10 @@ first, the conductor resolves the conflict at the freshness step.
 - `G="/home/abdulkhalek/Projects/kaleem-worktrees/_tools/dashboard-gate.sh"` and
   `WT=<the worktree>`. The focused loop is `"${G}" "${WT}" <test file>`.
 
+> Built as written, with the changes listed under "Changes made while building" in the
+> spec. The most visible: `FileUpload` is imported by path, not through the barrel, and
+> the preview's fake upload ticks every 400 ms.
+
 ## Steps
 
 ### 1. `initials` (about 1 h)

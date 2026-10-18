@@ -82,6 +82,27 @@ Base at writing: dashboard `origin/main` `e61e23e`, meta `master` `3577c3e`.
   - Two Arabic initials render joined, as they do in the call tile today. This unit
     keeps that.
 
+## Changes made while building
+
+These differ from the text above, and the text above is left as it was written.
+
+- **`FileUpload` and `FileUploadItem` are imported from `@/ui/file-upload`, not from the
+  barrel.** Re-exporting them from `src/ui/index.ts` added 9.8 kB to the initial JS and
+  broke the bundle budget (581,757 against 580,000), which is a ratchet. `Avatar` and
+  `initials` stay in the barrel. The "covers every @/ui export" test cannot see
+  `FileUpload` any more, so a test of its own asserts that the preview renders it.
+- **An empty or blank name makes an `Avatar` hidden from assistive technology**, as
+  `decorative` does. A `role="img"` with no name is an axe violation and says nothing.
+- **A refused file is announced** in the live region ("name: reason"). Without it a
+  screen-reader user who picks a wrong file hears nothing.
+- **The preview's fake upload ticks every 400 ms, not 100 ms**, and fails the first
+  attempt at the second tick. The e2e reads the 25% state, which is on screen for one
+  tick.
+- **`formatBytes` for `ar`** gives Arabic unit words with Latin digits. That is what CLDR's
+  plain `ar` data does. It is the locale data's choice, not this helper's.
+- **The e2e's file name has no break opportunity** (120 `a`s). With hyphens the name
+  wrapped, and removing `truncate` did not turn the test red.
+
 ## User flow
 
 No end user sees a change, apart from the grapheme fix above in the call tile. The
