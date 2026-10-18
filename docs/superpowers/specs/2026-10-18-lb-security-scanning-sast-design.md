@@ -49,7 +49,7 @@ an ordinary PR, and any finding it surfaces follows the date guard.
    | 5 | findings, routed through `sca-gate.sh "semgrep" <rc> 5` |
    | 4 | incomplete, see the completeness guard |
    | 3 | a bad report or a malformed suppression |
-   | semgrep's own code | semgrep failed |
+   | 6 | semgrep or docker itself failed. Semgrep's own codes include 3, 4 and 5, which would be read as the codes above, so every one of its failures maps to 6 |
 
    Semgrep runs **without** `--error`, so any non-zero exit from it is a failure and
    never a finding.

@@ -2,9 +2,9 @@
 
 ## What it is
 
-`ci.yml` (meta repo) runs the nine-job suite — `backend-lint`, `backend-test`,
+`ci.yml` (meta repo) runs the ten-job suite — `backend-lint`, `backend-test`,
 `dashboard-lint`, `dashboard-build`, `marketing-build`, `e2e`, `security`, `image-scan`,
-`deploy-staging` —
+`sast`, `deploy-staging` —
 only when a change can actually break something, and only once per proven tree. ADR-0038
 records why; this page is for reading a run and knowing which behaviour is a bug and which
 is the design working as intended.
@@ -101,13 +101,13 @@ identical to a working one if you only ever check the hit case.
 
 ## Reading the security scans (ADR-0030, amended by ADR-0047)
 
-Two jobs scan: `security` (secrets in every repository's history and in the checked-out tree,
+Three jobs scan: `security` (secrets in every repository's history and in the checked-out tree,
 `pip-audit`, `pnpm audit --prod`) and `image-scan` (`trivy` over the three production images,
-built the way `deploy-staging` builds them and not pushed). The `security` job begins with a
+built the way `deploy-staging` builds them and not pushed), and `sast` (`semgrep`, below). The `security` job begins with a
 self-test of its own wrappers; if that step is red, the scanners are broken, not the code.
 
-**Report-only, then blocking.** `SCA_BLOCKING_FROM` at the top of `ci.yml` is one date. The two
-dependency scans (`pnpm audit`, `trivy`) only warn before it and fail from it. A warning is
+**Report-only, then blocking.** `SCA_BLOCKING_FROM` at the top of `ci.yml` is one date. The
+three scans that have findings to triage (`pnpm audit`, `trivy`, `semgrep`) only warn before it and fail from it. A warning is
 not noise: the job's log and **step summary** give the count per severity. They give counts
 only, because the audited repositories are private and this page is public. To see the
 itemised list, run `PNPM_AUDIT_DETAILS=1 .github/scripts/pnpm-audit.sh dashboard` or scan a
@@ -140,6 +140,49 @@ Fix everything reachable.
 git. A history scan of one repository: `.github/scripts/gitleaks-history.sh <dir>`. An audit of
 one lockfile: `.github/scripts/pnpm-audit.sh dashboard` (needs `pnpm` 10 and network).
 
+**Reading the semgrep scan (the `sast` job).** It scans `backend/{kaleem,signaling,config}`
+and `dashboard/src` with the `security` rules of `semgrep/semgrep-rules`, fetched at the
+commit in `SEMGREP_RULES_SHA`. Three steps, in order:
+
+1. *Fetch the pinned rules* fails if the commit cannot be fetched or does not match.
+2. *Canary* scans two fixture files that each hold a known-bad line and must exit 5 with
+   both flagged. If this step is red, the rules are not loading, and the real scan below it
+   would have read "clean" for the wrong reason: fix the pin or the path, do not touch the
+   scan.
+3. *semgrep — shipped code* prints counts and exits through `sca-gate.sh`. Its exit codes:
+   `0` clean, `5` findings (a warning before `SCA_BLOCKING_FROM`, a failure from it), `4`
+   **incomplete** (a parse error, or a tracked source file semgrep did not read; it did not
+   pass, find out why), `3` a bad report or a suppression that names no rule, `6` semgrep or
+   docker itself failed.
+
+The log and step summary give counts only (findings per severity, named suppressions, files
+scanned per target). To see which rule fired where, run it locally:
+
+```sh
+git fetch --depth 1 https://github.com/semgrep/semgrep-rules.git <SEMGREP_RULES_SHA>   # in a scratch clone
+SEMGREP_DETAILS=1 .github/scripts/semgrep-scan.sh --rules <rules-clone> .             # needs docker; submodules checked out
+```
+
+**Suppressing a semgrep false positive.** Only when you have read the code and it is not
+exploitable. Put the reason in a comment, and name the rule on the line the finding starts
+on or the line before it, using the last segment of the rule id (the part after the final
+dot):
+
+```python
+# The values logged are two ids; the token is never logged.
+# nosemgrep: python-logger-credential-disclosure
+logger.warning(...)
+```
+
+A bare `nosemgrep` (or `nosem`) is refused by the wrapper, because it silences every rule on
+the line. In a Django template use a `{# nosemgrep: <rule-id> #}` comment tag **outside** any
+`{% blocktranslate %}`, and check the rendered output is unchanged. A real finding is fixed,
+not suppressed.
+
+**Bumping the semgrep pins.** The image (digest in `semgrep-scan.sh`) and the rules commit
+(`SEMGREP_RULES_SHA` in `ci.yml`) change only by a commit. Run the scan locally with the new
+pin first; whatever it newly reports follows the date guard like any other finding.
+
 **Known behaviours that look like bugs.**
 
 - The history scans use `--all`, so a finding on any open branch that the checkout fetched
@@ -147,6 +190,7 @@ one lockfile: `.github/scripts/pnpm-audit.sh dashboard` (needs `pnpm` 10 and net
 - `image-scan` rebuilds the three images (a few minutes). That is deliberate: it scans what
   would be deployed.
 - Third-party runtime images (traefik, postgres, redis, coturn) are not scanned.
+- `sast` pulls a ~1.1 GB image each run (about a minute).
 
 ## Related
 
@@ -155,5 +199,5 @@ one lockfile: `.github/scripts/pnpm-audit.sh dashboard` (needs `pnpm` 10 and net
   and what shipped verified versus what did not
 - `.github/scripts/classify-changes.sh` / `test-classify-changes.sh` — the classifier and its
   self-test, which runs as a `triage` step on every run
-- `.github/scripts/{gitleaks-history,pnpm-audit,sca-gate}.sh` and `test-security-scripts.sh` — the
+- `.github/scripts/{gitleaks-history,pnpm-audit,sca-gate,semgrep-scan}.sh` and `test-security-scripts.sh` — the
   security wrappers and their self-test (ADR-0047)

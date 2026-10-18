@@ -44,8 +44,13 @@ env:
   #
   # Moving this date LATER needs an ADR, exactly as lowering a coverage floor does
   # (ADR-0026). Moving it earlier is an ordinary PR once the baseline is clean.
-  # `lb-security-scanning-sast` (semgrep) reuses this value.
+  # The `sast` job (semgrep) reads the same value through the same guard.
   SCA_BLOCKING_FROM: "2026-11-30"
+  # The commit of github.com/semgrep/semgrep-rules the `sast` job scans with. Rules are
+  # fetched by this SHA, never by branch or registry name, so what "green" means changes
+  # only by a commit here (ADR-0047). Bumping it is an ordinary PR; a finding the new rules
+  # surface follows the date guard like any other.
+  SEMGREP_RULES_SHA: 17e31e11ebac99fb7dfe1cd288f7a32151b6f3f9
 
 jobs:
   # One job, two questions, because a job skipped by `if:` also skips its
@@ -776,6 +781,69 @@ jobs:
           done
           exit "$worst"
 
+  # ADR-0047 addendum. semgrep over the code that ships (backend `kaleem`, `signaling`,
+  # `config`, and `dashboard/src`) with the pinned OWASP-tagged `security` rules. A finding
+  # is report-only until SCA_BLOCKING_FROM and blocking from it (sca-gate.sh); a scan that
+  # failed, or that read less than it should have, fails on every day. The wrapper is
+  # `.github/scripts/semgrep-scan.sh`; the `security` job self-tests it.
+  #
+  # The scanned repositories are private and this log is public, so the output is COUNTS
+  # ONLY. The itemised list is for a local run (docs/runbook/ci.md).
+  sast:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: triage
+    # Same three clauses as every other build gate, see `backend-lint`.
+    if: >-
+      needs.triage.outputs.code == 'true'
+      && needs.triage.outputs.verified != 'true'
+      && github.actor != 'dependabot[bot]'
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+          token: ${{ secrets.SUBMODULE_TOKEN }}
+
+      # Fetched by commit and not copied into this public repository: the rules are
+      # published under their own licence. The assertion is what makes the pin real.
+      - name: Fetch the pinned rules
+        run: |
+          rules="$RUNNER_TEMP/semgrep-rules"
+          git init -q "$rules"
+          git -C "$rules" fetch --depth 1 https://github.com/semgrep/semgrep-rules.git "$SEMGREP_RULES_SHA"
+          git -C "$rules" checkout -q FETCH_HEAD
+          test "$(git -C "$rules" rev-parse HEAD)" = "$SEMGREP_RULES_SHA"
+
+      # A ruleset that loaded nothing, or a wrong rules path, would make the real scan read
+      # "clean". The canary has one known-bad line per language and must be flagged in both;
+      # if it is not, this job is red and the scan below proves nothing.
+      - name: Canary — the rules still flag a known-bad line in each language
+        env:
+          GITHUB_STEP_SUMMARY: /dev/null
+        run: |
+          rc=0
+          out="$(SEMGREP_DETAILS=1 SEMGREP_TARGETS=.github/scripts/fixtures/semgrep-canary \
+            .github/scripts/semgrep-scan.sh --rules "$RUNNER_TEMP/semgrep-rules" .)" || rc=$?
+          printf '%s\n' "$out"
+          if [ "$rc" -ne 5 ]; then
+            echo "::error::the semgrep canary exited $rc, want 5: the rules are not flagging a known-bad line"
+            exit 1
+          fi
+          for f in canary.py canary.ts; do
+            printf '%s' "$out" | grep -qF "$f" || {
+              echo "::error::the semgrep canary was not flagged in $f"
+              exit 1
+            }
+          done
+
+      # Exit 5 is "I looked, and found something"; 4 is an incomplete scan; 6 is semgrep
+      # itself failing. Only 5 is subject to the date (sca-gate.sh).
+      - name: semgrep — shipped code
+        run: |
+          rc=0
+          .github/scripts/semgrep-scan.sh --rules "$RUNNER_TEMP/semgrep-rules" . || rc=$?
+          .github/scripts/sca-gate.sh semgrep "$rc" 5
+
   # Publishes "these gates went green against this exact content" so the push
   # that merges this PR does not have to prove it again.
   #
@@ -797,6 +865,7 @@ jobs:
         marketing-build,
         security,
         image-scan,
+        sast,
       ]
     # Deliberately NOT `!cancelled()`: unlike deploy-staging, this job must run
     # only when every gate actually ran and passed. A skipped gate means this
@@ -889,6 +958,7 @@ jobs:
         marketing-build,
         security,
         image-scan,
+        sast,
       ]
     # `!cancelled()` opts out of the default "all needs succeeded" rule, which
     # would treat a deliberately SKIPPED gate as a reason not to deploy. The

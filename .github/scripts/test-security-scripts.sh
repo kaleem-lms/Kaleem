@@ -5,6 +5,7 @@
 #   sca-gate.sh           the date guard (report-only before, blocking from)
 #   pnpm-audit.sh         pnpm audit, allowlist filter, expiry, counts-only output
 #   trivy-counts.sh       trivy report to counts-only output
+#   semgrep-scan.sh       semgrep report to a verdict: completeness guard, suppressions, counts
 #
 # This runs as the first step of the `security` job, so the scanners that decide
 # whether a PR may merge are themselves checked on every run (the
@@ -21,6 +22,7 @@ gitleaks_history="$here/gitleaks-history.sh"
 sca_gate="$here/sca-gate.sh"
 pnpm_audit="$here/pnpm-audit.sh"
 trivy_counts="$here/trivy-counts.sh"
+semgrep_scan="$here/semgrep-scan.sh"
 fixtures="$here/fixtures"
 fail=0
 
@@ -258,6 +260,188 @@ expect "trivy-counts: a clean report says none" 0 "0 HIGH or CRITICAL with a fix
 expect "trivy-counts: a scanner error is left to sca-gate.sh, not counted" 0 "scanner exit 1" tc fixture "$work/trivy-absent.json" 1
 expect "trivy-counts: a finished scan with no report is an error" 3 "no usable report" tc fixture "$work/trivy-absent.json" 5
 expect "trivy-counts: a finished scan with a garbage report is an error" 3 "no usable report" tc fixture "$work/garbage.json" 0
+
+# ---------------------------------------------------------------------------
+# semgrep-scan.sh --from-json <report> --expected <list> <root>
+# semgrep-scan.sh --rules <dir> <root>        (docker replaced by a shim)
+# ---------------------------------------------------------------------------
+semroot="$work/semroot"
+mkdir -p "$semroot/backend/kaleem" "$semroot/backend/signaling" "$semroot/backend/config" "$semroot/dashboard/src"
+printf 'x = 1\n' >"$semroot/backend/kaleem/fake_module.py"
+printf 'x = 1\n' >"$semroot/backend/signaling/fake_relay.py"
+printf 'x = 1\n' >"$semroot/backend/config/fake_base.py"
+printf 'export const x = 1\n' >"$semroot/dashboard/src/fake_widget.ts"
+sem_expected="$work/semgrep-expected.txt"
+printf '%s\n' backend/kaleem/fake_module.py backend/signaling/fake_relay.py backend/config/fake_base.py dashboard/src/fake_widget.ts >"$sem_expected"
+sm() { "$semgrep_scan" --from-json "$1" --expected "$sem_expected" "${2:-$semroot}"; }
+
+expect "semgrep-scan: a clean report passes and says how much it scanned" 0 "backend/kaleem: 1 of 1" sm "$fixtures/semgrep-clean.json"
+expect "semgrep-scan: findings are exit 5, counted per severity" 5 "2 finding(s) (error 1, warning 1)" sm "$fixtures/semgrep-two.json"
+expect "semgrep-scan: an entry in errors is incomplete, not clean" 4 "INCOMPLETE" sm "$fixtures/semgrep-errors.json"
+expect "semgrep-scan: an expected file missing from paths.scanned is incomplete" 4 "1 of 4 expected file(s) missing" sm "$fixtures/semgrep-missing-file.json"
+expect "semgrep-scan: incomplete outranks findings" 4 "INCOMPLETE" sm "$fixtures/semgrep-missing-file.json"
+: >"$work/semgrep-empty-expected.txt"
+expect "semgrep-scan: an empty expected set is incomplete, not clean" 4 "expected set is empty" \
+	"$semgrep_scan" --from-json "$fixtures/semgrep-clean.json" --expected "$work/semgrep-empty-expected.txt" "$semroot"
+expect "semgrep-scan: malformed JSON is an error" 3 - sm "$work/garbage.json"
+expect "semgrep-scan: a report without results, errors and paths is an error" 3 "not a semgrep report" sm "$fixtures/semgrep-no-keys.json"
+expect "semgrep-scan: a missing report is an error" 3 - sm "$work/semgrep-absent.json"
+expect "semgrep-scan: a missing expected-file list is an error" 3 "expected-file list" \
+	"$semgrep_scan" --from-json "$fixtures/semgrep-clean.json" --expected "$work/semgrep-no-list.txt" "$semroot"
+expect "semgrep-scan: an unknown flag is a usage error" 2 "usage" "$semgrep_scan" --nope "$semroot"
+
+# Suppressions: named is accepted and counted; bare (nosemgrep, or nosem) is exit 3.
+supp="$work/semroot-supp"
+cp -r "$semroot" "$supp"
+printf '# nosemgrep: fake-rule-alpha\nx = 1\n' >"$supp/backend/kaleem/fake_module.py"
+expect "semgrep-scan: a named suppression is accepted and counted" 0 "1 named suppression(s)" sm "$fixtures/semgrep-clean.json" "$supp"
+printf 'const y = 1 // nosemgrep: fake-rule-beta, fake-rule-gamma\n' >>"$supp/dashboard/src/fake_widget.ts"
+expect "semgrep-scan: a line naming two rules counts as one suppression" 0 "2 named suppression(s)" sm "$fixtures/semgrep-clean.json" "$supp"
+printf 'x = 1  # nosemgrep\n' >"$supp/backend/signaling/fake_relay.py"
+expect "semgrep-scan: a bare nosemgrep is refused" 3 "name no rule" sm "$fixtures/semgrep-clean.json" "$supp"
+printf 'x = 1  # nosem\n' >"$supp/backend/signaling/fake_relay.py"
+expect "semgrep-scan: the short form 'nosem' is refused as bare" 3 "name no rule" sm "$fixtures/semgrep-clean.json" "$supp"
+printf 'x = 1  # nosemgrep:\n' >"$supp/backend/signaling/fake_relay.py"
+expect "semgrep-scan: 'nosemgrep:' with no id is refused" 3 "name no rule" sm "$fixtures/semgrep-clean.json" "$supp"
+printf 'x = 1  # a note about nosemantics\n' >"$supp/backend/signaling/fake_relay.py"
+expect "semgrep-scan: a word that merely starts with nosem is not a suppression, bare or named" 0 "2 named suppression(s)" sm "$fixtures/semgrep-clean.json" "$supp"
+
+# Non-source files (the template annotations are `.txt`) are read too; excluded test code is not.
+printf 'x = 1  # nosemgrep\n' >"$supp/backend/kaleem/fake_module.txt"
+expect "semgrep-scan: a bare nosemgrep in a non-source file is refused" 3 "name no rule" sm "$fixtures/semgrep-clean.json" "$supp"
+rm "$supp/backend/kaleem/fake_module.txt"
+mkdir -p "$supp/backend/kaleem/tests"
+printf 'x = 1  # nosemgrep\n' >"$supp/backend/kaleem/tests/test_fake.py"
+printf 'x = 1  // nosemgrep\n' >"$supp/dashboard/src/fake_widget.test.ts"
+expect "semgrep-scan: a bare nosemgrep in excluded test code is not read" 0 "2 named suppression(s)" sm "$fixtures/semgrep-clean.json" "$supp"
+
+# The scanned repositories are private and the Actions page is public, so CI output is
+# COUNTS ONLY: never a path or a rule id. The itemised rows are an opt-in for a local run
+# and even then never reach the step summary.
+ssum="$work/semgrep-summary.md"
+: >"$ssum"
+sout="$(GITHUB_STEP_SUMMARY="$ssum" sm "$fixtures/semgrep-two.json" 2>&1 || true)"
+if grep -qF "2** finding(s) (error 1, warning 1)" "$ssum" && printf '%s' "$sout" | grep -qF "2 finding(s) (error 1, warning 1)"; then
+	echo "ok: semgrep-scan: the summary and the log carry the count per severity"
+else
+	echo "FAIL: semgrep-scan: the summary or log lacks the per-severity count"
+	sed 's/^/      | /' "$ssum"
+	fail=1
+fi
+if grep -qE "fake_module|fake_widget|fake-rule" "$ssum" || printf '%s' "$sout" | grep -qE "fake_module|fake_widget|fake-rule"; then
+	echo "FAIL: semgrep-scan: a path or rule id reached the default output"
+	sed 's/^/      | /' "$ssum"
+	printf '%s\n' "$sout" | sed 's/^/      | /'
+	fail=1
+else
+	echo "ok: semgrep-scan: the default output names no file and no rule"
+fi
+: >"$ssum"
+sdet="$(GITHUB_STEP_SUMMARY="$ssum" SEMGREP_DETAILS=1 sm "$fixtures/semgrep-two.json" 2>&1 || true)"
+if printf '%s' "$sdet" | grep -qF "fake-rule-alpha  backend/kaleem/fake_module.py:7" && printf '%s' "$sdet" | grep -qF "fake-rule-beta  dashboard/src/fake_widget.ts:12"; then
+	echo "ok: semgrep-scan: SEMGREP_DETAILS=1 prints rule and location"
+else
+	echo "FAIL: semgrep-scan: the opt-in did not print the itemised rows"
+	printf '%s\n' "$sdet" | sed 's/^/      | /'
+	fail=1
+fi
+if grep -qE "fake_module|fake_widget|fake-rule" "$ssum"; then
+	echo "FAIL: semgrep-scan: the opt-in leaked the itemised rows into the step summary"
+	sed 's/^/      | /' "$ssum"
+	fail=1
+else
+	echo "ok: semgrep-scan: even with the opt-in the step summary stays counts only"
+fi
+: >"$ssum"
+sinc="$(GITHUB_STEP_SUMMARY="$ssum" sm "$fixtures/semgrep-errors.json" 2>&1 || true)"
+if grep -qF "INCOMPLETE SCAN" "$ssum" && ! grep -qE "fake_widget" "$ssum" && ! printf '%s' "$sinc" | grep -qE "fake_widget"; then
+	echo "ok: semgrep-scan: an incomplete scan says so in the summary and names no file"
+else
+	echo "FAIL: semgrep-scan: the incomplete summary is missing, or named a file"
+	sed 's/^/      | /' "$ssum"
+	fail=1
+fi
+
+# Scan mode. A shim `docker` records its arguments and replays a report.
+sshim="$work/shim-semgrep"
+mkdir -p "$sshim"
+cat >"$sshim/docker" <<'SHIM'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >"$SHIM_ARGS"
+out=""
+prev=""
+for a in "$@"; do
+	case "$prev" in -v) case "$a" in *:/out) out="${a%:/out}" ;; esac ;; esac
+	prev="$a"
+done
+if [ -n "${SHIM_REPORT:-}" ]; then cp "$SHIM_REPORT" "$out/report.json"; fi
+exit "${SHIM_RC:-0}"
+SHIM
+chmod +x "$sshim/docker"
+
+scanroot="$work/scanroot"
+mkdir -p "$scanroot/backend/kaleem/tests" "$scanroot/backend/signaling" "$scanroot/backend/config/settings" "$scanroot/dashboard/src"
+printf 'x = 1\n' >"$scanroot/backend/kaleem/a.py"
+printf 'x = 1\n' >"$scanroot/backend/kaleem/tests/test_a.py"
+printf 'x = 1\n' >"$scanroot/backend/signaling/s.py"
+printf 'x = 1\n' >"$scanroot/backend/config/settings/base.py"
+printf 'x = 1\n' >"$scanroot/backend/config/settings/local.py"
+printf 'x = 1\n' >"$scanroot/backend/config/settings/test.py"
+printf 'export const x = 1\n' >"$scanroot/dashboard/src/w.ts"
+printf 'export const x = 1\n' >"$scanroot/dashboard/src/w.test.ts"
+printf 'export const x = 1\n' >"$scanroot/dashboard/src/w.test.tsx"
+printf 'not source\n' >"$scanroot/dashboard/src/notes.md"
+git_quiet -C "$scanroot" init -q -b main
+git_quiet -C "$scanroot" add .
+git_quiet -C "$scanroot" commit -q -m files
+mkdir -p "$work/rules"
+scan_ok="$work/scan-ok.json"
+printf '{"results":[],"errors":[],"paths":{"scanned":["backend/kaleem/a.py","backend/signaling/s.py","backend/config/settings/base.py","dashboard/src/w.ts","dashboard/src/notes.md"]}}\n' >"$scan_ok"
+scan_extra="$work/scan-extra.json"
+# semgrep may read MORE than the expected set; that is not a gap.
+printf '{"results":[],"errors":[],"paths":{"scanned":["backend/kaleem/a.py","backend/kaleem/tests/test_a.py","backend/signaling/s.py","backend/config/settings/base.py","backend/config/settings/local.py","dashboard/src/w.ts","dashboard/src/w.test.ts"]}}\n' >"$scan_extra"
+scan_short="$work/scan-short.json"
+printf '{"results":[],"errors":[],"paths":{"scanned":["backend/kaleem/a.py","backend/signaling/s.py","dashboard/src/w.ts"]}}\n' >"$scan_short"
+ss() { env PATH="$sshim:$PATH" SHIM_ARGS="$work/semgrep-args.txt" "$@" "$semgrep_scan" --rules "$work/rules" "$scanroot"; }
+
+expect "semgrep-scan: a scan whose report covers the tracked source passes" 0 "backend/config: 1 of 1" ss SHIM_REPORT="$scan_ok"
+expect "semgrep-scan: test code and dev settings are not expected (and the counts show it)" 0 "dashboard/src: 1 of 1" ss SHIM_REPORT="$scan_ok"
+expect "semgrep-scan: reading more than the expected set is not a gap" 0 - ss SHIM_REPORT="$scan_extra"
+expect "semgrep-scan: a tracked file the report lacks is incomplete" 4 "1 of 4 expected file(s) missing" ss SHIM_REPORT="$scan_short"
+sargs="$(cat "$work/semgrep-args.txt")"
+sargs_ok=1
+for want in "--network none" "--metrics=off" "--disable-version-check" "--config /rules/python/lang/security" "--config /rules/typescript/react/security" \
+	"--exclude tests" "--exclude test" "--exclude *.test.tsx" "--exclude config/settings/local.py" "@sha256:" "backend/kaleem backend/signaling backend/config dashboard/src"; do
+	printf '%s' "$sargs" | grep -qF -- "$want" || {
+		echo "FAIL: semgrep-scan: the docker invocation lacks '$want'"
+		sargs_ok=0
+		fail=1
+	}
+done
+if printf '%s' "$sargs" | grep -qE -- '(^| )--error( |$)'; then
+	echo "FAIL: semgrep-scan: semgrep was run with --error, so a finding would look like a failure"
+	sargs_ok=0
+	fail=1
+fi
+[ "$sargs_ok" -eq 0 ] || echo "ok: semgrep-scan: runs the pinned image offline, with the rules and exclusions and without --error"
+# Semgrep's own exit codes include 3, 4 and 5. Each must land on 6, never on a verdict.
+for code in 1 2 3 4 5 7 125; do
+	expect "semgrep-scan: semgrep exiting $code is a tool failure (6), not a verdict" 6 "semgrep exited $code" ss SHIM_RC="$code" SHIM_REPORT="$scan_ok"
+done
+expect "semgrep-scan: semgrep exiting 0 with no report is an error" 3 "report file not found" ss SHIM_REPORT=
+expect "semgrep-scan: a missing rules directory is an error" 3 "rules directory" \
+	env PATH="$sshim:$PATH" SHIM_ARGS="$work/semgrep-args.txt" "$semgrep_scan" --rules "$work/no-rules" "$scanroot"
+expect "semgrep-scan: a target that is not checked out is an error" 3 "target not found" \
+	env PATH="$sshim:$PATH" SHIM_ARGS="$work/semgrep-args.txt" SEMGREP_TARGETS="backend/kaleem backend/absent" "$semgrep_scan" --rules "$work/rules" "$scanroot"
+allx="$work/scanroot-allx"
+mkdir -p "$allx/backend/kaleem/tests" "$allx/backend/signaling" "$allx/backend/config" "$allx/dashboard/src"
+printf 'x = 1\n' >"$allx/backend/kaleem/tests/test_a.py"
+printf 'x = 1\n' >"$allx/backend/signaling/README.md"
+git_quiet -C "$allx" init -q -b main
+git_quiet -C "$allx" add .
+git_quiet -C "$allx" commit -q -m files
+expect "semgrep-scan: a checkout with no source to scan is incomplete, not clean" 4 "expected set is empty" \
+	env PATH="$sshim:$PATH" SHIM_ARGS="$work/semgrep-args.txt" SHIM_REPORT="$fixtures/semgrep-clean.json" "$semgrep_scan" --rules "$work/rules" "$allx"
 
 # ---------------------------------------------------------------------------
 # gitleaks-history.sh <dir>
