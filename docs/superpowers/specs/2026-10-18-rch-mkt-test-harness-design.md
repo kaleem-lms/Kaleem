@@ -81,9 +81,13 @@ test commands.
 No personal data (ADR-0023: none collected, stored or shown). No model, migration, endpoint
 or route. Expand/contract does not apply. Dependency change: marketing `package.json` and
 `pnpm-lock.yaml` (vitest, `@vitest/coverage-v8`, `@playwright/test`, `playwright-core`,
-`@axe-core/playwright`, all devDependencies), so the conductor allocates the unit as
+`@axe-core/playwright`, and `@types/node@^22`, all devDependencies), so the conductor allocates the unit as
 marketing's one dependency-changing unit. The new packages have no install scripts, so
 `pnpm-workspace.yaml` `allowBuilds` is unchanged; the spike's install did not prompt.
+
+`@types/node` was not in the spike's list. `playwright.config.ts` reads `process.env`, and
+`astro check` (which type-checks the config) failed with four `ts(2591)` errors until it was
+added; with it, `astro check` reports 0 errors again. It matches CI's Node 22.
 
 ## Module boundaries
 

@@ -674,7 +674,7 @@ jobs:
 
   marketing-build:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     needs: triage
     # `verified != 'true'` and not `== 'false'`: the guard step is skipped on
     # pull_request events, so this output is the EMPTY STRING there, not "false".
@@ -724,8 +724,31 @@ jobs:
       # the palette (ADR-0040).
       - name: Type-check
         run: pnpm check
+      # Renders the real .astro layout and pages through Astro's container. The coverage
+      # floor (ADR-0026) lives in marketing/vitest.config.ts and is set by the conductor
+      # from this step's measured figures; a local run never sets it.
+      - name: Unit tests
+        run: pnpm test:coverage
       - name: Build
         run: pnpm build
+      # The e2e suite runs against `astro preview` of the build above, so it must come
+      # after it. No backend, database or secrets: the site is static.
+      - name: Install Playwright chromium
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Run e2e
+        run: pnpm e2e
+      # A red e2e step with no artefact is a guessing game. The name differs from the
+      # dashboard e2e job's `playwright-report`: one run cannot hold two artefacts of
+      # the same name.
+      - name: Upload the Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: marketing-playwright-report
+          path: |
+            marketing/playwright-report/
+            marketing/test-results/
+          retention-days: 7
 
   deploy-staging:
     needs:

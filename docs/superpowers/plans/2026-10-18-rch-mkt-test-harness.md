@@ -12,7 +12,7 @@ no dashboard. Dependency change in marketing: the hand-back says `needs: depende
 
 | Repo | File | Change |
 | --- | --- | --- |
-| marketing | `package.json`, `pnpm-lock.yaml` | devDeps `vitest@^3.2.7`, `@vitest/coverage-v8@^3.2.7`, `@playwright/test@1.62.1`, `playwright-core@1.62.1`, `@axe-core/playwright@4.13.0`; scripts `test`, `test:coverage`, `e2e` |
+| marketing | `package.json`, `pnpm-lock.yaml` | devDeps `vitest@^3.2.7`, `@vitest/coverage-v8@^3.2.7`, `@playwright/test@1.62.1`, `playwright-core@1.62.1`, `@axe-core/playwright@4.13.0`, `@types/node@^22` (added during the build: `astro check` type-checks `playwright.config.ts`); scripts `test`, `test:coverage`, `e2e` |
 | marketing | `vitest.config.ts` | new: `getViteConfig`, `include: ["tests/**/*.test.ts"]`, v8 coverage over `src/**/*.{ts,astro}`, `all: true`, **no `thresholds`** |
 | marketing | `tests/layout.test.ts`, `tests/home.test.ts` | new unit tests (never under `src/pages/`) |
 | marketing | `playwright.config.ts`, `e2e/routes.ts`, `e2e/site.spec.ts` | new |
