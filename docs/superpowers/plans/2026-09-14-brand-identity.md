@@ -61,6 +61,14 @@ list (`docs/superpowers/specs/2026-09-14-brand-identity-design.md`, Errata).
   setting `site` does not change that. Task 11 builds the URL from `Astro.url`, adds
   `tests/layout.test.ts` to its files, and proves the production origin on the built
   `dist/index.html`, the one place `site` applies.
+- **E14 descenders in the outlined wordmark.** Task 5's `outline.py` puts the baseline at
+  `y = upem` with a `0 0 {x} {upem}` viewBox, which clips anything below the baseline: the
+  tail of the final م in كليم. Use the font's vertical metrics: `asc = hhea.ascent`,
+  `desc = hhea.descent` (negative), `ty = asc - pos.y_offset`, viewBox `0 0 {x} {asc - desc}`.
+- **E15 `brand.mjs` is exported but imports a devDependency.** After 8a, `@kaleem/tokens`
+  exports `./brand.mjs`, which imports `@resvg/resvg-js` at top level, so a consumer that
+  imports it gets `ERR_MODULE_NOT_FOUND`. Either drop the export or import resvg lazily
+  inside `emit()`; tracked in `ISSUES.md` for `inf-brand-tokens-pipeline`.
 
 ## Global Constraints
 
@@ -1151,7 +1159,7 @@ git tag v0.3.0 && git push origin v0.3.0
 **Why this matters (E8):** the dashboard has **two** hand-built wordmarks, not one: `AppTopbar.tsx:43` and
 `src/ui/auth-layout.tsx:10`. Each carries a `<span className="text-accent">.</span>` dot, and each dot has
 a G2 exemption in `scripts/check-colors.mjs` (`TEXT_ON_SURFACE_ALLOW`). Two tests assert the text:
-`AppTopbar.test.tsx:42` and `auth-layout.test.tsx:23` both use `getByText(/kaleem/i)`. Swapping text for
+`AppTopbar.test.tsx:42` uses `getByText(/kaleem/i)` and `auth-layout.test.tsx:23` uses `getByText("kaleem")`. Swapping text for
 an inline SVG breaks both **unless the mark keeps an accessible name**, so the test change is the point,
 not collateral. `rch-pwa-manifest-head` already owns `index.html` and the PNG names: this task adds to
 what it built and does not rebuild it.

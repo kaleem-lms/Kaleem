@@ -16,7 +16,7 @@ changes in this spec:
 
 - **E6** the web manifest is not a brand deliverable. `rch-pwa-manifest-head` owns the
   dashboard's manifest and keeps the icon file names; the brand release only overwrites
-  image files. The deliverables line and the "icon set" gate above are corrected.
+  image files. The deliverables line and the "icon set" gate below are corrected.
 - **E9** marketing has a vitest suite (100/100/100 floor) and an e2e harness, so the
   "no test suite" statement in Out of scope is corrected. The "marketing has CI" row in the
   pre-flight table below is a dated record and stays as written.
@@ -26,7 +26,8 @@ changes in this spec:
 - **E1-E5, E7, E8, E11-E13** change only the plan or the brief: flat theme aliases (E1), the
   tokens CI install step (E3), HarfBuzz shaping (E4), outlined lockup text (E5), the split
   of Task 8 into 8a and 8b (E7), the two dashboard wordmarks (E8), the drift mutation check (E12),
-  the absolute `og:image` under the test container (E13). E2 corrects ADR-0043. E11 marks
+  the absolute `og:image` under the test container (E13), the wordmark descenders (E14) and the
+  `brand.mjs` export (E15). E2 and E3 also amend ADR-0043. E11 marks
   the brief as being rewritten (`inf-brand-brief-rewrite`).
 
 ## Goal

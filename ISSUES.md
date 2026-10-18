@@ -359,6 +359,10 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
 
 ## Someday
 
+- **`@kaleem/tokens` will export `./brand.mjs`, which imports a devDependency at top level**
+  (brand plan E15): a consumer that imports it fails with `ERR_MODULE_NOT_FOUND`. Drop the
+  export or import `@resvg/resvg-js` lazily inside `emit()`. For `inf-brand-tokens-pipeline`.
+
 - **`dashboard/public/icons.svg` is dead.** It is Vite's template sprite of social icons and
   nothing references it (seen in `rch-pwa-manifest-head`). It ships in every build. Delete it
   in a unit that already touches `public/`.
