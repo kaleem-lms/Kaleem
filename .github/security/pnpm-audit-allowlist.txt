@@ -1,0 +1,15 @@
+# pnpm audit allowlist for the `security` job (ADR-0030, as amended).
+#
+# One advisory per line:   <GHSA-id> <review-by YYYY-MM-DD> <reason, free text>
+#
+# A line is allowed only for a finding triaged as NOT REACHABLE in what ships, for
+# example a package that exists only at build time and never reaches the nginx-served
+# static bundle. A reachable finding is fixed (a dependency bump), never listed here.
+# Both frontends list their build tools under `dependencies`, so --prod does not remove
+# them from the audit; this file is how a build-time-only finding is recorded as triaged.
+#
+# `pnpm-audit.sh` fails the job on any entry past its review-by date, whether or not the
+# advisory still exists, so a suppression cannot outlive its reason. No review-by date
+# may be later than the blocking date (SCA_BLOCKING_FROM in ci.yml).
+#
+# Do NOT add a line to make a red run green. Same rule as .gitleaksignore.

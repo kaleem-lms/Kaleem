@@ -1,0 +1,13 @@
+# trivy allowlist for the `image-scan` job (ADR-0030, as amended).
+#
+# One finding per line, in trivy's own syntax:  <CVE-or-GHSA-id> exp:<YYYY-MM-DD>
+# preceded by a comment saying WHY it is not reachable in what ships. `exp:` is
+# mandatory: trivy stops honouring the line on that date, so a suppression cannot
+# outlive its review.
+#
+# An entry is allowed only for a finding triaged as NOT REACHABLE in the running image
+# (for example, a package present only in a build stage that is not copied into the
+# final one). A reachable finding is fixed, never listed here. The triage reasoning for
+# each entry is kept in the private record, not in this public file.
+#
+# Do NOT add a line to make a red run green. Same rule as .gitleaksignore.
