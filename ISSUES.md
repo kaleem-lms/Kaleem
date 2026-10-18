@@ -362,6 +362,9 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
 - **The allauth confirmation email greets "Hello from !"** — the site name is empty, so the
   greeting has nothing after "from". Seen in the first real e2e inbox mail. Found 2026-10-18 by
   ntf-mail-e2e-harness.
+- **`dashboard/public/icons.svg` is dead.** It is Vite's template sprite of social icons and
+  nothing references it (seen in `rch-pwa-manifest-head`). It ships in every build. Delete it
+  in a unit that already touches `public/`.
 
 - **Five Arabic plural families have no `_zero` form**, so at count 0 an Arabic page falls back
   to English: `availability.copyConfirmBody`, `availability.weeklyTotal`,
