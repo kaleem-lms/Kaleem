@@ -43,6 +43,13 @@ the models.
 | `set_teacher_subjects(user_id, slugs)` | Replaces the whole set; returns what was stored |
 | `get_student_subjects(user_id)` | The student's slugs, sorted |
 | `set_student_subjects(user_id, slugs)` | Replaces the whole set; returns what was stored |
+| `subject_display_name(name)` | The stored subject name in the language of the current request (`pgettext("subject name", name)`). A name with no catalog entry comes back as stored |
+
+`subject_display_name` is how a subject name reaches a client in Arabic. Services keep returning the
+stored name (scheduling hands one to the video provider); the serializers of curriculum and of
+scheduling (`SubjectNameField`) translate at the edge. The three seeded names are marked with
+`pgettext_lazy` in `services.py` so `makemessages` finds them; a subject an admin adds shows its
+stored name until a catalog entry ships (ADR-0058).
 
 A symmetric quartet on purpose: the dashboard hooks mirror these names exactly, so a reader
 can move between the two repos without translating.
@@ -112,3 +119,10 @@ a teacher's subjects — the e2e specs converge their own fixture instead.
 - **`Course` / `Unit` / `Lesson`** — the roadmap's real curriculum scope.
 - **Subject proficiency or level** (beginner vs advanced Arabic). A matching refinement; C1
   adds it if the ranking needs it.
+
+## Personal-data export
+
+`curriculum.subjects` (`personal_data.py`, registered from `CurriculumConfig.ready()`)
+exports the subjects a person teaches and the subjects they want to study, as
+`{subject (slug), since}`. `Subject` itself is a `NOT_PERSONAL` catalogue row. The erase hook
+is lb-gdpr-erasure.

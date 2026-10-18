@@ -102,31 +102,6 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
   pin to outlive. Implemented and unit-tested; **not yet verified by a live staging colour
   flip** — see the new entry below.)*
 
-- **Traefik logs no request path for any route, and C3c did NOT make it safe to restore.**
-  The token itself is fixed — since C3c it rides `Sec-WebSocket-Protocol`, not a query string.
-  But the plan to then restore Traefik's dropped `RequestPath` field **does not survive contact
-  with the URLconf and is withdrawn.** `config/urls.py` includes `allauth.urls`, which serves
-  `/accounts/confirm-email/<key>/` and `/accounts/password/reset/key/<uidb36>-<key>/` — single-use
-  **account-takeover** credentials in the **path**, not the query string. Removing the signaling
-  token changed nothing about whether `RequestPath` is safe to log, and Traefik still has no
-  per-router access-log config and no partial-field redaction.
-  The remedy is therefore not a Traefik rollback: **give dashboard and marketing path-level
-  logging from their own container access logs**, the same compensating control Django already
-  has through gunicorn. Until that lands, those two surfaces have no path-level visibility at the
-  gateway.
-
-- **The gunicorn access log captures account-takeover credentials, and the compose comment
-  claiming otherwise is wrong (C3b, spotted in C3c's final review).**
-  `infra/docker-compose.production.yml`'s django-blue/django-green comment used to assert "safe
-  to log in full: no capability token ever appears in an API URL." That is true of the video
-  signaling token, but the entry directly above establishes the opposite for `allauth.urls`:
-  `/accounts/confirm-email/<key>/` and the password-reset key are single-use account-takeover
-  credentials carried **in the path**, and those requests go through Django, so
-  `gunicorn --access-logfile -` records them in full. Pre-existing since C3b; C3c nominated that
-  same compensating control as the model for dashboard and marketing to copy (the bullet above),
-  which is what surfaced the contradiction. The compose comment has been corrected to say so; the
-  underlying leak is not fixed here.
-
 - **No `turns:` TLS listener, so a TLS-443-only egress filter still blocks the relay (C3c).**
   coturn listens on `3478` UDP and TCP only. Traefik owns 443 on the staging box, and a `turns:`
   listener on 5349 would need a certificate delivered to a container Traefik does not front, so
@@ -204,12 +179,16 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
   prune keeps 24h of images, which after this incident's `prune -a` means there is
   currently NO local rollback target — `restore_signaling()` and a rollback would have to
   re-pull from GHCR. Worth a cheap disk alarm before it bites in production.
-- **EN 301 549 clause 7: no captions or audio description for live lessons.** ADR-0040
-  adopts EN 301 549, and for the design system its delta over WCAG 2.2 AA is ~zero
-  (clause 9 incorporates WCAG by reference). **Clause 7 is the one with real teeth** and
-  kaleem cannot currently meet it: the call carries no captioning. Belongs to the call
-  feature, needs its own spec, deliberately out of scope for the design-system work.
-  Logged here rather than left unstated so "EN 301 549 conformant" is never claimed flat.
+- **Live lessons have no captions, no real-time text and no audio-activity indicator; the
+  accessibility statement that says so is not published yet.** Decided 2026-10-18
+  (ADR-0054, amends ADR-0040): state the gap and build after launch. The clause named
+  here before was wrong. ADR-0040 said clause 7, but clause 7 only governs displaying
+  captions that exist; the clauses with teeth for a two-way voice and video lesson are
+  EN 301 549 V4.1.1 **6.2.1.1** (real-time text) and **6.5.5** (indicator of audio
+  activity). What still blocks launch: the statement is drafted
+  (`docs/decisions/2026-10-18-accessibility-statement-draft.md`, owner commits it,
+  counsel reviews it) but not published; `rch-mkt-legal-pages` publishes it. This entry
+  closes when it is live. The build work is under **Someday**.
 - **Throwaway users in the staging DB.** `stg.smoke@example.com`, `ses.smoke@example.com`,
   and `c0.subjects.check@example.com` (a child of `billing.clickthrough@`, created
   2026-09-05 while verifying C0 and left unverified — it cannot log in). Clear via
@@ -359,10 +338,30 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
 
 ## Someday
 
-- **`@kaleem/tokens` will export `./brand.mjs`, which imports a devDependency at top level**
-  (brand plan E15): a consumer that imports it fails with `ERR_MODULE_NOT_FOUND`. Drop the
-  export or import `@resvg/resvg-js` lazily inside `emit()`. For `inf-brand-tokens-pipeline`.
+- **No call diagnostic for a connect timeout.** The client's 10 s signaling deadline lands on
+  "Couldn't reach the session server" but reports nothing: it needs a new `CallDiagnostic.Code`
+  on the backend plus the contract test. Found 2026-10-18 by lb-call-connection-failure-path.
+- **`lost` shows at the first signaling drop and a later open does not clear it.** The hook keeps
+  reconnecting behind the screen, so a call that recovers still shows the failure. Existing
+  behaviour; the connect timeout follows the same path on purpose. Found 2026-10-18 by
+  lb-call-connection-failure-path.
 
+- **Build captioning and real-time text for live lessons (after launch, own spec).**
+  ADR-0054 recommends the order: the audio-activity indicator (6.5.5, smallest; the
+  lobby's `useMicLevel` can be reused on the remote stream), then
+  real-time text over a data channel (6.2.1.1, ADR-0039 fourth line), then captions only
+  through on-device recognition or a vendor behind its own ADR. Owner orders it. Arabic and
+  recitation recognition quality is unmeasured; Safari and iOS cannot be verified here.
+- **`Button variant="outline"` borders with the decorative `--border` at 1.29:1** — the same
+  SC 1.4.11 boundary question as the secondary button, across about 45 buttons. Found
+  2026-10-18 by lb-known-wcag-gaps; out of its scope.
+- **A secondary Button inside a `bg-secondary`/`bg-muted` well has a 2.78:1 edge in light**
+  (3.03 dark): `control-border` is asserted on background/card/popover only. None sits in
+  such a well today. Found 2026-10-18 by lb-known-wcag-gaps.
+
+- **`SessionAdmin` still lets staff edit `status`.** Moving a closed lesson back to `scheduled`
+  in the admin now violates `session_outcome_only_when_completed` and returns a 500 rather
+  than a form error. Found 2026-10-18 by ana-session-outcomes.
 - **The allauth confirmation email greets "Hello from !"** — the site name is empty, so the
   greeting has nothing after "from". Seen in the first real e2e inbox mail. Found 2026-10-18 by
   ntf-mail-e2e-harness.
@@ -406,7 +405,8 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
   Fraunces has no Arabic glyphs (its `unicode-range` subsets never load), so an Arabic
   heading renders in whatever serif the OS picks. True before and after `@kaleem/tokens`
   v0.2.3, which fixed the Latin case only. Deciding which Arabic display face the brand
-  wants is a design choice for the brand work (`inf-brand-tokens-pipeline`), not a patch.
+  wants is a design choice for the brand work (`inf-brand-direction` / `inf-brand-mark-assets`,
+  after `dec-brand-typeface`), not a patch.
   `e2e/display-font.spec.ts` runs in English for this reason. Found 2026-10-18.
 
 - **One failed `getUserMedia` tap writes TWO `calldiagnostic` rows, so the table
@@ -748,8 +748,6 @@ None blocks the phase; each was reviewed and consciously deferred.
 - ~~**`NotFoundError("Recurring slot", request.user.id)` echoes the user id.**~~ **FIXED
   2026-09-13** (backend #56). `identifier` is now optional: the slot does not exist, so there is
   no id to name, and the user-visible body no longer reads a USER id under a slot's noun.
-- **The multi-subject 400 detail renders the server's raw English string**, unlocalised — matching
-  the existing claim-mutation pattern. Wants an i18n pass.
 - **Feature naming diverges across repos:** the backend puts booking inside `scheduling`; the
   dashboard adds `features/booking/` beside an existing `features/scheduling/`.
 - Smaller: a teacher-and-parent sees their own name echoed on rows they teach; the seed prints
@@ -1023,7 +1021,7 @@ proves; all are robustness of an unattended job.
   the user could not tell a failed copy from a slow one. The message now says to select the
   code by hand, because the code is still on screen and reporting only "failed" would leave
   the user stuck beside a working alternative.
-- `StudentPreferencesCard`: the per-row validation message is a sibling `<p role="alert">`,
+- ~~`StudentPreferencesCard`: the per-row validation message is a sibling `<p role="alert">`,~~ **FIXED 2026-10-18** (lb-known-wcag-gaps): the entry was stale for that card; the real gap was `InlineEditor` in `WeeklyAvailabilityEditor`, whose error is now a linked `FormError` with `aria-invalid` on the offending select(s), and `Select` gained `Input`'s invalid styling.
   not `aria-describedby`-linked to the offending input, and the time inputs carry no
   `aria-invalid`. Also the "required times" message anchors on `end_time` even when
   `start_time` is the empty one. And it hand-rolls a `SELECT_CLASS` string replicating the
@@ -1045,7 +1043,7 @@ proves; all are robustness of an unattended job.
   was stale, verified 2026-09-13.** `grep -rn "bg-black/" dashboard/src` returns nothing; the
   per-theme `--overlay` token landed with the `Dialog` primitive and was confirmed rendering as
   `#191c1b8c` light / `#000000ad` dark during the staging walk.
-- **A `secondary` button is nearly invisible as a SURFACE against the page.**
+- ~~**A `secondary` button is nearly invisible as a SURFACE against the page.**~~ **FIXED 2026-10-18** (lb-known-wcag-gaps, tokens v0.2.4): a `control-border` edge at 3:1 on background/card/popover; darkening the fill could not work (the label would drop to 4.09:1).
   `--secondary` on `--background` measures **1.09:1** in light (it was 1.13:1 on
   v0.1.1, so this is pre-existing and only marginally worse, not a v2 regression);
   dark is 1.75:1. `Button variant="secondary"` carries no border, so on a page
@@ -1097,6 +1095,14 @@ proves; all are robustness of an unattended job.
   guard.
 
 ---
+
+- **The chat list works out access for every chat a user has before it pages them
+  (`msg-core-backend`).** `messaging.services.list_chats` loads all of a user's chats, runs the
+  batched access lookups once over all of them, and the view then paginates the Python list.
+  Query count is flat in the number of chats (pinned by a test), but the work is linear, and a
+  teacher with several hundred students is polled for it. Fine at launch size; when it
+  isn't, page the member chats in the database (newest first) and compute access only for the
+  page. Not worth doing before a real teacher has that many.
 
 ## Known-good gotchas (not bugs — read before panicking)
 

@@ -213,6 +213,13 @@ jobs:
           python-version: "3.13"
       - name: Install dependencies
         run: pip install -r requirements/local.txt
+      # The translation catalogs are compiled from their .po files, and the
+      # completeness check shells out to GNU gettext (msgfmt, xgettext). The runner
+      # image ships it; this makes that a checked fact instead of an assumption.
+      - name: Ensure GNU gettext
+        run: |
+          command -v msgfmt >/dev/null && command -v xgettext >/dev/null \
+            || { sudo apt-get update -q && sudo apt-get install -y --no-install-recommends gettext; }
       - name: Run migrations
         run: python manage.py migrate --noinput
       # `migrate` applies the migrations that exist; it cannot notice a model
@@ -281,7 +288,12 @@ jobs:
       # 2026-09-12).
       - name: Token pin agrees with the submodule (G3)
         working-directory: .
-        run: node scripts/check-token-pin.mjs
+        # The submodule checkout fetches only the pinned commit, which carries no tags
+        # once tokens main has moved past the release. Fetch the tags first, or a correct
+        # pin reads as "tag does not exist" (seen on 2026-10-18 after tokens#9).
+        run: |
+          git -C tokens fetch -q --depth=1 origin "+refs/tags/*:refs/tags/*"
+          node scripts/check-token-pin.mjs
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       - name: TypeScript check
@@ -495,6 +507,16 @@ jobs:
         run: |
           python manage.py migrate --noinput
           python manage.py seed_e2e_all
+      # The .mo files are build output and are not committed, and a server without
+      # them does not fail: it answers in English. Staging runs the image, which
+      # compiles them, so an e2e run on an uncompiled tree would be English in CI and
+      # Arabic in production -- the server-strings flows would pass or fail for the
+      # wrong reason.
+      - name: Compile the Arabic catalogs
+        working-directory: backend
+        run: |
+          command -v msgfmt >/dev/null || { sudo apt-get update -q && sudo apt-get install -y --no-install-recommends gettext; }
+          python manage.py compilemessages
       - name: Start the API
         working-directory: backend
         run: |
@@ -583,18 +605,26 @@ jobs:
         env:
           VITE_API_URL: http://api.kaleem.localhost:8000/api/v1/
         run: pnpm build
-      - name: Serve the built dashboard
-        working-directory: dashboard
+      # The build is served by the SHIPPED nginx image with the SHIPPED nginx.conf, not by
+      # `vite preview`: the security headers (ADR-0056) exist only in that file, so a
+      # preview server would let every e2e assertion about them pass or fail for the wrong
+      # reason. The image is read from the Dockerfile's production stage so the two cannot
+      # drift. Docker publishes on IPv4 and IPv6, which `app.kaleem.localhost` needs.
+      - name: Serve the built dashboard with the production nginx config
         run: |
-          nohup pnpm preview --host app.kaleem.localhost --port 4173 \
-            > /tmp/preview.log 2>&1 &
+          image=$(sed -n 's/^FROM \(nginx[^ ]*\) AS production$/\1/p' dashboard/Dockerfile)
+          test -n "$image" || { echo "::error::no 'FROM nginx… AS production' in dashboard/Dockerfile"; exit 1; }
+          docker run -d --name dash -p 4173:80 \
+            -v "$PWD/dashboard/dist:/usr/share/nginx/html:ro" \
+            -v "$PWD/dashboard/nginx.conf:/etc/nginx/conf.d/default.conf:ro" \
+            "$image"
       - name: Wait for the dashboard
         run: |
           for _ in $(seq 1 60); do
             curl -sf -o /dev/null http://app.kaleem.localhost:4173/ && exit 0
             sleep 2
           done
-          echo "::error::Dashboard never became ready"; cat /tmp/preview.log; exit 1
+          echo "::error::Dashboard never became ready"; docker logs dash; exit 1
 
       - name: Install Playwright chromium
         working-directory: dashboard
@@ -604,6 +634,9 @@ jobs:
         run: pnpm e2e
 
       # A red e2e job with no artefact is a guessing game.
+      - name: Collect the nginx log
+        if: failure()
+        run: docker logs dash > /tmp/nginx.log 2>&1 || true
       - name: Upload the Playwright report
         if: failure()
         uses: actions/upload-artifact@v7
@@ -615,7 +648,7 @@ jobs:
             /tmp/django.log
             /tmp/signaling.log
             /tmp/celery.log
-            /tmp/preview.log
+            /tmp/nginx.log
           retention-days: 7
 
   # ADR-0030. The Definition of Done has asked for a security pass since 2026-06-17
@@ -664,6 +697,14 @@ jobs:
       # "no leaks found" too, and the guard against that is code that can rot.
       - name: Self-test the scan wrappers
         run: .github/scripts/test-security-scripts.sh
+
+      # ADR-0056. The production compose publishes exactly the ports the deploy runbook
+      # lists, so a debug port added to the gateway fails here instead of being open on the
+      # VPS. The checker is tested first: a checker that cannot fail passes everything.
+      - name: Only the documented ports are published
+        run: |
+          .github/scripts/test-check-published-ports.sh
+          .github/scripts/check-published-ports.sh infra/docker-compose.production.yml
 
       # Known historical findings are allowlisted by fingerprint in `.gitleaksignore`,
       # one annotated line each, so a NEW secret in a NEW commit still fails here.
@@ -1003,6 +1044,15 @@ jobs:
       # Access-log policy: the dashboard job holds the checker's self-test.
       - name: Access log records no credential
         run: ${GITHUB_WORKSPACE}/.github/scripts/check-nginx-access-log.sh nginx.conf dist
+      # ADR-0056. The REAL nginx.conf in the REAL nginx image over the built site: every
+      # location must send the security headers, and no built page may carry inline code a
+      # Content-Security-Policy would block. The checker is tested first.
+      - name: Security headers
+        working-directory: .
+        run: |
+          .github/scripts/test-check-security-headers.sh
+          .github/scripts/check-security-headers.sh \
+            marketing/nginx.conf marketing/dist marketing/security-headers.expected
       # The e2e suite runs against `astro preview` of the build above, so it must come
       # after it. No backend, database or secrets: the site is static.
       - name: Install Playwright chromium
