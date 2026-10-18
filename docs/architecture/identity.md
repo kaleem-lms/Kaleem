@@ -69,6 +69,12 @@ Errors are typed (`platform.exceptions.ValidationError` / `NotFoundError`) — n
   CSRF token (403 without). Anonymous `register`/`login` are not CSRF-checked — standard
   DRF `SessionAuthentication` behaviour (CSRF is enforced only on session-authenticated
   requests).
+- **Credential links.** Email links that carry a single-use credential put it in the URL
+  fragment, never the query string: `{FRONTEND_URL}/verify-email#key=…` and
+  `{FRONTEND_URL}/reset-password#uid=…&token=…` (password reset and child activation). The
+  dashboard reads the fragment (falling back to the query string for links sent before the
+  switch), POSTs the credential in the request body, and strips it from the address bar.
+  Decision: `docs/adr/0053-access-log-policy.md`.
 - **Resend verification** (`POST resend-verification/`, `{email}`): re-sends the
   confirmation link if an unverified account exists. Always returns 200 (never reveals
   whether an email is registered) and is throttled per-email (`EmailScopedThrottle`,
