@@ -62,7 +62,7 @@ serialization point for tokens releases). Part 2 is dashboard-only.
 
 There is no new behaviour.
 
-- A secondary button (Accept on a match offer, Choose file, and others) now shows a thin
+- A secondary button (Decline on a match offer, Retry on a failed upload) now shows a thin
   edge in both themes. Its label, fill, hover and focus do not change.
 - A teacher or student adds a time range that ends before it starts. The end select turns
   red and its accessible description reads the message, so a screen reader announces the

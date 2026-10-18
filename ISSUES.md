@@ -359,6 +359,13 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
 
 ## Someday
 
+- **`Button variant="outline"` borders with the decorative `--border` at 1.29:1** — the same
+  SC 1.4.11 boundary question as the secondary button, across about 45 buttons. Found
+  2026-10-18 by lb-known-wcag-gaps; out of its scope.
+- **A secondary Button inside a `bg-secondary`/`bg-muted` well has a 2.78:1 edge in light**
+  (3.03 dark): `control-border` is asserted on background/card/popover only. None sits in
+  such a well today. Found 2026-10-18 by lb-known-wcag-gaps.
+
 - **`SessionAdmin` still lets staff edit `status`.** Moving a closed lesson back to `scheduled`
   in the admin now violates `session_outcome_only_when_completed` and returns a 500 rather
   than a form error. Found 2026-10-18 by ana-session-outcomes.
@@ -1026,7 +1033,7 @@ proves; all are robustness of an unattended job.
   the user could not tell a failed copy from a slow one. The message now says to select the
   code by hand, because the code is still on screen and reporting only "failed" would leave
   the user stuck beside a working alternative.
-- `StudentPreferencesCard`: the per-row validation message is a sibling `<p role="alert">`,
+- ~~`StudentPreferencesCard`: the per-row validation message is a sibling `<p role="alert">`,~~ **FIXED 2026-10-18** (lb-known-wcag-gaps): the entry was stale for that card; the real gap was `InlineEditor` in `WeeklyAvailabilityEditor`, whose error is now a linked `FormError` with `aria-invalid` on the offending select(s), and `Select` gained `Input`'s invalid styling.
   not `aria-describedby`-linked to the offending input, and the time inputs carry no
   `aria-invalid`. Also the "required times" message anchors on `end_time` even when
   `start_time` is the empty one. And it hand-rolls a `SELECT_CLASS` string replicating the
@@ -1048,7 +1055,7 @@ proves; all are robustness of an unattended job.
   was stale, verified 2026-09-13.** `grep -rn "bg-black/" dashboard/src` returns nothing; the
   per-theme `--overlay` token landed with the `Dialog` primitive and was confirmed rendering as
   `#191c1b8c` light / `#000000ad` dark during the staging walk.
-- **A `secondary` button is nearly invisible as a SURFACE against the page.**
+- ~~**A `secondary` button is nearly invisible as a SURFACE against the page.**~~ **FIXED 2026-10-18** (lb-known-wcag-gaps, tokens v0.2.4): a `control-border` edge at 3:1 on background/card/popover; darkening the fill could not work (the label would drop to 4.09:1).
   `--secondary` on `--background` measures **1.09:1** in light (it was 1.13:1 on
   v0.1.1, so this is pre-existing and only marginally worse, not a v2 regression);
   dark is 1.75:1. `Button variant="secondary"` carries no border, so on a page
