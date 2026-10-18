@@ -19,7 +19,7 @@ Re-measure them at build time.
 
 **Precondition.** `lb-security-scanning-sca` has merged to master, and the meta branch
 has merged `origin/master` (a merge, never a rebase). If it has not merged, stop and
-report. Do not copy its scripts.
+report. Do not copy its scripts. (It merged as meta `cfc4712` on 2026-10-18.)
 
 ## Files
 
@@ -99,7 +99,7 @@ journal. Their replacement text goes in the hand-back.
 5. [ ] **Local proof against the worktrees.** Use a scratch copy of the meta tree with
    the two submodule worktrees in place, or point the wrapper's `<root>` at a directory
    that holds `backend/` and `dashboard/`. Run `semgrep-scan.sh` and confirm:
-   - the result count equals the private record's real-finding count, and nothing else
+   - the result count equals the count the private record expects, and nothing else
      remains;
    - errors = 0;
    - the scanned counts match the expected set.
@@ -145,9 +145,10 @@ not touched.
 
 ## Risks
 
-- **The date arrives before the real findings are fixed.** Every PR goes red on
-  2026-11-30 (ADR-0047's intended pressure). Mitigation: the hand-back asks the conductor
-  to queue the fix unit now. Its spec is likely owner-approved (dec-spec-approval).
+- **A finding is still open on the blocking date.** Every code PR goes red from
+  2026-11-30 (ADR-0047's intended pressure). Mitigation: any finding the triage keeps
+  open goes to the conductor through the private channel at hand-back, so its fix can be
+  queued well before the date.
 - **A future TypeScript syntax that semgrep cannot parse** fails the guard on every day
   and blocks merges. That is intended (unscanned is not clean). The fix is bumping the
   image pin, never a looser guard.
@@ -166,4 +167,4 @@ not touched.
 Steps 1 and 2 are proved by the self-test, step 3 by the first CI run with the canary at
 5, step 4 by the gates and the golden render test, and steps 5 and 6 by recorded local
 runs. The whole is proved by one green CI run on the meta PR with all three pins, in which
-the `sast` step reports exactly the real-finding count and nothing else.
+the `sast` step reports exactly the count the private record expects and nothing else.
