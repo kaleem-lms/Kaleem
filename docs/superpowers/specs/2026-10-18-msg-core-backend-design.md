@@ -2,7 +2,7 @@
 name: msg-core-backend
 phase: v1 (wave 2, msg stream)
 modules: [messaging]
-status: draft (blocked on dec-msg-visibility and dec-safeguarding-under-18)
+status: approved (owner, 2026-10-18)
 created: 2026-10-18
 closed: null
 ---
@@ -19,7 +19,7 @@ read API (`ana-scheduling-read-api`) and identity. Transport is polling (ADR-005
 the dashboard polls the endpoints below, and no socket is involved.
 
 Decisions this spec applies: `dec-msg-visibility` and `dec-safeguarding-under-18` (both
-**still open**, see Open questions), `dec-msg-retention` (assignment plus 12 months, purged by
+**resolved 2026-10-18**, option 1 each, see Resolved decisions), `dec-msg-retention` (assignment plus 12 months, purged by
 `msg-retention`), `dec-group-sessions-scope` (group chats stay deferred),
 `lb-dec-erasure-semantics` (anonymize in place).
 
@@ -153,20 +153,32 @@ privacy notice (`msg-privacy-docs`).
 - DSAR: `assert_hooks_honour_contract("messaging", ...)` and the platform coverage guard.
 - Query count bounded on `GET chats/` for 20 chats.
 
-## Open questions
+## Resolved decisions
 
-Both decisions below are `before-spec` and unanswered in the kickoff record. The flows above
-assume their recommended options, read as follows; the owner confirms or changes each:
+The owner approved this spec on 2026-10-18 and accepted both decisions exactly as the flows
+above read them. Nothing is open.
 
 1. **`dec-msg-visibility` option 1:** student/teacher and parent/teacher chats; parents read
    their child's chats and do not post in them.
 2. **`dec-safeguarding-under-18` option 1, as applied to chat:**
    a. parent read access follows **age**, not just the link: a parent of an 18+ student does
-      not read that student's chats;
+      not read that student's chats, history included;
    b. a missing birthdate counts as under 18 (children created by a parent have none today);
-   c. **an under-18 student with no linked parent**: the option's "parent-visible chat" cannot
-      hold. Recommended: chat is unavailable to them until a parent links (contacts list the
-      teacher with a `guardian_required` reason), since the invite flow already exists.
-      Alternative: allow it and rely on reporting (`msg-moderation`) and retention.
-   d. the decision's "with counsel input" is not a gate on this unit; counsel reviews the chat
-      DPIA in `msg-privacy-docs`.
+   c. **an under-18 student with no linked parent** cannot chat until a parent links: the
+      contacts list shows the teacher with `blocked: "guardian_required"`, opening is
+      refused (403), and an existing chat of such a student is read-only for both members.
+      The invite flow already exists;
+   d. counsel input is not a gate on this unit; counsel reviews the chat DPIA in
+      `msg-privacy-docs`.
+
+## Build notes
+
+Details fixed while building, none of which changes the flows above.
+
+- `POST chats/` takes an optional `kind` beside `user_id`. One person can be a contact in
+  two ways (a teacher who teaches the caller and also teaches the caller's child); without
+  `kind` that case answers 400 and asks for it.
+- Parent-visibility needs "who are this student's parents" for many students at once, or the
+  teacher's chat list is one query per student. `identity.services` gains one batch read,
+  `get_parents_of_students(student_user_ids)`, beside `get_parent_user_ids`.
+- Message `body` is blanked (not deleted) on erasure; `erased` in the payload tells the UI.

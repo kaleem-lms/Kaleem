@@ -1,9 +1,9 @@
 ---
 spec: docs/superpowers/specs/2026-10-18-msg-core-backend-design.md
-status: draft
+status: approved (owner, 2026-10-18)
 ---
 
-Starts only after the owner answers the spec's Open questions. Backend work in
+The owner approved the spec and answered its open questions on 2026-10-18. Backend work in
 `/home/abdulkhalek/Projects/kaleem-worktrees/backend-msg-core-backend` (runbook section 1),
 meta work (ADR, docs) in `meta-msg-core-backend`, both on `feat/msg-core-backend`. Gates only
 through `_tools/backend-gate.sh`. Every regression test is mutation-checked: revert the code
