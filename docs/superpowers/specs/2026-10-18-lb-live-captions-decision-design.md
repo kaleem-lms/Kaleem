@@ -4,7 +4,7 @@ phase: v1 (wave 1, legal stream)
 modules: [call]
 status: approved
 created: 2026-10-18
-closed: null
+closed: 2026-10-18
 ---
 
 ## Goal

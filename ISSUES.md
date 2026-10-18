@@ -204,12 +204,16 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
   prune keeps 24h of images, which after this incident's `prune -a` means there is
   currently NO local rollback target — `restore_signaling()` and a rollback would have to
   re-pull from GHCR. Worth a cheap disk alarm before it bites in production.
-- **EN 301 549 clause 7: no captions or audio description for live lessons.** ADR-0040
-  adopts EN 301 549, and for the design system its delta over WCAG 2.2 AA is ~zero
-  (clause 9 incorporates WCAG by reference). **Clause 7 is the one with real teeth** and
-  kaleem cannot currently meet it: the call carries no captioning. Belongs to the call
-  feature, needs its own spec, deliberately out of scope for the design-system work.
-  Logged here rather than left unstated so "EN 301 549 conformant" is never claimed flat.
+- **Live lessons have no captions, no real-time text and no audio-activity indicator; the
+  accessibility statement that says so is not published yet.** Decided 2026-10-18
+  (ADR-0054, amends ADR-0040): state the gap and build after launch. The clause named
+  here before was wrong. ADR-0040 said clause 7, but clause 7 only governs displaying
+  captions that exist; the clauses with teeth for a two-way voice and video lesson are
+  EN 301 549 V4.1.1 **6.2.1.1** (real-time text) and **6.5.5** (indicator of audio
+  activity). What still blocks launch: the statement is drafted
+  (`docs/decisions/2026-10-18-accessibility-statement-draft.md`, owner commits it,
+  counsel reviews it) but not published; `rch-mkt-legal-pages` publishes it. This entry
+  closes when it is live. The build work is under **Someday**.
 - **Throwaway users in the staging DB.** `stg.smoke@example.com`, `ses.smoke@example.com`,
   and `c0.subjects.check@example.com` (a child of `billing.clickthrough@`, created
   2026-09-05 while verifying C0 and left unverified — it cannot log in). Clear via
@@ -359,6 +363,11 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
 
 ## Someday
 
+- **Build captioning and real-time text for live lessons (after launch, own spec).**
+  ADR-0054 recommends the order: the audio-activity indicator (6.5.5, smallest), then
+  real-time text over a data channel (6.2.1.1, ADR-0039 fourth line), then captions only
+  through on-device recognition or a vendor behind its own ADR. Owner orders it. Arabic and
+  recitation recognition quality is unmeasured; Safari and iOS cannot be verified here.
 - **`@kaleem/tokens` will export `./brand.mjs`, which imports a devDependency at top level**
   (brand plan E15): a consumer that imports it fails with `ERR_MODULE_NOT_FOUND`. Drop the
   export or import `@resvg/resvg-js` lazily inside `emit()`. For `inf-brand-tokens-pipeline`.

@@ -1,8 +1,9 @@
 ---
 number: 0054
 title: Live-lesson captions - state the gap, caption after launch, and correct the clause
-status: proposed
+status: accepted
 date: 2026-10-18
+decided: 2026-10-18, by the owner, as option 1 of lb-dec-en301549 ("State the gap; captions post-launch")
 amends: ADR-0040 (Decision 5)
 decision: lb-dec-en301549
 ---
@@ -183,8 +184,8 @@ A sentence without a row is cut from the statement. Row ids are used in the draf
 | E3 | Every enabled control on the preview accepts a 24 by 24 pixel pointer; the sign-in routes are swept the same way | D3 row `design-system - target size` |
 | E4 | Five signed-in pages are checked for sideways scrolling at 320, 360 and 430 px | D3 row `dashboard - reflow (1.4.10)` |
 | E5 | On a phone held upright the call controls are at least 44 px and on screen | D3 row `call fixes (C5)` |
-| E6 | The side menu opens and closes by keyboard and returns focus | D3 row `app shell` |
-| E7 | The in-call microphone and camera buttons have one stable name, with state exposed separately | D3 note on C6 |
+| E6 | The side menu on a phone closes with Escape and returns focus | D3 row `app shell` |
+| E7 | The in-call microphone and camera buttons have one stable name, with state exposed separately from the name | D3 note on C6 |
 | E8 | A nightly Lighthouse run audits the marketing home and the dashboard sign-in page in the default theme only | D3 table, security and performance scanning |
 | N1 | The checks are automated and the statement makes no claim about manual assistive-technology testing | A stated limit: no D3 row |
 | N2 | Marketing has no automated test suite at the time of writing | D3 coverage table (`marketing`: no suite); recheck at publication |

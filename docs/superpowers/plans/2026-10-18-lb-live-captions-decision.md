@@ -1,6 +1,6 @@
 ---
 spec: docs/superpowers/specs/2026-10-18-lb-live-captions-decision-design.md
-status: in progress
+status: done (statement draft awaits the owner commit)
 ---
 
 # Plan: lb-live-captions-decision
