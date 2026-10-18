@@ -190,6 +190,6 @@ Details fixed while building, none of which changes the flows above.
   a stranger the chat exists.
 - Messaging's tests build teaching links with the models of identity, scheduling and
   curriculum, so the contracts exempt `kaleem.messaging.tests.*` from exactly those three,
-  as scheduling's and assessment's tests are. ADR-0053 records it.
+  as scheduling's and assessment's tests are. ADR-0055 records it.
 - A minor with no linked parent who somehow has a chat (a parent link removed later) keeps
   the history and cannot post, for both members.

@@ -7,7 +7,7 @@ dashboard polls (ADR-0050); nothing here holds a socket.
 A change to the module updates the section it touches in the same PR.
 
 Spec: `2026-10-18-msg-core-backend-design.md` · ADRs: 0023 (personal data), 0048 (export and
-erase hooks), 0050 (chat transport), 0053 (the messaging to scheduling edge). Product
+erase hooks), 0050 (chat transport), 0055 (the messaging to scheduling edge). Product
 decisions applied: `dec-msg-visibility`, `dec-safeguarding-under-18` (option 1 each),
 `dec-msg-retention`, `lb-dec-erasure-semantics`.
 
@@ -55,7 +55,7 @@ Every one of them answers a chat the caller may not read exactly like an unknown
 - `identity.services`: `get_users`, `get_children`, `get_parent_user_ids` and the batch
   `get_parents_of_students` (added by this unit), for birthdates and parent links.
 - `scheduling.services`: `active_assignments(user, role=...)`, for who is actively linked to
-  whom. The edge is ADR-0053. The import-linter contract names the one transitive edge it
+  whom. The edge is ADR-0055. The import-linter contract names the one transitive edge it
   tolerates (`scheduling.services -> billing.services`) and a mirror forbids
   `scheduling.models`.
 - `platform`: `exceptions`, `pagination` (`NewestFirstCursorPagination`, new, for history),

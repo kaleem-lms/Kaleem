@@ -1,5 +1,5 @@
 ---
-number: 0053
+number: 0055
 title: The messaging to scheduling edge
 status: proposed
 date: 2026-10-18
