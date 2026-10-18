@@ -13,7 +13,7 @@ has merged** (runbook section 1), then `pnpm install --frozen-lockfile`.
 
 ## Steps
 
-1. [ ] **Connect deadline in `useSignaling`.**
+1. [x] **Connect deadline in `useSignaling`.**
    - Red first, in `src/features/call/useSignaling.test.ts`, with `vi.useFakeTimers()` in a
      `try/finally`, as in the existing backoff test:
      - `it("abandons a socket that never opens and reports it unreachable")`: advance
@@ -34,7 +34,7 @@ has merged** (runbook section 1), then `pnpm install --frozen-lockfile`.
      `close()` and the unmount cleanup clear the timer.
    - Mutation: delete the `setTimeout` and see the first two tests red. Drop the identity guard and
      see the late-open test red.
-2. [ ] **`unreachable` versus `lost`.**
+2. [x] **`unreachable` versus `lost`.**
    - Red first:
      - `it("reports a close before any open as unreachable")` (1006 without `open()`);
      - `it("reports a hung reconnect after an open as lost")` (`open()`, `close(1006)`, advance
@@ -43,7 +43,7 @@ has merged** (runbook section 1), then `pnpm install --frozen-lockfile`.
      The drop handler classifies a retryable failure as `unreachable` until it is set. 4400 keeps
      `bad-message`. 4401, 4409 and 4410 are untouched.
    - Mutation: always use `lost`, and see the first test red.
-3. [ ] **The unreachable screen.**
+3. [x] **The unreachable screen.**
    - Red first:
      - `useCallRoom.test.tsx`, `it("shows the couldn't-reach screen with a retry when the socket is unreachable")`:
        `mockSignaling("unreachable")`. Expect `terminal` to have
@@ -57,7 +57,7 @@ has merged** (runbook section 1), then `pnpm install --frozen-lockfile`.
      `src/locales/ar/common.json` (wording in the spec; the Arabic is flagged for
      `hg-arabic-review`). `parity.test.ts` and `terminology.test.ts` must stay green.
    - Mutation: remove the branch, and see both tests red.
-4. [ ] **Retry keeps the person's choices.**
+4. [x] **Retry keeps the person's choices.**
    - Red first:
      - `useCallRoom.test.tsx`, `it("reports each mic and camera toggle to onMediaChoiceChange")`.
      - `sessions.$sessionId.room.test.tsx`: extend the mocked `CallRoom` to capture
@@ -81,7 +81,7 @@ has merged** (runbook section 1), then `pnpm install --frozen-lockfile`.
    - Check that the visibility-recovery tests still pass: they assert `start` was called, not
      what it was called with.
    - Mutation: revert to `start()`, and see both route tests red.
-5. [ ] **e2e flow** in `e2e/call-connect-timeout.spec.ts`. It is one test and does not need
+5. [x] **e2e flow** in `e2e/call-connect-timeout.spec.ts`. It is one test and does not need
    `test.describe.configure({ mode: "serial" })`, because it never reaches the relay.
    - Setup: `login(page, "booked")`. Before `goto`, call `page.routeWebSocket(url => url.protocol.startsWith("ws"), () => { attempts += 1; return new Promise(() => {}); })`.
    - Steps:
@@ -95,7 +95,7 @@ has merged** (runbook section 1), then `pnpm install --frozen-lockfile`.
    - `test.setTimeout(60_000)`.
    - Proof: run it against an `origin/main` build and see it red (it times out with no heading).
      Record the result in the PR.
-6. [ ] **Gates and hand-back.**
+6. [x] **Gates and hand-back.**
    - Run the full `_tools/dashboard-gate.sh <wt>`: tsc, lint, `test:coverage --maxWorkers=6` at
      the existing floors (never edit them), build and `check-colors --built`.
    - The e2e slot is optional (runbook section 2), and CI is the authority.
@@ -132,3 +132,22 @@ Close-out (conductor, meta):
 - On staging, per `dec-d9-substitute`: an agent Playwright click-through with a routed socket in
   both themes, Arabic RTL and 320px. **Try again** returns to the room, and with the camera left
   off in the Lobby, no camera track is live after the retry.
+
+## Build notes (deviations from the steps above)
+
+- The connect-timer callback has no socket-identity check. Every path that opens, drops,
+  replaces or closes a socket clears the timer first, so the check was unreachable. The
+  late-open guard sits in `onopen` instead, and step 1's late-open test pins it.
+- The "leaves no pending deadline after unmount" test asserts the socket is closed exactly once,
+  because a leftover timer after unmount creates no socket (`stoppedRef` stops the reconnect)
+  and would otherwise be invisible to the test.
+- `onMediaChoiceChange` is reported from an effect on the committed `micOn`/`cameraOn`, not from
+  inside the toggles: the toggles' bodies run inside state updaters, and updating the route's
+  state from there is a state update during another component's render. It reports only when
+  the values differ from the last report (seeded with the initial values).
+- `src/locales/terminology.test.ts`: the spec's Arabic help text says "المدرسة" (school), whose
+  letters contain "درس", so the Arabic "lesson" guard flagged it. The guard's pattern now skips a
+  match that follows a meem (مدرسة, مدرس), with a test for both sides.
+- The e2e's "Try again" evidence is the failure screen leaving and the room returning, not the
+  attempt count alone: the hook keeps reconnecting behind the failure screen, so the count grows
+  without a tap.
