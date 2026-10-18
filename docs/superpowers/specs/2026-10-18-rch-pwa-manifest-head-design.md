@@ -194,3 +194,31 @@ module and no import-linter contract is involved.
 
 None blocking. Owner approval covers the new behaviour: the app becomes installable, with
 the name, the description sentence and the interim `k` icon described above.
+
+## Corrections (recorded while building, 2026-10-18)
+
+- **Dashboard `origin/main` moved** from e61e23e to 4b123b0 before the build. The head and
+  `public/` were unchanged, so nothing above is stale.
+- **`Page.getInstallabilityErrors` reports nothing in Playwright's default headless shell.**
+  Measured against the finished build: `[]` for the real page and also `[]` for the same
+  page with the manifest request aborted. An assertion of "no errors" there proves nothing.
+  Chromium's new headless mode (`chromium.launch({ channel: "chromium" })`, the full binary
+  that `playwright install chromium` also installs, so CI has it) does report: a blocked
+  manifest gives `no-manifest` and `manifest-parsing-or-network-error`. The e2e therefore
+  launches that browser for the installability test and first runs a positive control (the
+  blocked-manifest page must report `no-manifest`).
+- **The only id Chromium reports for the finished build is `in-incognito`.** Playwright
+  contexts are ephemeral profiles, which Chromium treats as incognito. It is named in the
+  test one id at a time, so a new id fails. **No service-worker id appears**, so this
+  Chromium does not require a service worker before it offers install. The user-flow
+  question in step 3 is answered: the manifest is enough for the installability check, and
+  `rch-pwa-service-worker` still owns offline behaviour and the install prompt.
+- **A manifest icon served as the wrong thing is not flagged by Chromium's check** (an
+  icon answered with `200 text/html` still gives no installability error). That is why the
+  e2e asserts media type and bytes itself.
+- **A third mutation check was added** for the e2e: removing the manifest `<link>` from the
+  built `index.html` turns the installability test and the manifest test red.
+- **`src/test/tokens-build.d.ts` was needed.** `@kaleem/tokens` types `contrast.mjs` but not
+  `build.mjs`, so `tsc` rejected the import. The declaration covers only what the test uses.
+- **G2 flagged a three-digit prefix** of the banned placeholder value in the unit test
+  (`#863` matches its hex pattern), so that string is built from three parts.

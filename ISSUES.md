@@ -354,6 +354,9 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
 
 ## Someday
 
+- **`dashboard/public/icons.svg` is dead.** It is Vite's template sprite of social icons and
+  nothing references it (seen in `rch-pwa-manifest-head`). It ships in every build. Delete it
+  in a unit that already touches `public/`.
 - **Two leftovers from the lesson-to-session wording change (`cur-session-wording`).**
   `src/routes/design-preview.tsx` still shows "lesson" in its hard-coded sample copy (a
   primitives gallery, not product copy). And `billing.plan*Desc` in the Arabic locale say
