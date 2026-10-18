@@ -1,6 +1,6 @@
 ---
 spec: docs/superpowers/specs/2026-10-18-ana-tz-cross-zone-e2e-design.md
-status: draft
+status: implemented
 ---
 
 Repo: dashboard only. Worktree `/home/abdulkhalek/Projects/kaleem-worktrees/dashboard-ana-tz-cross-zone-e2e`,
@@ -20,7 +20,7 @@ Not touched: `e2e/fixtures.ts` (it already has `teacher` and `booked`), `e2e/acc
 
 ## Steps
 
-1. [ ] **Write the flow first.** In `e2e/timezone.spec.ts`, one `test` that:
+1. [x] **Write the flow first.** In `e2e/timezone.spec.ts`, one `test` that:
    - opens two contexts with `browser.newContext({ timezoneId: "Africa/Cairo", locale: "en-US" })`
      and `{ timezoneId: "Europe/London", locale: "en-US" }`, and closes both in `finally`;
    - in each, before navigating, arms `page.waitForResponse(r => r.url().endsWith("/scheduling/sessions/") && r.request().method() === "GET")`,
@@ -38,7 +38,7 @@ Not touched: `e2e/fixtures.ts` (it already has `teacher` and `booked`), `e2e/acc
    profile zone; rendering, not DST anchoring. It also gives the 15 s budget, and explains
    why it is read-only and safe to run after `booking.spec.ts`'s cancellation (it filters
    to rows still scheduled in both views).
-2. [ ] **See it pass on main, then mutation-check it.** This is a regression test over code
+2. [x] **See it pass on main, then mutation-check it.** This is a regression test over code
    that is already right, so "failing first" means the mutations. Apply M1, M2 and M3 to
    `src/features/booking/components/SessionCard.tsx` one at a time, and M4 to the spec.
    Run the flow and see it red each time, then revert. Record each red line for the PR body.
@@ -47,9 +47,9 @@ Not touched: `e2e/fixtures.ts` (it already has `teacher` and `booked`), `e2e/acc
    `CI=1 E2E_APP_URL=… pnpm exec playwright test e2e/timezone.spec.ts`. If no slot is
    free, the mutation runs go in the PR as a CI-run checklist for the reviewer, and CI is
    the authority.
-3. [ ] **Gates.** `"${R}/_tools/dashboard-gate.sh" "${WT}"` (tsc and biome cover `e2e/`),
+3. [x] **Gates.** `"${R}/_tools/dashboard-gate.sh" "${WT}"` (note: neither `tsc` nor `biome` includes `e2e/` today; the file was checked with a temporary biome config and a one-file tsc project outside the repo, and `check-colors` does scan `e2e/`),
    then the runbook section 3 hand-back checks, `gitleaks-range.sh` included.
-4. [ ] **Hand the conductor the D3 row** for `CLAUDE.md` (conductor-only doc):
+4. [x] **Hand the conductor the D3 row** for `CLAUDE.md` (conductor-only doc):
    "`scheduling` — cross-zone display | ✅ 1 flow | teacher in `Africa/Cairo`, booked student
    in `Europe/London`, same lessons; each sees the API's UTC start as their own wall-clock
    date and time. Expected strings are computed in-page with an explicit `timeZone`.
@@ -79,3 +79,13 @@ Not touched: `e2e/fixtures.ts` (it already has `teacher` and `booked`), `e2e/acc
   pass on retry is a finding). The D9 click-through on staging covers both themes, Arabic
   RTL and 320px: `/schedule` as the teacher with the OS zone set to Cairo, and as the
   student with it set to London.
+
+## Outcome (2026-10-18)
+
+- Flow green on an unmodified build (about 1 s). Mutation checks, each red then reverted:
+  M1 (`timeZone: "UTC"`), M2 (`timeZone: "Europe/London"`) and M3 (offset stripped from
+  `starts_at`) all failed at the visibility assertion for the Cairo viewer. M4 (Cairo
+  context without `timezoneId`) failed at the precondition (`Expected "Africa/Cairo"`,
+  `Received "UTC"`) when run with host `TZ=UTC`, as CI runs. On a host that already sits in
+  Cairo's zone the same mutation stays green, which is why the check is run in a UTC host.
+- Not run: full e2e suite locally; CI is the authority.
