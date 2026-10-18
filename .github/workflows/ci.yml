@@ -193,6 +193,10 @@ jobs:
         run: pip install -r requirements/local.txt
       - name: Run migrations
         run: python manage.py migrate --noinput
+      # `migrate` applies the migrations that exist; it cannot notice a model
+      # change that shipped without one. This can.
+      - name: Check for missing migrations
+        run: python manage.py makemigrations --check --dry-run
       # D3 coverage gate. The floor lives in backend/pyproject.toml
       # ([tool.coverage.report] fail_under), NOT here, so the gate runs
       # identically on a developer's machine and on this runner. It is a ratchet
@@ -432,12 +436,14 @@ jobs:
       - name: Install backend dependencies
         working-directory: backend
         run: pip install -r requirements/local.txt
+      # The seeds are an ordered manifest kept in the backend repo
+      # (backend/config/e2e_seeds.txt). A unit that needs fixture state appends a
+      # line there; it does not edit this file.
       - name: Migrate and seed
         working-directory: backend
         run: |
           python manage.py migrate --noinput
-          python manage.py seed_e2e
-          python manage.py seed_e2e_matching
+          python manage.py seed_e2e_all
       - name: Start the API
         working-directory: backend
         run: |
@@ -469,6 +475,39 @@ jobs:
             sleep 2
           done
           echo "::error::Signaling never became ready"; cat /tmp/signaling.log; exit 1
+
+      # Tasks queued with `.delay()` sit in Redis until something consumes them, and
+      # nothing did in this job. The worker is the same command as
+      # docker-compose.local.yml; no beat, so no scheduled task fires mid-suite.
+      - name: Start the Celery worker
+        working-directory: backend
+        run: |
+          nohup celery -A config.celery_app worker -l info --concurrency=2 \
+            > /tmp/celery.log 2>&1 &
+      # No shipped flow observes a task's effect yet, so this is the check that the
+      # worker is up and can execute one: queue a real task and wait for its result.
+      # The locmem mail backend means nothing leaves the runner. A dead worker fails
+      # here, in seconds, rather than as a mystery in a Playwright spec.
+      - name: Prove the worker executes a task
+        working-directory: backend
+        run: |
+          python manage.py shell -c "
+          import sys
+          from kaleem.platform.tasks import send_email_message
+          result = send_email_message.delay(
+              subject='worker probe',
+              body='worker probe',
+              from_email='ci@kaleem.test',
+              to=['worker-probe@kaleem.test'],
+          )
+          try:
+              result.get(timeout=60)
+          except Exception as exc:
+              print('worker probe failed:', repr(exc))
+              print(open('/tmp/celery.log').read())
+              sys.exit(1)
+          print('worker probe ok: task executed by the worker')
+          "
 
       - name: Install dashboard dependencies
         working-directory: dashboard
@@ -509,6 +548,7 @@ jobs:
             dashboard/test-results/
             /tmp/django.log
             /tmp/signaling.log
+            /tmp/celery.log
             /tmp/preview.log
           retention-days: 7
 
