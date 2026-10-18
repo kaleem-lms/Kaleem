@@ -611,3 +611,12 @@ and are not repeated here.
 - **Captions, real-time text and an audio-activity indicator in the call.** None exist, and
   the call has no data channel. A stated launch gap, not an oversight (ADR-0054).
 - **Joining the personal-data registry** (see above).
+
+## Personal-data export
+
+`scheduling.lessons` (`personal_data.py`, registered from `SchedulingConfig.ready()`) exports
+the person's availability, match requests, assignments, declines, weekly slots, lessons (with
+each room's open and close times) and their own call diagnostics. The other person in an
+assignment or a lesson appears as `role` plus `counterpart_user_id`, never a name or email.
+Withheld: the room's provider, handle and signaling address, a diagnostic's free-form
+`stats`, and quota bookkeeping. The erase hook is lb-gdpr-erasure.

@@ -82,7 +82,11 @@ Every module that stores personal data joins it, in that module's own PR. Contra
    assert_erased=...)` from `kaleem.platform.personal_data_contract`. `seed(user)` creates
    the module's data for one user with no links to anyone else (a row that always involves
    two people seeds its own counterpart inside `seed`). `assert_erased(user)` is where the
-   module checks its own anonymization. A failure names the broken rule.
+   module checks its own anonymization. A failure names the broken rule. A module that
+   joins with an export hook only (its erase hook is a later unit's) calls
+   `assert_export_honours_contract(name, seed=..., make_user=...)` instead: the export-side
+   rules (`registered`, `export-json`, `export-deterministic`, `export-read-only`,
+   `unseeded-user`) and nothing loosened. The pair helper runs it first.
 4. In `tests/test_personal_data_hooks_cover_every_model.py`, delete the module's entry from
    `PENDING_EXPORT` / `PENDING_ERASE`, or add a model that holds no personal data to
    `NOT_PERSONAL` with a one-line reason. A new model in a module that has not joined fails
@@ -95,9 +99,11 @@ installed `kaleem.*` app. Each must be named by at least one export hook and one
 hook, be listed in `NOT_PERSONAL`, or sit in an app on a pending list. It also checks that
 a hook declares only models of the app its name starts with, that every `NOT_PERSONAL`
 label names a real model, and that no pending entry is stale: a pending app whose models
-are all covered fails until its entry is removed, so the lists only shrink. Today the
-pending lists hold identity, billing, scheduling and curriculum, which join in
-lb-gdpr-data-export and lb-gdpr-erasure.
+are all covered fails until its entry is removed, so the lists only shrink. Today
+`PENDING_EXPORT` is empty (every module has an export hook) and `PENDING_ERASE` holds
+identity, billing, scheduling and curriculum, which join in lb-gdpr-erasure.
+`NOT_PERSONAL` holds the reference models: `billing.SubscriptionPlan`,
+`billing.StripeEventLog` and `curriculum.Subject`.
 
 ### Allauth
 
@@ -106,6 +112,27 @@ guard only walks `kaleem.*`. **Identity's hooks own them.**
 
 ### Not covered
 
-Nothing calls the runners yet, and no module has joined. Not part of the registry:
-endpoints, the export file format, re-authentication, the dashboard, retention periods and
-purge jobs, erasure of linked accounts, admin `LogEntry` rows, sessions, logs and backups.
+`erase_user` has no caller yet (lb-gdpr-erasure). Not part of the registry: the endpoints,
+re-authentication, the dashboard, retention periods and purge jobs, erasure of linked
+accounts, admin `LogEntry` rows, sessions, logs and backups. The export file's envelope
+belongs to identity's endpoint, below.
+
+### What the export hooks hold, and the file built from them
+
+`identity.account`, `billing.subscriptions`, `scheduling.lessons` and `curriculum.subjects`
+join assessment's `assessment.records` (lb-gdpr-data-export). Three rules every export hook
+follows:
+
+- **Other people appear by role and user id only**, never name, email or their own fields.
+  Students are often children, and a teacher's file must not carry their identities out.
+- **No secrets or provider handles**: no password hash, invite code, Stripe id or video-room
+  id.
+- **Staff-only fields are withheld** (`StudentProfile.notes`, `TeacherProfile.internal_notes`,
+  a billing incident's detail, severity, occurrences and resolver, a call diagnostic's
+  free-form `stats`). A person asks staff for these in writing.
+
+`POST /api/v1/identity/me/export/` (identity owns it) returns
+`{format: "kaleem.data-export", version: 1, generated_at, user_id, sections}` where
+`sections` is `export_user(user)` verbatim. A module that joins later appears with no change
+there; `version` changes only if the envelope does. Nothing is stored: the file is built per
+request and returned `Cache-Control: no-store`.
