@@ -270,7 +270,12 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
   explicit too, because a default is exactly what an SDK upgrade is free to change. Landed
   before `SENTRY_DSN` is ever set, which is the only time this is cheap.
 
-- **There is no `docs/architecture/scheduling.md`, and D9 asks for one every phase.** `identity`,
+- ~~**There is no `docs/architecture/scheduling.md`, and D9 asks for one every phase.**~~
+  **FIXED 2026-10-18** (meta, feat/ana-scheduling-arch-doc). `docs/architecture/scheduling.md` now
+  exists: the four fixed fields, the data model, matching, booking and quota, rooms, diagnostics,
+  signaling and TURN, the HTTP surface and the personal data held, as of backend `18888b2` and
+  dashboard `e61e23e`. Each scheduling unit updates its own section in its PR. The entry as it
+  stood: `identity`,
   `billing` and `curriculum` each have an architecture doc; `scheduling` — now the largest module
   in the codebase, spanning C0 matching inputs, C1 matching, C2 booking + quota, C3a rooms, C3b
   signaling and C3c TURN — has none. Each of those phases quietly skipped the "arch doc updated"
