@@ -39,7 +39,7 @@ See `STATE.md` for the current phase and active spec. At the time of this file's
    | --- | --- | --- | --- |
    | `backend` | 97.7 | `pyproject.toml` `[tool.coverage.report]` | ✅ |
    | `dashboard` | 96.73 lines / 93.28 branches / 88.84 functions | `vitest.config.ts` | ✅ |
-   | `marketing` | _set by the conductor from CI's measured figures_ | `vitest.config.ts` | ✅ once the floor lands (no `thresholds` are written by the unit that added the suite) |
+   | `marketing` | 100 lines / 100 branches / 100 functions | `vitest.config.ts` | ✅ |
 
    100% line+branch remains the target; exclusions are per-line and justified, never
    blanket file/directory exclusions of business logic. Raising a floor is a normal part
