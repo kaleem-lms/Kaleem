@@ -2,7 +2,8 @@
 name: asm-module-foundation
 phase: v1 (wave 2, assessment stream; roadmap B3)
 modules: [assessment]
-status: draft
+status: approved
+approved: 2026-10-18
 created: 2026-10-18
 closed: null
 ---
@@ -25,14 +26,15 @@ purged after 12 months), `dec-lesson-outcomes` (reports share the lesson's start
 window; enforced by asm-report-api, see below), `lb-dec-erasure-semantics` (anonymize in
 place), `asm-d-progress-scope` (no ProgressSnapshot).
 
-**Still open, before-spec. This draft assumes each one's recommended option.** If the owner
-picks another option, the sections marked with the decision id change.
+**Resolved by the owner on 2026-10-18.** The owner accepted each of the five before-spec
+decisions exactly as this spec's draft assumed it, and approved the spec, including the
+rating export (stars and date only, no comment).
 
-| Id | Assumed answer |
+| Id | Resolved answer |
 | --- | --- |
-| `asm-d-report-content` | Option 2: covered, next, homework, plus an optional passage and an optional focus tag. The rating of the student is a `Rating` row, not report content. |
-| `dec-quran-reference-source` | Option 2: surah number and ayah range only, no Quran text. |
-| `asm-d-report-audience` | Option 2: writer, the student, the student's parents and staff, plus the student's current teacher of the same subject for reports from the last 3 months. |
+| `asm-d-report-content` | Option 2: covered, next, homework, plus an optional passage and an optional focus tag (the slugs listed below). The rating of the student is a `Rating` row, not report content. |
+| `dec-quran-reference-source` | Option 2: surah number and ayah range only, no Quran text. Hafs/Kufan count, totalling 6,236. |
+| `asm-d-report-audience` | Option 2: writer, the student, the student's parents and staff, plus the student's current teacher of the same subject for reports from the last 3 months, read as 90 days. |
 | `asm-d-rating-visibility` | Option 2: a teacher sees only their average, and only once 3 or more distinct students have rated them; comments are staff-only; staff can hide a rating. |
 | `dec-student-rating-visibility` | Staff only, kept 12 months. |
 
@@ -224,7 +226,5 @@ No new events.
 
 ## Open questions
 
-1. The five before-spec decisions above. The unit is parked until the owner answers them.
-2. The focus tag list is a proposal under `asm-d-report-content`; the owner may change it.
-3. Exporting ratings a person received as stars and date only, without the comment, is a
-   legal judgement for lb-gdpr-data-export to confirm.
+1. Exporting ratings a person received as stars and date only, without the comment: the
+   owner approved it on 2026-10-18; lb-gdpr-data-export may still confirm the legal reading.

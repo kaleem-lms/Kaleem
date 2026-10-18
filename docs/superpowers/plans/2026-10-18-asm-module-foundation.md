@@ -1,6 +1,6 @@
 ---
 spec: docs/superpowers/specs/2026-10-18-asm-module-foundation-design.md
-status: draft
+status: approved
 ---
 
 # Plan: asm-module-foundation
@@ -14,8 +14,8 @@ Repos: `backend` (code) and meta (ADR, `docs/architecture/assessment.md`). Branc
   ci-parallel-guards (all on main at 31cf4a6).
 - Meta worktree `/home/abdulkhalek/Projects/kaleem-worktrees/meta-asm-module-foundation`.
 
-Do not start until the owner has answered the five open decisions in the spec and approved
-it. If an answer differs from the assumed one, update the spec and this plan first.
+The owner answered the five decisions as the spec assumed and approved the spec on
+2026-10-18; no change to this plan follows from the answers.
 
 **Dependency change.** `pydantic>=2.9,<3.0` in `requirements/base.txt` (upper-bounded, as
 `stripe` is). The gate image is keyed on `requirements/*.txt`, so `backend-gate.sh` exits 3
@@ -116,8 +116,7 @@ that creates scheduling rows directly (the exemption is in step 2's contract).
     the purge cut-off, the erase delete) and see the named test go red. Record the pairs
     in the hand-back.
 
-11. [ ] **Docs (meta).** `docs/adr/NNNN-assessment-reads-scheduling.md` (number from the
-    conductor): the edge, the ignored transitive edges, the string FK and the rule that
+11. [ ] **Docs (meta).** `docs/adr/0051-assessment-reads-scheduling.md` (status proposed): the edge, the ignored transitive edges, the string FK and the rule that
     services use `session_id` only. `docs/architecture/assessment.md`: tables, content
     schema and versioning, services, audience, retention, hooks. Update the scaffold
     docstring in `tests/test_module_scaffolds.py` only if a test there fails; otherwise
