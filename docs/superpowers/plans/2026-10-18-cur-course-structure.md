@@ -138,6 +138,17 @@ One migration (`curriculum/0004_course_unit_lesson`). No dependency change. No f
     `i18n-namespaces.test.ts` covers the loader, the route and a static-import guard;
     component tests import `@/test/feature-i18n`. Documented in
     `docs/developer-guide/i18n.md`.
+15b. [x] **Second catalogue: `call`.** With curriculum moved out, the initial JS was still
+    581,064 bytes against 580,000 (main alone: 579,286), and the budget stays. The same
+    pattern is applied to the video room: the `call` block leaves `common.json` for
+    `src/locales/{en,ar}/call.json`, `FEATURE_CATALOGUES` gains `call`, and the `_call`
+    layout route's `loader` loads it after the auth guard. The call components use
+    `useTranslation("call")`; the three shared `booking.*` strings they show are read with
+    `{ ns: "common" }`. Tests first: `i18n-namespaces.test.ts` (route loader, both locales,
+    registry, `common.json` carries neither block), `parity.test.ts` (discovered),
+    `terminology.test.ts` (call stays under the lesson-wording guard). Mutation-checked: a
+    static import of `call.json` in `main.tsx`, no `_call` loader, `call` put back in
+    `common.json`, and `call` dropped from the registry each turn a test red.
 16. [x] **e2e.** `e2e/curriculum.spec.ts` with the spec's three flows, as `teacher`. Flow 2
     reads the current order before moving, so it holds under a retry. It switches to
     Arabic, sets 320 px and checks `dir`, `widestOverflow` (`e2e/support/measure.ts`) and
