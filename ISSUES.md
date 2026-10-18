@@ -354,6 +354,13 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
 
 ## Someday
 
+- **`RadioCardGroup` arrow keys are mirrored the wrong way under Arabic.** Radix roving
+  focus treats every group as LTR unless a `DirectionProvider` is mounted, and the app
+  mounts none, so in RTL ArrowRight moves to the card on the left. The fix is to mount
+  Radix's `DirectionProvider` once in `main.tsx`, driven by the active locale.
+  `RatingInput` works around it locally by passing `dir` itself. Found 2026-10-18
+  (`asm-ui-primitives`).
+
 - **Two leftovers from the lesson-to-session wording change (`cur-session-wording`).**
   `src/routes/design-preview.tsx` still shows "lesson" in its hard-coded sample copy (a
   primitives gallery, not product copy). And `billing.plan*Desc` in the Arabic locale say
