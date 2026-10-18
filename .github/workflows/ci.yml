@@ -219,7 +219,7 @@ jobs:
       - name: Ensure GNU gettext
         run: |
           command -v msgfmt >/dev/null && command -v xgettext >/dev/null \
-            || sudo apt-get install -y --no-install-recommends gettext
+            || { sudo apt-get update -q && sudo apt-get install -y --no-install-recommends gettext; }
       - name: Run migrations
         run: python manage.py migrate --noinput
       # `migrate` applies the migrations that exist; it cannot notice a model
@@ -515,7 +515,7 @@ jobs:
       - name: Compile the Arabic catalogs
         working-directory: backend
         run: |
-          command -v msgfmt >/dev/null || sudo apt-get install -y --no-install-recommends gettext
+          command -v msgfmt >/dev/null || { sudo apt-get update -q && sudo apt-get install -y --no-install-recommends gettext; }
           python manage.py compilemessages
       - name: Start the API
         working-directory: backend

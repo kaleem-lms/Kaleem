@@ -773,8 +773,6 @@ None blocks the phase; each was reviewed and consciously deferred.
 - ~~**`NotFoundError("Recurring slot", request.user.id)` echoes the user id.**~~ **FIXED
   2026-09-13** (backend #56). `identifier` is now optional: the slot does not exist, so there is
   no id to name, and the user-visible body no longer reads a USER id under a slot's noun.
-- **The multi-subject 400 detail renders the server's raw English string**, unlocalised — matching
-  the existing claim-mutation pattern. Wants an i18n pass.
 - **Feature naming diverges across repos:** the backend puts booking inside `scheduling`; the
   dashboard adds `features/booking/` beside an existing `features/scheduling/`.
 - Smaller: a teacher-and-parent sees their own name echoed on rows they teach; the seed prints
