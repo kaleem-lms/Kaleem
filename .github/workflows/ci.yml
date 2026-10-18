@@ -281,7 +281,12 @@ jobs:
       # 2026-09-12).
       - name: Token pin agrees with the submodule (G3)
         working-directory: .
-        run: node scripts/check-token-pin.mjs
+        # The submodule checkout fetches only the pinned commit, which carries no tags
+        # once tokens main has moved past the release. Fetch the tags first, or a correct
+        # pin reads as "tag does not exist" (seen on 2026-10-18 after tokens#9).
+        run: |
+          git -C tokens fetch -q --depth=1 origin "+refs/tags/*:refs/tags/*"
+          node scripts/check-token-pin.mjs
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       - name: TypeScript check
