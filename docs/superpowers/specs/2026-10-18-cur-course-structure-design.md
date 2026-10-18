@@ -6,6 +6,7 @@ status: approved
 approved: 2026-10-18
 created: 2026-10-18
 closed: null
+amended: 2026-10-19
 ---
 
 ## Goal
@@ -164,9 +165,33 @@ every query to it.
   hooks in `queries.ts`. Mutations write the returned tree into the course query, and a
   409 refetches.
 - Lesson bodies render as text with preserved line breaks; no HTML and no Markdown.
-- Copy: new keys under `curriculum.*` in `en` and `ar`. `modules.curriculum.description`
-  stays (the placeholder, the home tile and the terminology test's positive control use
-  it). Home keeps the "Coming soon" badge on Curriculum for non-teachers only.
+- Copy: the course builder's text lives in its own lazily loaded `curriculum` namespace,
+  `src/locales/{en,ar}/curriculum.json` (the file is the namespace's tree, so a key is
+  `t("heading")`), not in `common.json`. The `/curriculum` layout route's `loader` loads it
+  before anything renders, and components call `useTranslation("curriculum")`. This follows
+  the owner's 2026-10-19 bundle-budget decision (option c: per-feature lazily loaded
+  catalogues; the 580,000-byte initial-JS budget is not raised). The pattern, its registry
+  (`FEATURE_CATALOGUES` in `src/lib/i18n-namespaces.ts`) and its guards are in
+  `docs/developer-guide/i18n.md`, "Feature catalogues".
+  `modules.curriculum.description` stays in `common.json` (the placeholder, the home tile
+  and the terminology test's positive control use it). Home keeps the "Coming soon" badge
+  on Curriculum for non-teachers only.
+- **In scope, added by the amendment below: the `call` catalogue move.** Moving the
+  curriculum copy out was not enough: the initial JS was still 581,064 bytes against the
+  580,000 budget (main alone is 579,286). The unit therefore applies the same pattern to
+  the video room. The `call` block leaves `common.json` for `src/locales/{en,ar}/call.json`
+  and `call` joins `FEATURE_CATALOGUES`. About 30 files under `src/features/call` and the
+  `_call` layout route change, and nothing else about the video room's behaviour does.
+  - The `_call` route's `loader` loads the catalogue **after** `requireAuth`, so a
+    signed-out visitor never downloads it.
+  - The three `booking.*` strings the room shares with the schedule stay in `common.json`
+    and are read with `{ ns: "common" }`.
+  - Guards: `src/lib/i18n-namespaces.test.ts` (no shipped file imports a feature catalogue
+    statically, each owning route loads its namespace, `common.json` carries neither
+    block, the registry is complete) and `src/locales/parity.test.ts` (catalogues are
+    discovered by listing the directory, so a new one is checked in both locales with no
+    edit).
+  - Result: initial JS 570,611 bytes, 9,389 under the unchanged budget.
 - Tokens-only styles, logical properties, both themes, 320 px reflow.
 
 Done means built, deployed to staging and clicked through per dec-d9-substitute (both
@@ -188,6 +213,8 @@ endpoints and the ordering rule.
 - Sharing, duplicating, publishing or archiving courses (dec-cur-ownership options 2-4).
 - Reordering courses themselves, rich text, attachments, staff tools.
 - Joining `Subject`, `TeacherSubject` or `StudentSubjectInterest` to the registry.
+- Moving any other feature's copy to a lazy catalogue. Only `curriculum` and `call` move in
+  this unit; later dashboard units follow the pattern as they need it.
 
 ## Test plan
 
@@ -235,3 +262,11 @@ only those the teacher teaches); hard delete; limits of 50 courses per teacher, 
 per course and 100 lessons per unit; lessons stay within their unit; and the Arabic terms
 دورة (course), وحدة (unit) and درس (lesson). The Arabic terms still go to hg-arabic-review,
 which holds spec closure.
+
+## Amendment, 2026-10-19
+
+The Frontend section's Copy bullet originally said "new keys under `curriculum.*` in `en`
+and `ar`", that is, inside `common.json`. Building it showed the bundle budget could not
+absorb that, and the owner chose per-feature lazy catalogues (option c) the same day. The
+Copy bullet now says what was built, and the `call` catalogue move is recorded as in scope
+with its reason and guards. No behaviour, endpoint, table or test-plan item changed.
