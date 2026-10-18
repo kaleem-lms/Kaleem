@@ -1,5 +1,9 @@
 # kaleem brand brief
 
+> **Status (2026-10-18): being rewritten.** By owner decision (2026-10-17) this brief is
+> replaced by `inf-brand-brief-rewrite` before any further exploration. No direction may be
+> judged against this version.
+
 ## Who this is for
 Parents (who pay) and students (who attend) who do **not read Arabic**, studying
 Quran, Tafsir and Arabic language with a live teacher. Teachers are the other side

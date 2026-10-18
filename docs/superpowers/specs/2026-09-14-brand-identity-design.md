@@ -7,6 +7,27 @@ created: 2026-09-14
 closed: null
 ---
 
+## Errata (2026-10-18)
+
+Amended by `inf-brand-docs-land` after checking this document against the code at tokens
+`68567a3`, dashboard `d3101e5`, marketing `7415349` and backend `d1c2be6`. The plan carries
+the full corrections (`docs/superpowers/plans/2026-09-14-brand-identity.md`, Errata). What
+changes in this spec:
+
+- **E6** the web manifest is not a brand deliverable. `rch-pwa-manifest-head` owns the
+  dashboard's manifest and keeps the icon file names; the brand release only overwrites
+  image files. The deliverables line and the "icon set" gate above are corrected.
+- **E9** marketing has a vitest suite (100/100/100 floor) and an e2e harness, so the
+  "no test suite" statement in Out of scope is corrected. The "marketing has CI" row in the
+  pre-flight table below is a dated record and stays as written.
+- **E10** the transactional-email line in User flow stands as the goal, but the backend
+  sends text-only mail today. `ntf-email-foundation` builds the header slot, and
+  `inf-brand-email-header` swaps the hosted raster into it.
+- **E1-E5, E7, E8, E11** change only the plan or the brief: flat theme aliases (E1), the
+  tokens CI install step (E3), HarfBuzz shaping (E4), outlined lockup text (E5), the split
+  of Task 8 into 8a and 8b (E7), the two dashboard wordmarks (E8). E2 corrects ADR-0043. E11 marks
+  the brief as being rewritten (`inf-brand-brief-rewrite`).
+
 ## Goal
 
 kaleem has a complete, gate-enforced design system and no brand. `tokens` carries an
@@ -122,7 +143,7 @@ for the mark plus a written rationale for a pairing that already ships.
 - Clear-space and minimum-size rules.
 
 **Application**
-- Favicon set + app icons + `site.webmanifest`.
+- Favicon set + app icons (the web manifest belongs to each consumer).
 - OG/social card, exactly 1200×630.
 - Email header raster, 1x and 2x PNG.
 - Avatar/square crop.
@@ -179,8 +200,10 @@ engaged — nothing here crosses a Python module boundary.
 ## Out of scope
 
 - Marketing site structure, routes, content, i18n/RTL copy, SEO — the second spec.
-- Standing up `marketing`'s first test suite. It is ❌ in the D3 table today and stays ❌
-  after this; the site spec owns it. Named here so it is not lost.
+- Standing up a marketing test suite. It exists now: marketing has had a vitest suite and an
+  e2e harness since `rch-mkt-test-harness` (Errata E9), so the swap in Task 11 must keep
+  them green and update `tests/home.test.ts`. Extending that coverage beyond the swap
+  belongs to the site spec.
 - Any change to the ADR-0040 palette. The mark works within it.
 - A Figma library. Explicitly declined.
 - Rebranding the product name or domain.
@@ -195,7 +218,7 @@ home). ADR-0026 ratchets: once green, lowering one needs an ADR.
 | asset presence | every declared deliverable exists at its declared path |
 | SVG validity | parses; no embedded raster (`<image>`); tight `viewBox` |
 | token-derived colour | no hex literals in mark SVGs; colours resolve to tokens |
-| icon manifest | favicon/app-icon set complete and referenced by `site.webmanifest` |
+| icon set | every declared icon is emitted at its declared size; the manifest that references them is the consumer's |
 | OG dimensions | the social card is exactly 1200×630 |
 | declared pairs | each permitted mark-on-surface pair is declared and passes the existing contrast check |
 

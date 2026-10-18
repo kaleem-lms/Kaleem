@@ -41,8 +41,9 @@ tokens/brand/
 ```
 
 - **Source marks are colourless.** They contain no hex literal, only `currentColor`.
-  Colour is baked in at emit time by resolving a token alias (e.g. `color.brand.primary`)
-  against the palette already in `tokens/src/*.tokens.json`. This is what makes "no hex
+  Colour is baked in at emit time by resolving a token alias (e.g. `{primary-text}`)
+  against the palette already in `tokens/src/*.tokens.json`. Theme aliases are flat: they
+  name the key that `resolveTheme()` returns, with no `color.` prefix. This is what makes "no hex
   literal ships in a brand asset" a checkable property rather than a review convention.
 - **Emitted derivatives are committed**, the same pattern ADR-0041 established for
   `tokens.css`/`theme.css`: a script produces them, `--check` proves the tree matches
@@ -107,6 +108,10 @@ tokens/brand/
   `--check`-verified the same way `tokens.css` is, consumers still install **zero**
   runtime dependencies — `package.json` today declares none, and that stays true for
   anyone pulling the package as a dependency.
+- The tokens CI gains its first install step and a committed `pnpm-lock.yaml`. It installed
+  nothing before ("No dependencies by design"), which cannot hold once `brand.mjs --check`
+  and its tests need `@resvg/resvg-js`. The CI comment says so, and the install is
+  `--frozen-lockfile`.
 - `files` and `exports` grow again, as they did for ADR-0041's JSON sources — the
   package's public surface keeps widening past the three CSS files it shipped
   originally.
