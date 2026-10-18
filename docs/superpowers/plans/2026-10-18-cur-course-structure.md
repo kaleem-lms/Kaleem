@@ -123,16 +123,31 @@ One migration (`curriculum/0004_course_unit_lesson`). No dependency change. No f
 14. [x] **Home and nav.** `Home.tsx`: the Curriculum tile keeps "Coming soon" only for a
     user without a teacher profile (test in `index.test.tsx`). Update the scaffold note in
     `nav.ts`.
-15. [x] **Copy.** `curriculum.*` keys in `src/locales/en/common.json` and `ar`
-    (`parity.test.ts` must pass). Arabic: دورة (course), وحدة (unit), درس (lesson), queued
-    for hg-arabic-review. `terminology.test.ts` stays green unedited.
+15. [x] **Copy.** The course builder's text is a feature catalogue,
+    `src/locales/{en,ar}/curriculum.json` (namespace `curriculum`), not part of
+    `common.json`: in the entry chunk it took the initial JS to 585,694 bytes against the
+    580,000 budget, and the owner declined to raise the budget (2026-10-19, option c:
+    per-feature lazily loaded catalogues). Arabic: دورة (course), وحدة (unit), درس
+    (lesson), queued for hg-arabic-review. `modules.curriculum.description` stays in
+    `common.json`, where `terminology.test.ts` reads it as its positive control.
+15a. [x] **Lazy catalogue.** `src/lib/i18n-namespaces.ts`: `FEATURE_CATALOGUES` (dynamic
+    imports, both locales) and `loadNamespace(ns)` (idempotent, deduplicated, retryable).
+    `curriculum.tsx`'s `loader` calls it, so both child routes have their text before they
+    render. The components use `useTranslation("curriculum")`. Tests: `parity.test.ts` and
+    `terminology.test.ts` now walk every catalogue by listing the directory;
+    `i18n-namespaces.test.ts` covers the loader, the route and a static-import guard;
+    component tests import `@/test/feature-i18n`. Documented in
+    `docs/developer-guide/i18n.md`.
 16. [x] **e2e.** `e2e/curriculum.spec.ts` with the spec's three flows, as `teacher`. Flow 2
     reads the current order before moving, so it holds under a retry. It switches to
     Arabic, sets 320 px and checks `dir`, `widestOverflow` (`e2e/support/measure.ts`) and
     axe after `settle`. `e2e/routes/curriculum.ts` gains `{ path: "/curriculum", as:
     "teacher" }`. `e2e/routes/index.ts` `NOT_SWEPT` gains `/curriculum/$courseId` with its
     reason.
-17. [x] **Mutation checks (dashboard).** Remove the live-region write: the builder test
+17. [x] **Mutation checks (dashboard).** For the lazy catalogue: a static import of the
+    catalogue in `lib/i18n.ts` turns the guard red; a dropped `ar` key turns parity red; no
+    route `loader` turns the route test red; un-exempting curriculum turns the wording
+    guard red; an unregistered catalogue turns discovery red. Remove the live-region write: the builder test
     goes red. Remove the client blank check: the dialog test goes red. Make the move
     send the unswapped list: the move test goes red. In e2e (local slot or CI), have
     `reorder_lessons` skip the save: flow 2 goes red after the reload.

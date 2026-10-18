@@ -150,11 +150,12 @@ touch.
 
 ## Personal-data registry and e2e seed
 
-`kaleem/curriculum/personal_data.py` registers one hook pair, `curriculum.courses`
-(ADR-0048), from `CurriculumConfig.ready()`. Export is the teacher's course trees in the
-order they built them, with ISO dates; erase deletes the teacher's courses. The three older
-models are not covered, so curriculum stays in the coverage guard's `PENDING_EXPORT` and
-`PENDING_ERASE` (lb-gdpr-data-export / lb-gdpr-erasure remove the entries).
+`kaleem/curriculum/personal_data.py` registers two hook sets from `CurriculumConfig.ready()`
+(ADR-0048): `curriculum.courses` (export and erase) and the export-only
+`curriculum.subjects` (below). The courses export is the teacher's course trees in the order
+they built them, with ISO dates; its erase deletes the teacher's courses. The subject tables
+have no erase hook yet, so curriculum stays in the coverage guard's `PENDING_ERASE`
+(lb-gdpr-erasure removes the entry).
 cur-lesson-assignment must revisit the erase hook once students hold lessons.
 
 `seed_e2e_curriculum` (listed in `config/e2e_seeds.txt` after `seed_e2e_matching`) deletes
@@ -191,6 +192,14 @@ lesson from `scheduling`, which shipped without the mirror and where a direct
 Note the arrow's direction is load-bearing in the other direction too: **`identity` may not
 import `curriculum` at all.** This is why `seed_e2e`, which lives in `identity`, cannot reset
 a teacher's subjects — the e2e specs converge their own fixture instead.
+
+## Dashboard text
+
+The course builder's English and Arabic copy is a feature catalogue
+(`dashboard/src/locales/{en,ar}/curriculum.json`, namespace `curriculum`), not part of the
+global `common.json`. The `/curriculum` layout route's `loader` registers it before either
+child route renders, so it stays out of the entry chunk and the initial-JS budget. The
+pattern and its guards are in `docs/developer-guide/i18n.md`.
 
 ## Deliberately not here
 
