@@ -359,6 +359,17 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
 
 ## Someday
 
+- **Five Arabic plural families have no `_zero` form**, so at count 0 an Arabic page falls back
+  to English: `availability.copyConfirmBody`, `availability.weeklyTotal`,
+  `billing.planFamilyDesc`, `billing.planIndividualDesc`, `booking.showPast`. Held on the parity
+  gate's `ZERO_FORM_ALLOWLIST` (ceiling 5). Needs native-reviewed Arabic copy; owned by
+  rch-i18n-rtl-leak-fixes. Found 2026-10-18.
+- **The call room is not in the Arabic sweep.** It needs a session in progress and live media;
+  it is swept in English by `session-ui.spec.ts` only. Found 2026-10-18.
+- **`dashboard/e2e/` is neither type-checked (tsconfig `include`: `src`) nor linted (biome
+  `files.includes`: `src/**`).** A type error in a spec surfaces only when Playwright runs it.
+  Found 2026-10-18.
+
 - **The load-test smoke scenario is not a CI job.** `infra/loadtest/selftest.sh` proves
   the harness locally (target guard, 100% of checks, one CSRF-protected write per role)
   but nothing runs it on a PR, so a seed or journey can rot unnoticed. Found 2026-10-18
@@ -754,6 +765,8 @@ phase; each was reviewed and consciously deferred rather than missed.
   (144px); clean at 1003/1018 in English. Traced to the "Preferred teacher gender" radio group's
   visually-hidden inputs using a physical `left:-159px` instead of a logical inset. This is a
   WCAG 1.4.10 Reflow (AA) failure on a page C1 adds a card to. Belongs to identity/curriculum.
+  Since 2026-10-18 it is held on the Arabic-sweep allowlist (2 entries, under a ceiling): fixing
+  it turns that entry stale and fails the run until the entry is removed.
 - ~~**N+1 in the teacher inbox.**~~ **FIXED 2026-09-13** (backend #57). Measured at **23
   queries for five offers**, now **7 and constant**: the teacher's own availability was re-read
   per row, and the student read and preference lookup were a query each. Batched via new
