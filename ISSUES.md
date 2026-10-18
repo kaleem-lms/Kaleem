@@ -270,7 +270,12 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
   explicit too, because a default is exactly what an SDK upgrade is free to change. Landed
   before `SENTRY_DSN` is ever set, which is the only time this is cheap.
 
-- **There is no `docs/architecture/scheduling.md`, and D9 asks for one every phase.** `identity`,
+- ~~**There is no `docs/architecture/scheduling.md`, and D9 asks for one every phase.**~~
+  **FIXED 2026-10-18** (meta, feat/ana-scheduling-arch-doc). `docs/architecture/scheduling.md` now
+  exists: the four fixed fields, the data model, matching, booking and quota, rooms, diagnostics,
+  signaling and TURN, the HTTP surface and the personal data held, as of backend `18888b2` and
+  dashboard `e61e23e`. Each scheduling unit updates its own section in its PR. The entry as it
+  stood: `identity`,
   `billing` and `curriculum` each have an architecture doc; `scheduling` — now the largest module
   in the codebase, spanning C0 matching inputs, C1 matching, C2 booking + quota, C3a rooms, C3b
   signaling and C3c TURN — has none. Each of those phases quietly skipped the "arch doc updated"
@@ -357,6 +362,30 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
 - **`dashboard/public/icons.svg` is dead.** It is Vite's template sprite of social icons and
   nothing references it (seen in `rch-pwa-manifest-head`). It ships in every build. Delete it
   in a unit that already touches `public/`.
+
+- **Five Arabic plural families have no `_zero` form**, so at count 0 an Arabic page falls back
+  to English: `availability.copyConfirmBody`, `availability.weeklyTotal`,
+  `billing.planFamilyDesc`, `billing.planIndividualDesc`, `booking.showPast`. Held on the parity
+  gate's `ZERO_FORM_ALLOWLIST` (ceiling 5). Needs native-reviewed Arabic copy; owned by
+  rch-i18n-rtl-leak-fixes. Found 2026-10-18.
+- **The call room is not in the Arabic sweep.** It needs a session in progress and live media;
+  it is swept in English by `session-ui.spec.ts` only. Found 2026-10-18.
+- **`dashboard/e2e/` is neither type-checked (tsconfig `include`: `src`) nor linted (biome
+  `files.includes`: `src/**`).** A type error in a spec surfaces only when Playwright runs it.
+  Found 2026-10-18.
+
+- **The load-test smoke scenario is not a CI job.** `infra/loadtest/selftest.sh` proves
+  the harness locally (target guard, 100% of checks, one CSRF-protected write per role)
+  but nothing runs it on a PR, so a seed or journey can rot unnoticed. Found 2026-10-18
+  by rch-load-test-harness.
+
+- **`RadioCardGroup` arrow keys are mirrored the wrong way under Arabic.** Radix roving
+  focus treats every group as LTR unless a `DirectionProvider` is mounted, and the app
+  mounts none, so in RTL ArrowRight moves to the card on the left. The fix is to mount
+  Radix's `DirectionProvider` once in `main.tsx`, driven by the active locale.
+  `RatingInput` works around it locally by passing `dir` itself. Found 2026-10-18
+  (`asm-ui-primitives`).
+
 - **Two leftovers from the lesson-to-session wording change (`cur-session-wording`).**
   `src/routes/design-preview.tsx` still shows "lesson" in its hard-coded sample copy (a
   primitives gallery, not product copy). And `billing.plan*Desc` in the Arabic locale say
@@ -740,6 +769,8 @@ phase; each was reviewed and consciously deferred rather than missed.
   (144px); clean at 1003/1018 in English. Traced to the "Preferred teacher gender" radio group's
   visually-hidden inputs using a physical `left:-159px` instead of a logical inset. This is a
   WCAG 1.4.10 Reflow (AA) failure on a page C1 adds a card to. Belongs to identity/curriculum.
+  Since 2026-10-18 it is held on the Arabic-sweep allowlist (2 entries, under a ceiling): fixing
+  it turns that entry stale and fails the run until the entry is removed.
 - ~~**N+1 in the teacher inbox.**~~ **FIXED 2026-09-13** (backend #57). Measured at **23
   queries for five offers**, now **7 and constant**: the teacher's own availability was re-read
   per row, and the student read and preference lookup were a query each. Batched via new
