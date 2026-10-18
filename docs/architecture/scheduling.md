@@ -23,7 +23,7 @@ Specs: `2026-06-25-scheduling-availability-design.md` (availability) ·
 ADRs: 0033 (depends on curriculum and billing) · 0034 (custom WebRTC, group lessons deferred) ·
 0035 (signaling as a separate service) · 0036 (feature components split hook and presentation) ·
 0037 (signaling is shared, not blue-green) · 0039 (pre-negotiated transceivers) · 0046 (v1
-roadmap reconciliation, which drops trials). Operations live in `docs/runbook/signaling.md`,
+roadmap reconciliation, which drops trials) · 0054 (live-lesson captions: the stated gap). Operations live in `docs/runbook/signaling.md`,
 `turn.md` and `video-call.md`, not here.
 
 ## The four fixed fields
@@ -595,7 +595,21 @@ The dashboard uses the module through four routes, each a thin page over a featu
 The folder names diverge from the backend, which keeps booking inside `scheduling`
 (`ISSUES.md`). Feature components split into a hook and a presentation component (ADR-0036).
 The call client's internals are covered by ADR-0036, ADR-0039 and `docs/runbook/video-call.md`,
-and are not repeated here.
+and are not repeated here, with one exception: how the client ends a signaling socket that
+fails before it ever opens.
+
+**Connect deadline** (`lb-call-connection-failure-path`). `useSignaling` gives each connection
+attempt 10 s (`CONNECT_TIMEOUT_MS`). A socket still connecting then is abandoned (handlers
+detached, closed) and takes the same path as an unexpected close, so the backoff reconnect
+(500 ms doubling, 5 attempts) continues behind the screen. A network that accepts the connection
+and never answers the upgrade fires neither `open` nor `close`, so before this the room read
+"Connecting…" for ever. The failure it reports depends on whether this hook instance ever
+opened: `unreachable` ("Couldn't reach the session server") if never, `lost` ("Connection to the
+session server was lost") after the first open. Both are retryable terminal screens; 4401, 4409
+and 4410 are unchanged. **Try again** remounts the room, re-acquiring the microphone and
+the chosen devices, and the camera only if the person's latest choice (the Lobby's, then any
+in-room toggle, reported up through `onMediaChoiceChange`) had it on. No diagnostic row is
+written for a connect timeout (it would need a new `CallDiagnostic` code).
 
 ## Deliberately not here
 
@@ -608,4 +622,6 @@ and are not repeated here.
 - **Teacher earnings** (`billing`).
 - **Parents acting on a child's behalf** beyond viewing and cancelling (`lb-parent-acts-for-child`).
 - **Recording**, and any media path beyond a TURN relay.
+- **Captions, real-time text and an audio-activity indicator in the call.** None exist, and
+  the call has no data channel. A stated launch gap, not an oversight (ADR-0054).
 - **Joining the personal-data registry** (see above).

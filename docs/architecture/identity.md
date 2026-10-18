@@ -60,6 +60,10 @@ Errors are typed (`platform.exceptions.ValidationError` / `NotFoundError`) — n
   `me/student-profile/`, `children/`, `children/<id>/set-password/`, `invites/`,
   `invites/accept/`. Browsable docs at `/api/v1/docs/` (staff-only off local dev).
   `PATCH /me/` updates `full_name` only — it cannot change the email (see below).
+- `GET /me/`, `PATCH /me/` and the login response share one body (`_me_payload`), which
+  carries `is_staff`: the caller's own flag, read-only. A `PATCH` that sends `is_staff`
+  changes nothing. The dashboard uses it to show the Staff section and guard `/staff`;
+  the server control for staff endpoints is `platform.permissions.IsStaff` (ADR-0057).
 - Login is refused (400) until the email is verified. Authenticated mutations require a
   CSRF token (403 without). Anonymous `register`/`login` are not CSRF-checked — standard
   DRF `SessionAuthentication` behaviour (CSRF is enforced only on session-authenticated
@@ -92,6 +96,13 @@ primary on promotion (so the real owner is warned of an unauthorised change). Th
 address cannot be deleted (`DELETE /me/emails/<id>/`); promote another first. The old
 insecure `PATCH /me/ {email}` path was removed — email changes go only through these
 endpoints.
+
+## e2e fixtures
+
+`seed_e2e` (dev/CI only, refuses with `DEBUG=False`) converges a fixed set of accounts on
+every run, including `is_staff`: it is set on each account every time, so a fixture that
+drifted to staff goes back. `e2e.staff@kaleem.test` is the one staff account. It holds no
+role profile, so its flow also covers a profile-less user reaching Home.
 
 ## v1 decisions worth knowing
 
