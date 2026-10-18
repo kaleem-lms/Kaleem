@@ -2,9 +2,9 @@
 name: billing-period-end-race
 phase: B
 modules: [billing]
-status: approved
+status: shipped
 created: 2026-09-03
-closed: null
+closed: 2026-09-03
 ---
 
 ## Goal

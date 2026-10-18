@@ -2,9 +2,9 @@
 name: frontend-delivery-pipeline
 phase: B
 modules: [platform]
-status: draft
+status: shipped
 created: 2026-06-13
-closed: null
+closed: 2026-06-13
 ---
 
 ## Goal

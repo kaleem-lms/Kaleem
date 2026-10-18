@@ -2,7 +2,7 @@
 name: e2e-beyond-identity
 phase: B
 modules: [identity, scheduling, platform]
-status: implemented
+status: shipped
 created: 2026-09-04
 closed: 2026-09-04
 ---
