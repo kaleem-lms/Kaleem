@@ -2,9 +2,9 @@
 name: email-management
 phase: A
 modules: [identity]
-status: draft
+status: shipped
 created: 2026-06-17
-closed: null
+closed: 2026-06-19
 ---
 
 ## Goal

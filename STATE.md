@@ -1,8 +1,8 @@
 ---
-current_phase: "C — Scheduling, CLOSED. **Design-system v2 is COMPLETE and its spec is closed** (2026-09-12): palette replaced and deployed, primitive layer consolidated, CI gates G1–G7 landed. C5/C6 shipped to staging 2026-09-12. C0–C3e closed 2026-09-07. Phase B (billing) CLOSED 2026-09-04. Phase A closed via ADR-0024. Roadmap's Phase B happy path still open: `assessment` and `analytics` were never built. Preview mode has not run."
-active_spec: "**None — pick the next phase with the user.** `2026-09-12-design-system-v2-design.md` is CLOSED; its outcome section carries what the consolidation found and what was deliberately left alone. ADR-0040 (palette + EN 301 549), ADR-0041 (DTCG tokens). Still owed from it: the staging walk and the Lighthouse a11y re-measure (raise the floor if it now exceeds 0.95 — ADR-0026 ratchet). C5/C6 each still owe the manual pass on a real phone."
-active_branch: "**None — merged and deploying.** meta #229 bumped dashboard to 9d21e01 (#71): a combined `getUserMedia({video,audio})` is all-or-nothing, so a missing camera cost a working microphone — staging session 7 had user 18 failing `gum-not-found` on three separate days while user 17 in the same session never failed once. `useLocalMedia` now retries per kind. meta #228 bumped backend (2401dc7) in parallel. meta #227 merged (an ISSUES note: one failed tap writes TWO diagnostics rows, so that table reads ~double on any failing device). ⚠ Still owed: user 18 has their microphone back but still has no camera — the `NotFoundError` itself is a device fact this fix does not address, so watch whether `gum-not-found` keeps arriving from that user."
-last_green_ci: "meta#229 -> master 2026-09-13: all ten checks green, including the FIRST EVER execution of `e2e/call-partial-media.spec.ts` — verified by reading the job log for the spec name (`✓ 21 … a missing camera no longer costs a working microphone`, 78 passed), not by trusting a green job, because a silently-skipped spec looks identical to a passing one. `dashboard-lint` also cleared the raised coverage floors (96.73/93.28/88.84) in CI, not just locally. ⚠ #229 was merged at 13:02 while those PR checks were still running (they finished 13:06, green) — the gates passed, but the merge did not wait for them."
+current_phase: "v1 parallel programme, wave 0 (baseline). The rest of v1 runs as parallel streams through one serialized merge queue (ADR-0045). Closed: Phase A (ADR-0024), Phase B billing (2026-09-04), Phase C scheduling C0–C3e (2026-09-07), design-system v2 (2026-09-12). C4–C6 are on staging, their specs open until inf-call-specs-close. Not built yet: the roadmap's Phase B happy path (assessment, analytics). Preview mode has never run; it now runs alongside the build once its safeguards land (ADR-0045)."
+active_spec: "No unit spec yet. Active plan: docs/superpowers/plans/2026-10-17-v1-parallel-programme.md (165 scheduled units over 11 waves, 13 parked). Every unit gets its own spec and plan before code (D1/D2)."
+active_branch: "docs/v1-kickoff-records (meta, no PR yet): ADR-0045, the programme plan, STATE.md, ISSUES.md, spec frontmatter (base-13). Also drafted on it: ADR-0046, which lands in its own PR right after this one once the owner approves its text, and the two docs/decisions records plus their docs/decisions/README.md index lines, which the owner commits to this branch before it merges (this PR cites both records)."
+last_green_ci: "meta#229 -> master 2026-09-13, the last verified code merge: all ten checks green and the e2e log read for the new spec name. Not re-checked for this file: #228 (backend pointer, merged after it) and the docs-only merges since (#231, #230, #233, #234)."
 ---
 
 # kaleem Project State
@@ -13,66 +13,37 @@ last_green_ci: "meta#229 -> master 2026-09-13: all ten checks green, including t
 
 ## Where we are
 
-Phase C (scheduling) is closed. A parent can pay, be matched to a teacher, book a recurring
-slot, and hold a real video call relayed through our own coturn. Phase B (billing) is closed,
-dunning gate included. What is **not** closed: the roadmap's Phase B happy path
-(`assessment`/`analytics` don't exist — a delivered lesson leaves no trace), and preview mode
-has never run, which the roadmap makes non-optional before the next phase's priorities are
-final.
+On 2026-10-17 the owner chose to finish the full v1 as parallel streams run by a conductor
+session, landing through one serialized merge queue (ADR-0045; journal `2026-W42`). The plan is
+`docs/superpowers/plans/2026-10-17-v1-parallel-programme.md`. All 45 kickoff decisions are
+answered (`docs/decisions/2026-10-17-v1-kickoff-decisions.md`), and trials are cut (ADR-0046,
+proposed). Wave 0 is under way: base-01, 02 and 03 are done, base-13 is done on this branch.
+The meta repo is public again (W42; the submodules are private), so security detail stays out
+of public docs until its fix ships (ADR-0045, section 4).
 
-**CI cost optimization shipped; its justification was rewritten twice and is now settled
-against the real invoice** (ADR-0038, PR #190). The mechanism works and was verified on the
-real merge (`last_green_ci`): `triage` skips the seven gate jobs on docs-only changes and on a
-push whose exact tree a PR already proved. It was justified by a modelled ~$64/month Actions
-bill. The real invoice — readable all along via
-`/organizations/kaleem-lms/settings/billing/usage`, the replacement for the `410`'d endpoint
-the spec gave up on — says **2,098 minutes and $0.00 net in Sept 2026, and $0.00 in every
-month on record**; the model was ~5× high. A first correction (09-08) blamed "the repo is
-public, runners are free" — also wrong: it *was* public then, is private now, and neither is
-why the bill was zero. ADR-0038's Correction section carries the full account. The real
-benefit is wall-clock and signal, plus keeping a now-private repo inside its 2,000-min
-allowance, which Sept's usage sits exactly on.
-
-**Also not exercised on a real push:** the artifact-miss direction — see `docs/runbook/ci.md`.
+The product has not moved since September: a parent can pay, be matched, book a recurring slot
+and hold a video call through our own coturn, but a delivered lesson still leaves no trace —
+`assessment` and `analytics` are waves 2–6.
 
 ## ▶ Next actions, in order
 
-1. **The manual pass on a real phone.** The one thing nothing here can do. C5 came from
-   an iOS photo and C6's last four defects came from someone using the result; both still
-   rest on checks a harness cannot make: that the OS camera indicator really goes out,
-   that audio is audible, that a shared screen is legible, and anything at all on Safari
-   or iOS. Staging is live and carrying both.
-2. ✅ **The staging walk's authenticated half — DONE 2026-09-13.** It never needed the
-   deferred rotation, only a working login: a throwaway verified user with all three
-   profiles unblocked it in one command. Verified live, measured not eyeballed —
-   **`Dialog`**: opens in dark+RTL, focus moves inside, `aria-labelledby`/`describedby`
-   set, background `aria-hidden` via Radix `hideOthers` (no `aria-modal`, which is Radix's
-   deliberate and more robust choice), Escape closes, focus restored to the exact trigger.
-   **`Skeleton`**: all 12 `aria-hidden="true"`, `motion-reduce:animate-none` present, and
-   the sibling `role="status" aria-live="polite"` announcements really are there — the
-   component's design claim holds in the rendered page. **`Meter`**: both roles present
-   and distinct (`progressbar` "Lessons used this month" 3/8, `meter` "Microphone level"
-   42/100). Also confirmed as rendered values: the per-theme `--overlay` differs in HUE not
-   just alpha (light `#191c1b8c`, dark `#000000ad`), `--primary-text` is `#146a51` light /
-   `#9fd0bc` dark, the topbar wordmark is `display:none` below `sm` with no sideways scroll
-   at 320px on an authed route, and **today's own focus fix works in production** (focus
-   lands on "New email address", not `<body>`).
-   ⚠ Still owed to human eyes, because no harness can judge them: 12px → 16px corners on
-   session rows and the call end screen, the tightened spotlight gap, and auth headings at
-   display rank.
-3. ⏸ **Rotate the staging passwords — DEFERRED by the owner 2026-09-13.** Still under
-   *Blocks launch* in `ISSUES.md` at unchanged severity: deferred is about when, not
-   whether. Accepted meanwhile: staging-only reach, repo private again so the window is
-   closed, exposure bounded by whoever cloned during it. Must happen before real users and
-   real money, and the new values must never enter the repo — history keeps the old ones.
-4. **Then choose the next phase with the user.** `assessment` closes the roadmap's happy
-   path — a delivered lesson still leaves no trace — and `notifications` is the other
-   candidate. Preview mode has still never run, so priorities remain provisional. Do not
-   pick unilaterally.
-5. A coturn config-only change does not restart the running relay — close before it bites
-   again (`ISSUES.md`).
-6. **Someday:** force the artifact-miss path once a code change merges >7 days after
-   going green (`ISSUES.md`).
+**Owner** — only the owner can do these:
+
+1. **Before Sat 24 Oct 2026, 15:00 UTC:** apply the DST staging seed (base-06). If the window is
+   missed, the fallback is frozen-clock tests.
+2. **Before the first sub-agent is dispatched:** write the sub-agent deny rules (base-08b).
+3. **Before the first code merge:** protect meta `master` (base-10) and turn on private
+   vulnerability reporting (base-14).
+4. Close Dependabot #182–#184 (base-09). Approve ADR-0046's text, commit the two decision
+   records, and keep the private record (base-03c) somewhere durable.
+
+**Conductor:**
+
+5. Land this docs branch through the queue, then the rest of base-04 (CLAUDE.md's D3 floors and
+   line 7, product-spec BR-14, the `ISSUES.md` triage), base-04b, base-07, 08, 11 and 12.
+6. Then wave 1 in the plan's merge order: `inf-ci-actions-v7`, `ci-parallel-guards`,
+   `plat-module-scaffolds`, `plat-dsar-registry`, with `lb-recurring-dst-spike`'s spec and plan
+   first in the queue.
 
 ## Standing warnings
 
@@ -84,53 +55,9 @@ allowance, which Sept's usage sits exactly on.
 - ⚠ Dependabot PRs #182/#183/#184 now report green with nothing tested (ADR-0038 consequence);
   #183 (`upload-artifact` 4→7) is a real upgrade `ci.yml` should take deliberately, not merge
   on the tick.
-- ⚠ **The repo was PUBLIC until the owner made it private (between 2026-09-08 and 09-11).**
-  Live staging passwords were world-readable in `STATE.md` on `master` during that window and
-  are still in git history. Anonymous access 404s as of 2026-09-11, so the window is closed,
-  but anyone who cloned while it was open still has them. Rotation is **deferred by the owner
-  (2026-09-13)** and still required before launch — `ISSUES.md` → *Blocks launch*.
-
-## Recently verified
-
-- **The staging walk's authenticated half, done 2026-09-13** — see next-action #2 for what
-  was measured. It never needed the deferred rotation, only a working login.
-- **Eleven `ISSUES.md` entries closed 2026-09-13**, worked as a backlog rather than a phase:
-  password-change/reset security alerts (backend #53, ADR-0023's remaining gap — the change
-  an account takeover makes FIRST notified nobody), Sentry frame locals (#54), and the dead
-  `TeacherProfile.availability` JSONField (#55), on top of the two launch blockers below.
-- **Two launch blockers closed 2026-09-13** by working `ISSUES.md` rather than a phase.
-  (1) The quota cycle was keyed by exact `current_period_end` equality — the test the issue
-  named was written first and went red in the predicted shape: a **one-second** mid-cycle
-  rewrite generated **four extra lessons** on a four-lesson plan (backend #52). (2) The secret
-  scan no longer skips documentation-only changes (ADR-0042, amending ADR-0038 for that job
-  alone) — a secret scan tests the bytes of a commit, not the code, and both of this
-  project's observed leaks were root-level `.md` files.
-
-- **Design-system v2, complete 2026-09-12.** Palette replaced (ADR-0040/0041) and
-  primitives consolidated. The consolidation itself found four defects no gate had
-  caught — a 1.29:1 form boundary, a 20×20 checkbox, a select with no focus ring, and
-  `text-end` mis-aligning Arabic — and measurement overturned three plan assumptions,
-  most notably that `CallControlButton`'s alpha was a defect (it measures 7.15:1, above
-  AAA, and was left alone). Full account: spec outcome + `journal/2026-W37.md`.
-- **Four real accessibility failures fixed 2026-09-13**, each found by a gate that another
-  gate was blind to: `--primary` used as text (4.29:1 on cards in dark → new `--primary-text`
-  token, v0.2.2, pair now DECLARED); the app topbar overflowing at 320px on **every** authed
-  route (SC 1.4.10); standalone auth links at 19px (SC 2.5.8); and the focus ring offsetting
-  against the wrong surface in a `bg-secondary` well. New gates: auth-route contrast in both
-  themes, reflow at 320/360/430, and the target sweep pointed at real routes.
-- **Lighthouse re-measured 2026-09-12 after the palette deployed: accessibility 1.00** on both
-  staging URLs, 3/3 runs each, up from 0.96. The `.lighthouserc.json` a11y floor is raised to
-  1.00. It is not a clean bill of health — an axe sweep the same day found a live 1.4.3 failure
-  Lighthouse scored 1.00 straight through, because it audits the default theme only.
-
-- **CI cost optimization (ADR-0038)** — mechanism verified on the real merge; justification
-  corrected against the real invoice 2026-09-11. `journal/2026-W37.md`.
-- **Phase C (C0–C3e, then C4–C6)** shipped and verified live 2026-09-05→12: matching,
-  booking+quota, video rooms, signaling, TURN, the call client, diagnostics, browser
-  hardening, the session UI redesign and the call fixes. Shared signaling (ADR-0037)
-  mutation-checked on a colour flip. No Safari/iOS device exists in this project, so every
-  browser-hardening D9 click-through is a stated deviation, compensated by watching
-  `CallDiagnostic` codes in production. `journal/2026-W36.md`, `journal/2026-W37.md`.
-- **Phase B (billing)** closed 2026-09-04, `past_due`→`unpaid` dunning verified nightly against
-  real Stripe test clocks. Leaked credentials from `588a1e35` rotated 2026-09-05;
-  `.gitleaksignore` fingerprints stay by design (ADR-0032).
+- ⚠ **The meta repo is PUBLIC again** (anonymous fetch returned 200 on 2026-10-17, journal
+  `2026-W42`). Staging passwords are world-readable on `master`, in this file and in history.
+  The owner accepted the exposure again that day. Rotation (`lb-staging-credential-rotation`)
+  is still required before preview and launch — `ISSUES.md` → *Blocks launch*.
+- ⚠ **The weekly stripe-clock harness has been red since 2026-09-24** (four failed runs, the
+  last 2026-10-15; `inf-stripe-clock-harness-red`). No billing unit merges until it is green.

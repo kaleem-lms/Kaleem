@@ -1,3 +1,12 @@
+---
+name: flower-monitoring
+phase: A
+modules: []
+status: shipped
+created: 2026-06-10
+closed: 2026-06-10
+---
+
 # Flower — Celery monitoring dashboard
 
 - **Date:** 2026-06-10

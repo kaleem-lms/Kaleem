@@ -1,3 +1,12 @@
+---
+name: docker-dev-environment
+phase: 0
+modules: []
+status: shipped
+created: 2026-06-13
+closed: 2026-06-14
+---
+
 # Docker dev environment — full-parity, one command
 
 - **Date:** 2026-06-13

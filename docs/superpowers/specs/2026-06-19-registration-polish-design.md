@@ -1,3 +1,12 @@
+---
+name: registration-polish
+phase: A
+modules: [identity]
+status: shipped
+created: 2026-06-19
+closed: 2026-06-19
+---
+
 # Registration polish — design
 
 **Status:** approved (decisions made autonomously per the user's "do all of them" directive).

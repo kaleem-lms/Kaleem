@@ -2,9 +2,9 @@
 name: stripe-test-clock-harness
 phase: B
 modules: [billing, platform]
-status: draft
+status: shipped
 created: 2026-09-04
-closed: null
+closed: 2026-09-04
 ---
 
 ## Goal

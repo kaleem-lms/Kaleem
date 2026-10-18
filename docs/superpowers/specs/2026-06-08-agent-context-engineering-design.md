@@ -2,9 +2,9 @@
 name: agent-context-engineering
 phase: 0
 modules: []
-status: approved
+status: shipped
 created: 2026-06-08
-closed: null
+closed: 2026-06-08
 ---
 
 ## Goal
