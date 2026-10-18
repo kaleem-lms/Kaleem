@@ -108,7 +108,7 @@ The reads:
 
 **Refused inputs** raise `kaleem.platform.exceptions.ValidationError`:
 
-- a naive `datetime`;
+- a naive `datetime` (in any datetime argument of every read except `get_quota`, which keeps its original contract);
 - `end <= start`;
 - a window over 31 days;
 - a `limit` out of range;
