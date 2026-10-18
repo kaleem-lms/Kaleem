@@ -1115,6 +1115,14 @@ proves; all are robustness of an unattended job.
 
 ---
 
+- **The chat list works out access for every chat a user has before it pages them
+  (`msg-core-backend`).** `messaging.services.list_chats` loads all of a user's chats, runs the
+  batched access lookups once over all of them, and the view then paginates the Python list.
+  Query count is flat in the number of chats (pinned by a test), but the work is linear, and a
+  teacher with several hundred students is polled for it. Fine at launch size; when it
+  isn't, page the member chats in the database (newest first) and compute access only for the
+  page. Not worth doing before a real teacher has that many.
+
 ## Known-good gotchas (not bugs — read before panicking)
 
 - **Dashboard tests look catastrophically broken under memory pressure.** During the billing
