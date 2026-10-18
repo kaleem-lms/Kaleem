@@ -10,9 +10,9 @@ dependency changes and no floor edits.
 
 ## Steps
 
-1. [ ] **Worktree.** Create the worktree and run `pnpm install --frozen-lockfile`.
+1. [x] **Worktree.** Create the worktree and run `pnpm install --frozen-lockfile`.
 
-2. [ ] **Make the e2e selectors wording-neutral (commit 1, `test(e2e): …`).** These selectors
+2. [x] **Make the e2e selectors wording-neutral (commit 1, `test(e2e): …`).** These selectors
    must pass against the current copy and the new copy alike.
    - `e2e/call.spec.ts` 173–193:
      - Trigger: `page.getByTestId("call-controls").getByRole("button", { name: /^leave\b/i })`.
@@ -26,9 +26,11 @@ dependency changes and no floor edits.
    - `e2e/booking.spec.ts` 154: hoist `/sessions this cycle/i` into one file-level locator helper.
      Add `await expect(<helper>(page)).toBeVisible()` to the first flow ("a student sees the
      sessions generated…"), where the booked student has a quota card. Keep the teacher's
-     `toHaveCount(0)` on the same helper.
+     `toHaveCount(0)` on the same helper. (As built: the helper is anchored,
+     `/^sessions this cycle$/i`, because a used-up cycle also renders "...your sessions this
+     cycle" in the reset line and an unanchored match would be two elements.)
 
-3. [ ] **Red: the terminology guard.** Add `src/locales/terminology.test.ts`. It imports both
+3. [x] **Red: the terminology guard.** Add `src/locales/terminology.test.ts`. It imports both
    `common.json` files and walks the `call`, `booking` and `prefs` subtrees.
    - It expects no `en` value to match `/\blessons?\b/i`.
    - It expects no `ar` value to contain `درس` or `دروس`.
@@ -37,7 +39,7 @@ dependency changes and no floor edits.
    - Run `_tools/dashboard-gate.sh <wt> src/locales/terminology.test.ts`. It must be red, naming
      27 `en` and 30 `ar` offenders.
 
-4. [ ] **Red: the unit tests move to the new copy.**
+4. [x] **Red: the unit tests move to the new copy.**
 
    | File | Change |
    | --- | --- |
@@ -58,7 +60,7 @@ dependency changes and no floor edits.
 
    Run the six files. They must be red against the current copy.
 
-5. [ ] **Green: the locale edit (commit 2, `fix(i18n): call live sessions "session", not
+5. [x] **Green: the locale edit (commit 2, `fix(i18n): call live sessions "session", not
    "lesson"`).** Edit only the values below, keep tab indentation, and rename no keys.
 
    **English.** Make one swap in each value, `lesson` to `session` and `lessons` to `sessions`.
@@ -104,7 +106,7 @@ dependency changes and no floor edits.
 
    Re-run steps 3 and 4. All seven files must be green.
 
-6. [ ] **Mutation checks.** Revert each fix, see red, then restore it.
+6. [x] **Mutation checks.** Revert each fix, see red, then restore it.
    - Set `en` `call.leave` back to "Leave lesson". `terminology.test.ts` and
      `CallControls.test.tsx` both go red.
    - Set one `ar` `call.*` value back to الدرس. `terminology.test.ts` goes red.
@@ -114,18 +116,18 @@ dependency changes and no floor edits.
      is exactly why the positive control is needed.
    - Record each failure line for the hand-back block.
 
-7. [ ] **Full gate.** Run `_tools/dashboard-gate.sh <wt>` for tsc, lint, `test:coverage
+7. [x] **Full gate.** Run `_tools/dashboard-gate.sh <wt>` for tsc, lint, `test:coverage
    --maxWorkers=6`, build and the built-CSS check. Coverage should not move, because no `.ts`
    logic changed. If it drops, stop: floors are not edited (`dec-floor-ownership`).
 
-8. [ ] **e2e (optional locally; CI is the authority).** If a port slot is free, run
+8. [ ] **e2e (optional locally; CI is the authority; not run locally, left to CI).** If a port slot is free, run
    `booking.spec.ts`, `call.spec.ts` and `call-ui.spec.ts` twice: once at commit 1 (old copy) and
    once at commit 2 (new copy). Both runs must be green, which is the wording-neutrality proof.
    For the booking positive control, also run once with `booking.quotaTitle` changed in a scratch
    build and see it go red. Known local-only failures (`call.spec.ts:207`, touch-targets `/login`)
    are not this unit's.
 
-9. [ ] **Hand back** per runbook section 3: the tree is clean, origin/main is contained,
+9. [x] **Hand back** per runbook section 3: the tree is clean, origin/main is contained,
    `gitleaks-range.sh` is clean, the floor grep is empty, and the mutation lines are included.
 
 ## Risks

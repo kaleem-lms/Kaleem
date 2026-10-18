@@ -349,6 +349,14 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
 
 ## Someday
 
+- **Two leftovers from the lesson-to-session wording change (`cur-session-wording`).**
+  `src/routes/design-preview.tsx` still shows "lesson" in its hard-coded sample copy (a
+  primitives gallery, not product copy). And `billing.plan*Desc` in the Arabic locale say
+  حصة where the rest of the app says جلسة; a pre-existing split outside the `call`, `booking`
+  and `prefs` namespaces that unit covered. The terminology guard
+  (`dashboard/src/locales/terminology.test.ts`) walks only those three namespaces; widen its
+  list when billing's copy is next touched.
+
 - **One failed `getUserMedia` tap writes TWO `calldiagnostic` rows, so the table
   over-counts failures (spotted during the per-kind split fix, dashboard #71).** `acquire`
   coalesces a request that arrives mid-flight into `pendingAcquireRef` and runs
