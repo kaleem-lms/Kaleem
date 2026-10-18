@@ -58,7 +58,7 @@ profile):
 
 Errors: another teacher's course, or one that does not exist, shows a not-found state with
 a link back. If the course changed in another tab, a move is refused, the builder reloads
-the course and says so. A failed request shows an error with a retry. Saving never loses
+the course and says so. A failed load shows an error with a retry; a failed action (add, move, delete) shows an error and the teacher repeats the action. Saving never loses
 what the teacher typed in an open dialog.
 
 Students and parents: no change. A non-teacher on `/curriculum` still sees the placeholder.
