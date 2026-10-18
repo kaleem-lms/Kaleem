@@ -50,7 +50,7 @@ means an ACTIVE `TeacherAssignment` between teacher and student, in any subject.
 6. **Polling.** `GET .../messages/?after=<id>` returns newer messages, ascending, at most 100,
    with `has_more`. History pages backwards with an opaque cursor.
 
-Errors: 401 unauthenticated; 403 not a contact, not a member, read-only, or a parent posting;
+Errors: unauthenticated (the project-wide 403, as in every other module); 403 not a contact, not a member, read-only, or a parent posting;
 404 unknown chat **and** a chat the caller may not read (no existence leak); 400 empty or too
 long; 429 send throttle.
 
@@ -182,3 +182,14 @@ Details fixed while building, none of which changes the flows above.
   teacher's chat list is one query per student. `identity.services` gains one batch read,
   `get_parents_of_students(student_user_ids)`, beside `get_parent_user_ids`.
 - Message `body` is blanked (not deleted) on erasure; `erased` in the payload tells the UI.
+- An anonymous caller gets the project-wide 403, not the 401 the first draft named: the API
+  uses session authentication, which has no `WWW-Authenticate` challenge, and every other
+  module answers 403.
+- A bad input on a chat the caller cannot read (a malformed `after`, an empty body, a missing
+  message id) is 404, never 400: authorisation runs before validation, so a 400 cannot tell
+  a stranger the chat exists.
+- Messaging's tests build teaching links with the models of identity, scheduling and
+  curriculum, so the contracts exempt `kaleem.messaging.tests.*` from exactly those three,
+  as scheduling's and assessment's tests are. ADR-0053 records it.
+- A minor with no linked parent who somehow has a chat (a parent link removed later) keeps
+  the history and cannot post, for both members.

@@ -11,7 +11,7 @@ it guards, see red, restore.
 
 ## Steps
 
-1. [ ] **Boundary probe and ADR.** In a scratch edit, add `from kaleem.scheduling import
+1. [x] **Boundary probe and ADR.** In a scratch edit, add `from kaleem.scheduling import
    services` to `messaging/services.py` and run `lint-imports`; record which contracts break and
    through which edges. Write the ADR (number from the conductor): the edge, the mirror
    contract, the exact `ignore_imports`, and the port alternative. Change
@@ -20,37 +20,37 @@ it guards, see red, restore.
    (`forbidden_modules = ["kaleem.scheduling.models"]`, `allow_indirect_imports = true`).
    *Check:* `lint-imports` green; a scratch `from kaleem.scheduling.models import
    TeacherAssignment` in messaging turns it red.
-2. [ ] **Models and migration.** Tests first in `messaging/tests/test_models.py`: duplicate
+2. [x] **Models and migration.** Tests first in `messaging/tests/test_models.py`: duplicate
    `(kind, teacher, counterpart)` raises `IntegrityError`; duplicate `(chat, user)` membership
    raises. Then `models.py` per the spec and `makemigrations messaging` (`0001_initial`).
    *Check:* the gate's `makemigrations --check`.
-3. [ ] **Access policy.** `messaging/policy.py`, pure functions over identity and scheduling
+3. [x] **Access policy.** `messaging/policy.py`, pure functions over identity and scheduling
    reads: `is_minor(user, today)` (no birthdate → True; 18th birthday → False) and
    `access(user, chat, today) -> none | read | post`. Tests first in `test_policy.py`, the
    parametrized **access matrix** from the spec's test plan, plus the birthday boundary and the
    Open question 2c row as decided.
-4. [ ] **Services.** `messaging/services.py`: `list_contacts`, `open_direct_chat` (get-or-create
+4. [x] **Services.** `messaging/services.py`: `list_contacts`, `open_direct_chat` (get-or-create
    inside `transaction.atomic`, `IntegrityError` → re-read), `list_chats` (unread count by
    `Subquery`, one query for the page), `list_messages(before cursor | after id)`,
    `send_message` (trim, length, post rule, `last_message_at` in the same transaction),
    `mark_read` (monotonic, chat-scoped). Typed errors from `platform.exceptions`, never bare
    `except`. Tests first in `test_services.py`, including the `transaction=True` open race and
    `django_assert_max_num_queries` on `list_chats` for 20 chats.
-5. [ ] **Pagination.** Test in `platform/tests/test_pagination.py` (pages of 30, no gap or
+5. [x] **Pagination.** Test in `platform/tests/test_pagination.py` (pages of 30, no gap or
    repeat across a page boundary with an insert in between), then `NewestFirstCursorPagination`
    in `platform/pagination.py`.
-6. [ ] **API.** `messaging/api/{serializers,views,urls}.py` per the spec's table. Settings: scope
+6. [x] **API.** `messaging/api/{serializers,views,urls}.py` per the spec's table. Settings: scope
    `chat-send` `30/minute` in `config/settings/base.py`, `1000/minute` in `local.py` (with the
    e2e comment pattern already there) and `test.py`. Tests first in `test_api.py`: every status
    code in the spec, unreadable id → 404 byte-identical to unknown, CSRF refused with
    `enforce_csrf_checks=True`, 429 under `override_settings` at the real rate, the
    `/api/v1/` versioning test still green.
-7. [ ] **DSAR hooks.** `MessagingConfig.ready()` registers export and erase with
+7. [x] **DSAR hooks.** `MessagingConfig.ready()` registers export and erase with
    `models=["messaging.Chat", "messaging.ChatMembership", "messaging.Message"]`. Test first:
    `assert_hooks_honour_contract("messaging", seed=..., make_user=..., assert_erased=...)`,
    where `seed` creates a counterpart teacher; `assert_erased` checks bodies are blank and the
    counterpart's messages are untouched.
-8. [ ] **Full gate and hand-back.** `_tools/backend-gate.sh <wt>` green (coverage is read, the
+8. [x] **Full gate and hand-back.** `_tools/backend-gate.sh <wt>` green (coverage is read, the
    floor is never edited); `_tools/gitleaks-range.sh`; commit with explicit paths. Meta: the
    ADR, `docs/architecture/messaging.md` (models, access rule, endpoints, the four ADR-0023
    points), and the D3 row: "`messaging` — core: ❌ no UI until `msg-dashboard-ui`; access
