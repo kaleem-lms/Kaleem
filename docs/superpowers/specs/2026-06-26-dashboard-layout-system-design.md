@@ -1,3 +1,12 @@
+---
+name: dashboard-layout-system
+phase: A
+modules: []
+status: shipped
+created: 2026-06-26
+closed: 2026-06-26
+---
+
 # Dashboard layout system — design
 
 - **Date:** 2026-06-26

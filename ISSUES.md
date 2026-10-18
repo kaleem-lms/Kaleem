@@ -16,6 +16,19 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
 
 ## Blocks launch
 
+- **No minimum age for self-registration, by owner decision (2026-10-17).** Registration takes
+  a birthdate and refuses only one in the future or more than 120 years back
+  (`backend/kaleem/identity/api/serializers.py`, `validate_birthdate`), so a person of any age can
+  open a student or parent account themselves. The product spec has no age threshold
+  (`docs/superpowers/specs/2026-06-08-kaleem-product-spec.md` line 39), and the owner kept it
+  that way at kickoff (`rch-d-minors`, `docs/decisions/2026-10-17-v1-kickoff-decisions.md`).
+  GDPR Article 8 sets the age of digital consent between 13 and 16 depending on the member
+  state, and COPPA covers children under 13 in the US; below those ages, consent to processing a
+  child's data has to come from a parent. **Before real users:** counsel signs off on this
+  position together with the legal texts (`hg-counsel-review`), and `launch-go-no-go` records
+  the answer. If counsel asks for a gate, it comes back through a new owner decision; the unit
+  that would build it, `rch-legal-age-gate`, is parked in the programme plan.
+
 - ~~**`text-primary` links fail AA in dark mode wherever they sit on a card.**~~ **FIXED
   2026-09-13** in `@kaleem/tokens` v0.2.2 + dashboard #63. The root cause was not a bad
   value but an **undeclared pair**: `--primary` is a SURFACE colour, and nothing asserted it
@@ -34,25 +47,28 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
   these same pages 1.00 the same day (the new sweep is explicitly dark-first). A source lint
   also now rejects the primary/accent SURFACE colours used as text.
 
-- **Staging passwords were world-readable on a then-public `master`, and remain in git
+- **Staging passwords are world-readable on a public `master`, and remain in git
   history.** On 2026-09-08 `kaleem-lms/Kaleem` was public and
   `curl https://raw.githubusercontent.com/kaleem-lms/Kaleem/master/STATE.md` returned
-  `KaleemC3d!2026` and `KaleemStaging!2026` to an anonymous caller. **The repo has since been
-  made private by its owner** — as of 2026-09-11 `private: true`, and the same anonymous
-  `curl` 404s, so the open window is closed. It is not undone: the strings stay in history at
-  every older commit, and anyone who cloned or scraped while it was open still holds them,
-  exactly as the `.gitleaksignore` rotation record says of the 588a1e35 credentials (ADR-0032).
+  `KaleemC3d!2026` and `KaleemStaging!2026` to an anonymous caller. The owner then made the repo
+  private (as of 2026-09-11 `private: true`, and the same anonymous `curl` 404'd), but **it is
+  public again**: an anonymous fetch returned 200 on 2026-10-17 (journal `2026-W42`), and
+  `STATE.md` on `master` still shows the C3d fixture password. The strings also stay in history
+  at every older commit, and anyone who cloned or scraped them still holds them, exactly as the
+  `.gitleaksignore` rotation record says of the 588a1e35 credentials (ADR-0032).
   **Do:** rotate the staging passwords for `c3d.student@`, `c3d.teacher@`,
   `billing.clickthrough@`, `billing.recheck@`, `billing.failcard@` and the two `*.smoke@` users,
   then keep the new ones out of the repo entirely.
 
-  ⏸ **DEFERRED by the owner 2026-09-13.** It stays under *Blocks launch* and its severity is
-  unchanged — deferring is a decision about **when**, not about whether it matters. What the
-  deferral actually accepts, stated so the next reader does not have to reconstruct it:
-  these credentials reach **staging only**, the repo is private again so the window is closed,
-  and the exposure is bounded by whoever cloned during it. It must still be done before real
-  users and real money, and it cannot be done by rotating alone at that point — the strings are
-  in history for good, so the new ones must never enter the repo.
+  ⏸ **DEFERRED by the owner 2026-09-13, and re-accepted 2026-10-17 (W42).** It stays under
+  *Blocks launch* and its severity is unchanged — deferring is a decision about **when**, not
+  about whether it matters. What the deferral actually accepts, stated so the next reader does
+  not have to reconstruct it: these credentials reach **staging only**. The 2026-09-13 deferral
+  rested on the repo being private, which bounded the exposure by whoever cloned during the open
+  window; with the repo public again, the owner accepted an **ongoing** exposure, not a bounded
+  one. It must still be done before preview and before real users and real money
+  (`lb-staging-credential-rotation`), and it cannot be done by rotating alone at that point —
+  the strings are in history for good, so the new ones must never enter the repo.
 
   ⚠ **This is NOT the same task as unblocking the staging walk, and bundling them was my
   error.** `STATE.md` called them "one task, not two". They share a symptom — no working
