@@ -116,6 +116,8 @@ to hand-roll:
 | `Card` (+ `as`) | 4 hand-rolled surfaces | **One radius, local density.** `as` exists because a session row must be an `<li>`. `CardFooter`/`CardAction` deleted — zero call sites. |
 | `Meter` | 2 impls | **Both roles kept.** `progressbar` = a task completing; `meter` = a measurement. `role` is required with no default. |
 | `PageHeader` | 5 auth headings | Its `<header>` is *not* a second banner: HTML-AAM scopes `banner` to headers outside `main`. Verified in Chromium; jsdom reports it wrongly. |
+| `Textarea` | none (new, 2026-10-18) | A **native `<textarea>`** on `Input`'s recipe. `resize-y` only: a horizontal handle lets a user drag it past a 320px viewport (1.4.10). Logical `text-start` and a `surface` prop, as `Select` has. |
+| `RatingInput` | none (new, 2026-10-18) | A **radiogroup, not a slider**: a rating is one choice out of N. It passes `dir` to Radix itself, because the app mounts no Radix direction provider and roving focus would otherwise treat every group as LTR. Its colours use only the asserted `primary` and `input` pairs, so `surface` is narrowed to `background` and `card`. |
 
 **Not folded in, deliberately.** `CallControlButton` keeps its own component: round
 controls in a round bar, 48px for one-handed use, and `tone` ≠ `variant` because
