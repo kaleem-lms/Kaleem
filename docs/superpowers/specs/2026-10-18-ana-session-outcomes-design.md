@@ -2,7 +2,7 @@
 name: ana-session-outcomes
 phase: v1 (wave 2, scheduling stream)
 modules: [scheduling]
-status: draft
+status: approved
 created: 2026-10-18
 closed: null
 ---
