@@ -338,6 +338,13 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
 
 ## Someday
 
+- **The /account time-zone sync is one-way.** Changing the zone in the new Language and time
+  zone card refetches the availability panel, but saving a zone in the availability panel on the
+  same page does not refresh the card. Found 2026-10-19 by ntf-recipient-locale-tz.
+- **identity imports scheduling internals** (`@/features/scheduling/queries`, and
+  `TimezoneBar` from `@/features/scheduling`), against the dashboard's no-cross-feature-import
+  rule. Move the shared time-zone pieces to `src/lib` or a shared component. Found 2026-10-19.
+
 - **No call diagnostic for a connect timeout.** The client's 10 s signaling deadline lands on
   "Couldn't reach the session server" but reports nothing: it needs a new `CallDiagnostic.Code`
   on the backend plus the contract test. Found 2026-10-18 by lb-call-connection-failure-path.
