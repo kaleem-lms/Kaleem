@@ -1,12 +1,13 @@
 # curriculum — architecture
 
-What kaleem teaches, and who teaches or wants to study it. Today that is exactly three
-tables: a `Subject` catalogue plus the teacher and student links to it. `curriculum` exists
-this early only because Phase C's matcher needs subject as an input; the roadmap's fuller
-scope (`Course`, `Unit`, `Lesson`) lands in a later phase.
+What kaleem teaches, and who teaches or wants to study it. Two halves: a `Subject`
+catalogue with the teacher and student links to it (`curriculum` exists this early because
+Phase C's matcher needs subject as an input), and the course builder, where a teacher makes
+a `Course` of ordered `Unit`s and `Lesson`s.
 
-Spec: `docs/superpowers/specs/2026-09-04-phase-c0-matching-inputs-design.md` · ADR-0031 ·
-Status: shipped (Phase C, C0).
+Specs: `docs/superpowers/specs/2026-09-04-phase-c0-matching-inputs-design.md` (subjects,
+ADR-0031, shipped Phase C0) · `docs/superpowers/specs/2026-10-18-cur-course-structure-design.md`
+(the course builder, v1 wave 2).
 
 ## Data model
 
@@ -31,6 +32,39 @@ Both links are **rows, not a JSON blob on a profile** (rule #3) and **many-over-
 `OneToOneField`** (rule #7). Both key to `AUTH_USER_MODEL` **by string**, which is what lets
 this module reference users without importing `identity`'s models.
 
+### The course builder
+
+```mermaid
+erDiagram
+    User ||--o{ Course : owns
+    Subject ||--o{ Course : "is the subject of"
+    Course ||--o{ Unit : "ordered by position"
+    Unit ||--o{ Lesson : "ordered by position"
+```
+
+- **Course** — `owner` → user (by string, CASCADE), `subject` → `Subject` (PROTECT:
+  subjects are retired, never deleted), `title` (200), `description` (at most 2,000
+  characters), timestamps. A course is **private to its owning teacher**
+  (dec-cur-ownership, option 1: students keep access after a teacher change, which binds
+  cur-lesson-assignment, not this table).
+- **Unit** — `course` (CASCADE), `title`, `position`. **Lesson** — `unit` (CASCADE),
+  `title`, `body` (plain text, at most 20,000 characters), `position`. A lesson belongs to
+  one unit for good: lessons do not move between units.
+- **Positions are 0-based and dense** (0..n-1) after every add, delete and reorder. Each
+  `(parent, position)` pair has a `UniqueConstraint` with `deferrable=DEFERRED`, so a
+  reorder can rewrite every position in one transaction without tripping over a
+  half-finished swap. ⚠ pytest-django never commits, so a deferred violation passes
+  silently in an ordinary test: `test_models.py` forces the check with
+  `SET CONSTRAINTS ALL IMMEDIATE`, and swapping inside one transaction is its own test.
+- **Limits**, enforced in the services, not the database: 50 courses per teacher, 50 units
+  per course, 100 lessons per unit. A limit is reported as a 400 on the `title` field.
+- **Deletes are hard deletes.** Deleting a course takes its units and lessons with it.
+
+ADR-0023: the tables hold text a teacher writes (titles, descriptions, lesson bodies),
+linked to the teacher's user id; nothing about students. Kept until the teacher deletes it
+or the account is erased. Seen by the owning teacher only, through the API; not registered
+in the Django admin.
+
 ## Public API
 
 Everything outside the module goes through `kaleem.curriculum.services`. Callers never touch
@@ -50,6 +84,32 @@ stored name (scheduling hands one to the video provider); the serializers of cur
 scheduling (`SubjectNameField`) translate at the edge. The three seeded names are marked with
 `pgettext_lazy` in `services.py` so `makemessages` finds them; a subject an admin adds shows its
 stored name until a catalog entry ships (ADR-0058).
+
+Course builder services take the acting teacher's id first and scope every query to it, so
+a course nobody owns and a course somebody else owns are the same `NotFoundError`:
+
+| Service | Does |
+| --- | --- |
+| `create_course(teacher_id, *, title, subject_slug, description="")` | New course; returns the tree |
+| `list_courses(teacher_id)` | The teacher's courses, oldest first, with unit and lesson counts |
+| `get_course(teacher_id, course_id)` | The tree: units and lessons in position order |
+| `update_course(...)` / `delete_course(...)` | Change only the fields given / hard delete |
+| `add_unit` / `rename_unit` / `delete_unit` / `reorder_units` | By course id, then unit id |
+| `add_lesson` / `update_lesson` / `delete_lesson` / `reorder_lessons` | By unit id, then lesson id |
+
+Every service except `list_courses` and `delete_course` returns the whole course tree, so
+the dashboard replaces its cache in one step. A course keeps a subject that is retired
+later; only changing *to* an unknown or retired subject is refused.
+
+**Ordering and locking.** Every write runs in one transaction and takes
+`select_for_update()` on the course row first (a unit or lesson id is resolved to its
+course, locked, then re-read, so a concurrent delete surfaces as not-found). Concurrent
+edits of one course are therefore serialized rather than interleaved. Creating a course
+takes a transaction-scoped Postgres advisory lock per teacher instead, because there is no
+row to lock for "the next course" and locking the user row would reach into identity's
+table. A reorder must name **exactly** the current set of ids: a missing, extra,
+duplicated or foreign id is a `ConflictError` (409, "reload"), never a partial write,
+because it means the caller is working from a stale view.
 
 A symmetric quartet on purpose: the dashboard hooks mirror these names exactly, so a reader
 can move between the two repos without translating.
@@ -72,6 +132,19 @@ All under `/api/v1/curriculum/`, mounted through `config.api_router` (ADR-0029).
 | `GET` | `subjects/` | any authenticated user |
 | `GET` `PUT` | `me/teacher-subjects/` | teacher (403 otherwise) |
 | `GET` `PUT` | `me/student-subjects/` | student (403 otherwise) |
+| `GET` `POST` | `courses/` | teacher (403 otherwise) |
+| `GET` `PATCH` `DELETE` | `courses/<id>/` | the owning teacher (404 for anyone else) |
+| `POST` | `courses/<id>/units/` | the owning teacher |
+| `PUT` | `courses/<id>/unit-order/` | the owning teacher |
+| `PATCH` `DELETE` | `units/<id>/` | the owning teacher |
+| `POST` | `units/<id>/lessons/` | the owning teacher |
+| `PUT` | `units/<id>/lesson-order/` | the owning teacher |
+| `PATCH` `DELETE` | `lessons/<id>/` | the owning teacher |
+
+Every mutation except a course delete (204) answers with the whole course tree; order is
+the array order and positions are not exposed. "Teacher" means a teacher *profile*, so an
+account that is also a student can build. A course that is not yours and one that does not
+exist return the same 404.
 
 **Two role-explicit paths rather than one `/me/subjects/`.** A person may hold both profiles,
 so a single endpoint would have to guess which set the caller meant, or reject the ambiguity
@@ -81,6 +154,21 @@ There is no shared base class behind the two views. An earlier draft had one; it
 content was stubs that existed to be overridden, and covering them meant a test reaching into
 private members. Two explicit views duplicate three lines per verb and name the table they
 touch.
+
+## Personal-data registry and e2e seed
+
+`kaleem/curriculum/personal_data.py` registers two hook sets from `CurriculumConfig.ready()`
+(ADR-0048): `curriculum.courses` (export and erase) and the export-only
+`curriculum.subjects` (below). The courses export is the teacher's course trees in the order
+they built them, with ISO dates; its erase deletes the teacher's courses. The subject tables
+have no erase hook yet, so curriculum stays in the coverage guard's `PENDING_ERASE`
+(lb-gdpr-erasure removes the entry).
+cur-lesson-assignment must revisit the erase hook once students hold lessons.
+
+`seed_e2e_curriculum` (listed in `config/e2e_seeds.txt` after `seed_e2e_matching`) deletes
+`e2e.teacher@kaleem.test`'s courses and rebuilds "E2E Course" through the services: Unit 1
+with Lesson A, B and C, and an empty Unit 2. It adds no `TeacherSubject` row, so matching
+state is unaffected, and it refuses `DEBUG=False`.
 
 ## Boundaries
 
@@ -112,11 +200,22 @@ Note the arrow's direction is load-bearing in the other direction too: **`identi
 import `curriculum` at all.** This is why `seed_e2e`, which lives in `identity`, cannot reset
 a teacher's subjects — the e2e specs converge their own fixture instead.
 
+## Dashboard text
+
+The course builder's English and Arabic copy is a feature catalogue
+(`dashboard/src/locales/{en,ar}/curriculum.json`, namespace `curriculum`), not part of the
+global `common.json`. The `/curriculum` layout route's `loader` registers it before either
+child route renders, so it stays out of the entry chunk and the initial-JS budget. The
+pattern and its guards are in `docs/developer-guide/i18n.md`.
+
 ## Deliberately not here
 
 - **Matching.** No `TeacherAssignment`, no ranking. Phase C1.
 - **Booking, sessions, quota, video.** Phases C2 and C3.
-- **`Course` / `Unit` / `Lesson`** — the roadmap's real curriculum scope.
+- **Assigning lessons, the student and parent views, completion, lesson resources,**
+  moving a lesson to another unit, and sharing, duplicating or publishing a course.
+  Later units (cur-lesson-assignment, cur-lesson-completion, cur-lesson-resources) build on
+  these tables.
 - **Subject proficiency or level** (beginner vs advanced Arabic). A matching refinement; C1
   adds it if the ranking needs it.
 
