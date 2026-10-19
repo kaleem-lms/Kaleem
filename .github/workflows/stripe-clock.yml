@@ -77,14 +77,20 @@ jobs:
           python-version: "3.13"
       - name: Install dependencies
         run: pip install -r requirements/local.txt
-      - name: Install the Stripe CLI
+      # Pinned and digest-checked: v1.51 changed `stripe listen` without notice and
+      # turned this harness red. Bump deliberately (docs/runbook/stripe-billing.md).
+      - name: Install the Stripe CLI (pinned)
+        env:
+          STRIPE_CLI_VERSION: "1.53.1"
+          STRIPE_CLI_SHA256: "032fe0b849a9d6a222488bc846445bafeae993af1026b78a8121d02321ca1fd1"
         run: |
-          curl -fsSL https://packages.stripe.dev/api/security/keypair/stripe-cli-gpg/public \
-            | gpg --dearmor | sudo tee /usr/share/keyrings/stripe.gpg >/dev/null
-          echo "deb [signed-by=/usr/share/keyrings/stripe.gpg] https://packages.stripe.dev/stripe-cli-debian-local stable main" \
-            | sudo tee /etc/apt/sources.list.d/stripe.list
-          sudo apt-get update && sudo apt-get install -y stripe
-          stripe version
+          cd "${RUNNER_TEMP}"
+          curl -fsSL -o stripe.tar.gz \
+            "https://github.com/stripe/stripe-cli/releases/download/v${STRIPE_CLI_VERSION}/stripe_${STRIPE_CLI_VERSION}_linux_x86_64.tar.gz"
+          echo "${STRIPE_CLI_SHA256}  stripe.tar.gz" | sha256sum -c -
+          tar -xzf stripe.tar.gz stripe
+          sudo install -m 0755 stripe /usr/local/bin/stripe
+          stripe version | tee /dev/stderr | grep -Fx "stripe version ${STRIPE_CLI_VERSION}" >/dev/null
       - name: Migrate
         run: python manage.py migrate --noinput
       - name: Run the dunning harness
