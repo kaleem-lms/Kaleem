@@ -1,6 +1,6 @@
 ---
 spec: docs/superpowers/specs/2026-10-19-lb-billing-state-gaps-design.md
-status: draft
+status: approved
 ---
 
 Worktrees: `backend-lb-billing-state-gaps` and `dashboard-lb-billing-state-gaps` on

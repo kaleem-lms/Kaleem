@@ -2,7 +2,7 @@
 name: lb-billing-state-gaps
 phase: v1 (wave 1, billing stream)
 modules: [billing, identity]
-status: draft
+status: approved
 created: 2026-10-19
 closed: null
 ---
@@ -35,8 +35,7 @@ Close five billing gaps that `ISSUES.md` lists as open:
    sold. This follows **lb-dec-dashboard-created-subs** (open; the recommended answer is
    "Never").
 
-Items 4 and 5 assume the recommended answers. Both decisions are `during-build` and still
-open. See Open questions.
+Items 4 and 5 follow the owner's answers of 2026-10-19 (see Open questions, now resolved).
 
 ## User flow
 
@@ -275,11 +274,20 @@ drift check (no UI) or the reconciler.
 
 ## Open questions
 
-- **lb-dec-price-drift** (owner, during-build): flag price drift? This spec assumes
-  **Yes**, as a nightly WARNING incident.
-- **lb-dec-dashboard-created-subs** (owner, during-build): adopt subscriptions created in
-  the Stripe dashboard? This spec assumes **Never**, enforced in the reconciler by
-  checkout metadata.
-- The interpretation of "resume" in **lb-dec-paid-through** needs confirming at approval.
-  This spec reads it as an in-app undo of a scheduled cancel. A hard-`canceled` row is
-  shown as "Active until", with checkout blocked until the period ends.
+All resolved by the owner on 2026-10-19, when the spec was approved.
+
+- **lb-dec-price-drift: Yes.** Price drift is flagged nightly as a WARNING incident, inside
+  the existing `reconcile_subscriptions` task (plan step 6 stays).
+- **lb-dec-dashboard-created-subs: Never.** The reconciler does not adopt subscriptions
+  created in the Stripe dashboard, enforced by checkout metadata (plan step 7 stays).
+- **"Resume" in lb-dec-paid-through: confirmed** as an in-app undo of a period-end
+  cancellation only. An immediately-cancelled subscription shows "Active until {date}" and
+  blocks checkout until then.
+- **Scope confirmed:** the app-wide dunning banner and Billing hidden for linked children.
+- **Dashboard bundle budget (owner decision 2026-10-19):** the bundle budget is 580 KB and
+  nearly full, so copy is split into per-feature lazily loaded text catalogues
+  (`FEATURE_CATALOGUES` in `src/lib/i18n.ts` plus a route loader). The banner is not
+  route-gated, so its copy stays minimal in the common catalogue. Copy used only on
+  `/billing` moves to a lazily loaded `billing` catalogue if the budget check fails.
+- **Server strings:** every new error message goes through gettext with an Arabic catalog
+  entry, and every error carries `error_code`.
