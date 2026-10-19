@@ -19,7 +19,10 @@ erDiagram
 
 - **User** — single identity. Email is the username (`USERNAME_FIELD = "email"`), no
   `username` field. Roles are *not* on the user; they are expressed by which profile
-  tables exist. `is_staff=True` ⇒ admin. A user may hold multiple profiles.
+  tables exist. `is_staff=True` ⇒ admin. A user may hold multiple profiles. `language`
+  (`""` = never chosen, else a `settings.LANGUAGES` code; `db_default` so the previous
+  release's inserts still work) and `timezone` (IANA name, default `UTC`) are the
+  recipient's locale: work done with no request in hand (mail, reminders) reads them.
 - **StudentProfile / TeacherProfile / ParentProfile** — `OneToOne` to User. Carry
   role-specific data (student: time + teacher-gender preferences; teacher: availability,
   `is_in_pool`; parent: none yet, a marker).
@@ -35,7 +38,7 @@ All inter-module calls enter here — no other module may import identity's mode
 
 | Function | Purpose |
 | --- | --- |
-| `register_user(full_name, email, password, account_type)` | Adult student/parent + initial profile |
+| `register_user(full_name, email, password, account_type, birthdate=None, language="", timezone="UTC")` | Adult student/parent + initial profile; seeds the locale (the register view passes the request language reduced to its primary subtag, and the browser's zone) |
 | `create_child(parent_user_id, full_name, email, password=None, preferences=None)` | Child User with a **real parent-provided email** + StudentProfile + link; sends an activation email (verification link if a password was set, else a set-password link that also verifies) |
 | `set_child_password(parent_user_id, student_profile_id, password)` | Parent sets a child's login password |
 | `set_child_email(...)` / `set_child_preferences(...)` / `resend_child_verification(...)` | Parent manages a child's email (migrates legacy placeholder children + re-sends activation), preferences, or re-sends a pending activation |
@@ -46,6 +49,8 @@ All inter-module calls enter here — no other module may import identity's mode
 | `set_primary_email(user_id, email_id, current_password)` | Promote a **verified** address to primary (swaps `User.email`); alerts previous primary |
 | `remove_email_address(user_id, email_id)` / `list_email_addresses(user_id)` | Remove a non-primary address / list addresses |
 | `export_account_data(user_id, current_password)` | The person's own data export: password re-check, then the personal-data registry's `export_user` inside a versioned envelope; alerts the primary address |
+| `set_language(user, code)` / `set_timezone(user, tz)` | Save the account's language (`en`/`ar`; blank refused) or IANA zone; unsupported values raise `ValidationError` on the `language` / `timezone` field |
+| `get_recipient_locale(user_id)` / `get_recipient_locales(user_ids)` | The `(language, timezone)` `RecipientLocale` to use for work done on a person's behalf. A blank language resolves to `en`, so callers always get a supported code. The bulk read is one query and skips unknown ids; the singular raises `NotFoundError` |
 | `get_profile_types`, `get_children`, `is_parent_of`, `get_*_profile`, `get_user` | Reads |
 
 Errors are typed (`platform.exceptions.ValidationError` / `NotFoundError`) — never bare
@@ -84,6 +89,28 @@ Errors are typed (`platform.exceptions.ValidationError` / `NotFoundError`) — n
   unverified address returns `email_not_verified` (the dashboard's not-verified panel keys on
   it, not on the text) and a bad verify-email key returns `invalid_verification_key`.
 
+## Language and time zone (ntf-recipient-locale-tz)
+
+`GET /me/` (and `login/`) return `language` and `timezone`; `PATCH /me/` accepts either,
+through `set_language` / `set_timezone`, inside one transaction with `full_name`, so a bad
+zone cannot leave a name half-saved. No new endpoint.
+
+**The rule: this device's own choice wins, and the account seeds a device that has none.**
+The dashboard keeps `kaleem-locale` in `localStorage`, and only an explicit change writes
+it (the first render of a device with no choice no longer does). `AccountLocaleSync`
+(mounted for the whole signed-in app) adopts `me.language` when the device holds no choice,
+and saves an explicit change to the account; a device that already chose keeps its choice
+and writes nothing, so a stale browser cannot overwrite a newer choice made elsewhere.
+Before sign-in the toggle changes the device only; `register` records the negotiated
+request language and the browser's zone. Account mail stays pinned to English
+(`CeleryAccountAdapter`): rendering it in the recipient's language belongs to the
+notification units, which call `get_recipient_locale(s)`.
+
+Personal data (ADR-0023): a language code and a zone name per account, children included
+(a parent-created child starts at `""` / `UTC`); kept for the account's lifetime; visible to
+the user (`/account`, `GET /me/`, the data export) and to staff (Django admin); neither is
+logged.
+
 ## Email addresses (ADR-0022)
 
 A user may hold multiple `EmailAddress` rows (allauth's table — no new model). `User.email`
@@ -118,7 +145,7 @@ is the same 400 as add-email and change-password; `ScopedRateThrottle` scope `da
 to the current primary address (English, like the others). Nothing is stored, and the log
 line records the user id, section names and byte size, never content. Staff have no view of
 it. A parent exporting for a child who cannot sign in is out of scope (lb-parent-acts-for-
-child). The `identity.account` hook exports email, name, birthdate, timezone, dates, the
+child). The `identity.account` hook exports email, name, birthdate, timezone, language, dates, the
 person's allauth addresses (address, primary, verified), which profiles exist with their
 preference fields, and family links as `{user_id, linked_at}`; allauth's `mfa` and
 `socialaccount` tables are not written by any product flow yet, so they are not exported.
@@ -129,6 +156,9 @@ preference fields, and family links as `{user_id, linked_at}`; allauth's `mfa` a
 every run, including `is_staff`: it is set on each account every time, so a fixture that
 drifted to staff goes back. `e2e.staff@kaleem.test` is the one staff account. It holds no
 role profile, so its flow also covers a profile-less user reaching Home.
+`e2e.locale@kaleem.test` is a parent owned by `account-locale.spec.ts`, which stores a
+language and a zone on it; every run converges every account's `language` back to `""` and
+this one's `timezone` to `UTC`, so a stored `ar` cannot reach a shared account.
 
 ## v1 decisions worth knowing
 
