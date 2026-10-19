@@ -70,6 +70,10 @@ sessions at the next renewal. Its card says so. An active weekly time shows "Nex
   "Choose which subject this weekly time is for."
 - The existing refusals are kept: no assigned teacher (403), already booked for this
   assignment (409), teacher already booked (409), and a time outside the shared window (400).
+- A time the student already holds in another subject (a different teacher may be free then)
+  gives 409 "You already have a weekly time then." The slot options leave such a time out. This
+  is the student's own schedule, so it names nothing about anyone else; a time outside the shared
+  window still reads as 400 first.
 
 ## Data model delta
 

@@ -725,11 +725,6 @@ None blocks the phase; each was reviewed and consciously deferred.
   self-only, and a child gets no match request, so no assignment, without an interest. The child
   sets their own today. Its own unit: a curriculum endpoint a parent may call with a linked
   child, and the child picker on `/account`.
-- **A student with two teachers can book both subjects at the same weekly time.** `slot_options`
-  and `claim_slot` exclude times the *teacher* already holds, never the *student's* other active
-  slot, so with two different teachers two subjects can overlap. With one teacher for both it
-  cannot. Needs the student's own slots in the conflict scan (`_conflicts` already does the
-  circular arithmetic).
 - **Switching child on `/schedule` is locked while an availability edit is unsaved**, with a hint,
   rather than carrying or discarding the edit. A "discard and switch" choice would be kinder.
 

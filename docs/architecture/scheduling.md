@@ -287,8 +287,9 @@ answer the two questions, and every booking read and write goes through them:
   attach a lesson to the wrong subject.
 
 **Slot options.** `slot_options` returns weekly start times where both people are free for a
-whole session (`_fitting_candidates` over the overlap windows, stepping by 60 minutes) and the
-teacher is not already booked there. `_conflicts` compares weekly minutes as a *circular*
+whole session (`_fitting_candidates` over the overlap windows, stepping by 60 minutes), the
+teacher is not already booked there, and the student does not already hold that time in another
+subject. `_conflicts` compares weekly minutes as a *circular*
 distance, so Friday 23:30 and Saturday 00:00 are adjacent: the week wraps.
 
 **Claiming a slot.** `claim_slot` is atomic and closes the double-booking race by locking every
@@ -308,7 +309,10 @@ The two failures are decided together on purpose. A time outside the shared wind
 reads as "not available" (`ValidationError`, field `start_time`), regardless of what the
 teacher holds there; `ConflictError` ("already booked") is reserved for a time inside the
 shared window, so a student cannot enumerate their teacher's other bookings by probing times
-outside their own availability.
+outside their own availability. The student's *own* other ACTIVE slots are scanned the same way
+(a two-subject student's teachers may differ, and both may be free at the same hour); a clash
+inside the window is a `ConflictError` ("You already have a weekly time then."), which names only
+their own schedule.
 
 **Generating sessions.** `generate_sessions` materialises each student's sessions for the
 current billing cycle, up to the cycle's end. The quota is **one per student, shared across their
