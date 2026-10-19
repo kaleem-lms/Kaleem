@@ -719,13 +719,19 @@ None blocks the phase; each was reviewed and consciously deferred.
   candidate and is the larger change: `Subscription` mirrors no `current_period_start`, so
   there is no second bound to derive an id from without a billing migration.
 
-**The C2 scoping cluster — one root cause, three symptoms:**
+**Left by `lb-parent-acts-for-child` (a parent books for a child; two subjects book):**
 
-- `claim_slot(actor, weekday, start_time)` carries **no parameter naming the student or the
-  subject**. Consequently: a student with two subjects cannot book at all (refused loudly rather
-  than guessing which subject a lesson belongs to); a **parent cannot claim or end** a weekly time
-  or see a quota counter; and `GET /slots/` had to be narrowed to students. Adding that parameter
-  is the single fix for all three.
+- **A parent cannot set a child's subject interests.** `curriculum`'s `me/student-subjects/` is
+  self-only, and a child gets no match request, so no assignment, without an interest. The child
+  sets their own today. Its own unit: a curriculum endpoint a parent may call with a linked
+  child, and the child picker on `/account`.
+- **A student with two teachers can book both subjects at the same weekly time.** `slot_options`
+  and `claim_slot` exclude times the *teacher* already holds, never the *student's* other active
+  slot, so with two different teachers two subjects can overlap. With one teacher for both it
+  cannot. Needs the student's own slots in the conflict scan (`_conflicts` already does the
+  circular arithmetic).
+- **Switching child on `/schedule` is locked while an availability edit is unsaved**, with a hint,
+  rather than carrying or discarding the edit. A "discard and switch" choice would be kinder.
 
 **The rest:**
 
@@ -984,8 +990,8 @@ proves; all are robustness of an unattended job.
   **Two existing tests drove that editor and asserted the payload contained the slots** — they
   passed, and they encoded the illusion as correct behaviour. That is the third time today a
   green test was protecting nothing. The control is gone, because one that accepts input and
-  throws it away is worse than none: the parent believes the times are set. Editing a child's
-  real availability remains a genuine missing feature with its own entry.
+  throws it away is worse than none: the parent believes the times are set. A parent now edits a
+  child's real availability on `/schedule` (`lb-parent-acts-for-child`).
 - `TimezoneBar` picker has no Escape-to-close, and its listbox `aria-label` reuses the search
   label.
 - `WeeklyAvailabilityEditor` pill React key collides on two identical ranges in one day

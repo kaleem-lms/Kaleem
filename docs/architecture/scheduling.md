@@ -129,9 +129,6 @@ router, the app list, the beat schedule, the `VIDEO_PROVIDER` setting). The road
 - **Teacher earnings.** `billing` (`pay-earnings-ledger`).
 - **Media beyond a relay, and recording.** The module mints TURN credentials; it never sees,
   mixes or stores media.
-- **Booking for a student with more than one active subject.** `claim_slot` carries no subject
-  parameter, so it refuses with a `ValidationError` rather than guess which assignment a lesson
-  belongs to.
 
 ## Data model
 
@@ -274,6 +271,21 @@ parent also sees their children's active assignments.
 Files: `booking.py`, quota in `services.py`. Spec C2. Matching answers *who* teaches a
 student; booking answers *when*.
 
+**Whose time, and which subject** (`lb-parent-acts-for-child`). `claim_slot`, `slot_options`
+and `get_active_slot` take a `student_id` and a `subject_slug` (keyword-only). Two functions
+answer the two questions, and every booking read and write goes through them:
+
+- `student_for(actor, student_id)` is the one authorisation for acting on someone's behalf: the
+  actor themselves, or a child linked to them through `ParentStudent`. A stranger, a teacher
+  naming their own student, and an id that does not exist all raise the same `NotFoundError`
+  ("Student not found."), so a refusal never says whether the account exists. Who may book is the
+  family's decision, so a teacher is deliberately not admitted.
+- `resolve_assignment(actor, student_id, subject_slug)` returns the ACTIVE assignment the time
+  belongs to. `(student, subject)` names at most one (`unique_active_assignment`). A slug that
+  matches none is a 404 ("Assignment not found."); no slug with one assignment is that one; no
+  slug with none is `None`; no slug with two or more is a 400 on `subject`, because a guess would
+  attach a lesson to the wrong subject.
+
 **Slot options.** `slot_options` returns weekly start times where both people are free for a
 whole session (`_fitting_candidates` over the overlap windows, stepping by 60 minutes) and the
 teacher is not already booked there. `_conflicts` compares weekly minutes as a *circular*
@@ -284,7 +296,13 @@ distance, so Friday 23:30 and Saturday 00:00 are adjacent: the week wraps.
 work: `select_for_update` over a queryset that matches nothing locks nothing, so two students
 claiming a teacher's first slot would both see an empty scan. Every claimant has an assignment
 with that teacher, so that set is never empty. A student may hold one active slot per
-assignment (`ConflictError` otherwise).
+assignment (`ConflictError` otherwise), so a student with two subjects holds two.
+
+The lock is one `SELECT ... FOR UPDATE` over every ACTIVE assignment of the teacher **or** the
+student, ordered by id. A multi-subject student's assignment with a *different* teacher is then
+held before `generate_sessions` locks it again, and `generate_sessions` orders its own per-student
+lock by id too, so the two never take overlapping rows in opposite orders. A query-shape test pins
+this; the two-thread race itself is still untested (`ISSUES.md`).
 
 The two failures are decided together on purpose. A time outside the shared window always
 reads as "not available" (`ValidationError`, field `start_time`), regardless of what the
@@ -292,8 +310,14 @@ teacher holds there; `ConflictError` ("already booked") is reserved for a time i
 shared window, so a student cannot enumerate their teacher's other bookings by probing times
 outside their own availability.
 
-**Generating sessions.** `generate_sessions` materialises each active slot's sessions for the
-current billing cycle, up to the cycle's end. It runs **nightly** (the `scheduling-generate-sessions`
+**Generating sessions.** `generate_sessions` materialises each student's sessions for the
+current billing cycle, up to the cycle's end. The quota is **one per student, shared across their
+subjects** (`dec-multi-subject-quota`), so it is spent in date order across all of that student's
+active slots, `(starts_at, slot id)`, until the cycle's allowance is gone. Looping slot by slot
+instead would hand the whole allowance to whichever slot came first and leave a second subject
+with nothing every cycle. A subject booked after the allowance is spent therefore has no session
+until the next renewal; `GET slots/` carries `next_session_at` (null then), and the dashboard says
+so. It runs **nightly** (the `scheduling-generate-sessions`
 beat entry) and **inline on claim** for that one student, in the claim's transaction, so a
 student told "your weekly time is booked" does not then see "no upcoming sessions" for a day.
 It is idempotent (`get_or_create` on `(assignment, starts_at)`), and daily rather than fired on
@@ -518,15 +542,15 @@ All under `/api/v1/scheduling/`, mounted through `config.api_router` (ADR-0029).
 
 | Method | Path | Who | Notes |
 | --- | --- | --- | --- |
-| `GET` `PUT` | `me/availability/` | student or teacher profile | `PUT` replaces the set and may set the timezone |
+| `GET` `PUT` | `me/availability/` | student or teacher profile; with `?student=`, a parent of that child | `PUT` replaces the set and may set the timezone. `?student=<user id>` reads or writes a linked child's, and the time zone lands on the child. 404 for anyone else |
 | `GET` | `match-offers/` | teacher | Reconciles first (`sync_match_requests`), then lists offers |
 | `POST` | `match-offers/<int:request_id>/accept/` | teacher | 201; 404 unknown, 409 taken, 403 ineligible |
 | `POST` | `match-offers/<int:request_id>/decline/` | teacher | 204; idempotent |
 | `GET` | `match-requests/mine/` | student | Reconciles first; cancelled requests excluded |
-| `GET` | `assignments/` | student, teacher or parent profile | A parent sees their children's |
-| `GET` | `slot-options/` | student | Computed candidates, not rows |
-| `GET` `POST` | `slots/` | student | `POST` claims (201); `GET` is 404 when there is no active slot |
-| `DELETE` | `slots/<int:slot_id>/` | student | 204; the service requires a party to the assignment |
+| `GET` | `assignments/` | student, teacher or parent profile | A parent sees their children's. Rows carry `student_id` |
+| `GET` | `slot-options/` | student; with `?student=`, a parent | Computed candidates, not rows. `?student=` and `?subject=` (a slug) name the assignment; see "Whose time" |
+| `GET` `POST` | `slots/` | student; with `student`, a parent | `POST` claims (201), body `{weekday, start_time, student?, subject?}`; `GET` is 404 when there is no active slot and carries `next_session_at` (the slot's next scheduled session, or null) |
+| `DELETE` | `slots/<int:slot_id>/` | student or parent | 204; the service requires a party to the assignment, and the view still refuses a teacher |
 | `GET` | `sessions/` | student, teacher or parent profile | Upcoming, every status; payload adds `may_cancel`, `cancellation_refunds`, `can_join_at`, `may_join`, `may_complete`, `outcome` |
 | `GET` | `sessions/to-close/` | teacher | The teacher's `scheduled` lessons that have started and are inside the 7-day window, oldest first; 403 without a teacher profile |
 | `POST` | `sessions/<int:session_id>/cancel/` | the student, the teacher or a parent of the student | Refund rule applied; ends the room |
@@ -534,7 +558,7 @@ All under `/api/v1/scheduling/`, mounted through `config.api_router` (ADR-0029).
 | `POST` | `sessions/<int:session_id>/no-show/` | the session's teacher | Records `student_absent`, same guard as `complete/`. Ends the room |
 | `POST` | `sessions/<int:session_id>/join/` | a participant (teacher or student, not a parent) | Throttled `session-join`, 30 per hour; `POST` because it can create a room |
 | `POST` | `sessions/<int:session_id>/diagnostics/` | a participant | Throttled `call-diagnostics`, 20 per hour; 201 |
-| `GET` | `quota/` | student | 404 when billing reports no allowance |
+| `GET` | `quota/` | student; with `?student=`, a parent | 404 when billing reports no allowance |
 
 The view layer is thin: it checks the profile, calls one service, and serializes. Cancel and
 complete return a payload built from the public read after the transaction committed, never
@@ -595,7 +619,7 @@ The dashboard uses the module through four routes, each a thin page over a featu
 | --- | --- |
 | `/availability` | `features/scheduling` (weekly editor, timezone bar, unsaved-changes guard) |
 | `/match-requests` | `features/matching` (teacher offer list, student's teacher card, parent's children's teachers) |
-| `/schedule` | `features/booking` (claim a slot, session list, cancel dialog, quota badge, join button) |
+| `/schedule` | `features/booking` (a "Booking for" picker, a booking panel per child or self, one claim card per subject, session list, cancel dialog, quota badge, join button) and a parent's per-child availability editor from `features/identity` |
 | `/sessions/$sessionId/room` | `features/call` (lobby, call room, controls, diagnostics reporter) |
 
 The folder names diverge from the backend, which keeps booking inside `scheduling`
@@ -621,12 +645,12 @@ written for a connect timeout (it would need a new `CallDiagnostic` code).
 
 - **Notifications** on match, cancel or reminder (`ntf-*`).
 - **Trials** (ADR-0046) and **group lessons** (ADR-0034).
-- **Booking across more than one subject.** One active assignment per student for `claim_slot`.
 - **Rescheduling** a single lesson (`sched-reschedule`): today a lesson is cancelled, not moved.
 - **Session reports and ratings** (`assessment`). The outcome itself lives here.
 - **Setting `teacher_absent`** and its remedy (`sched-teacher-no-show`).
 - **Teacher earnings** (`billing`).
-- **Parents acting on a child's behalf** beyond viewing and cancelling (`lb-parent-acts-for-child`).
+- **A parent setting a child's subject interests.** `curriculum`'s `me/student-subjects/` is
+  self-only, and a child gets no match request without an interest (`ISSUES.md`).
 - **Recording**, and any media path beyond a TURN relay.
 - **Captions, real-time text and an audio-activity indicator in the call.** None exist, and
   the call has no data channel. A stated launch gap, not an oversight (ADR-0054).
