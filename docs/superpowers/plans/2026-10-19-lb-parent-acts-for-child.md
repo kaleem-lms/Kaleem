@@ -1,6 +1,6 @@
 ---
 spec: docs/superpowers/specs/2026-10-19-lb-parent-acts-for-child-design.md
-status: draft
+status: approved
 ---
 
 Repos: `backend` and `dashboard`, each on branch `feat/lb-parent-acts-for-child`, in worktrees

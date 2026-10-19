@@ -2,7 +2,7 @@
 name: lb-parent-acts-for-child
 phase: v1 (wave 2, scheduling stream)
 modules: [scheduling (booking, availability), dashboard (booking, scheduling, matching)]
-status: draft
+status: approved
 created: 2026-10-19
 closed: null
 ---
