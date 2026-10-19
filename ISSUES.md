@@ -338,6 +338,13 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
 
 ## Someday
 
+- **The /account time-zone sync is one-way.** Changing the zone in the new Language and time
+  zone card refetches the availability panel, but saving a zone in the availability panel on the
+  same page does not refresh the card. Found 2026-10-19 by ntf-recipient-locale-tz.
+- **identity imports scheduling internals** (`@/features/scheduling/queries`, and
+  `TimezoneBar` from `@/features/scheduling`), against the dashboard's no-cross-feature-import
+  rule. Move the shared time-zone pieces to `src/lib` or a shared component. Found 2026-10-19.
+
 - **No call diagnostic for a connect timeout.** The client's 10 s signaling deadline lands on
   "Couldn't reach the session server" but reports nothing: it needs a new `CallDiagnostic.Code`
   on the backend plus the contract test. Found 2026-10-18 by lb-call-connection-failure-path.
@@ -770,12 +777,19 @@ phase; each was reviewed and consciously deferred rather than missed.
   deleted, because without it both threads reach the INSERT and the unique index refuses one —
   which `accept_offer` now converts into a `ConflictError` too. Same type, different mechanism.
   The MESSAGE separates them, and the assertion names which one refused when it fails.
-- **`/account` overflows horizontally in Arabic** — `scrollWidth` 1162 vs `innerWidth` 1018
-  (144px); clean at 1003/1018 in English. Traced to the "Preferred teacher gender" radio group's
-  visually-hidden inputs using a physical `left:-159px` instead of a logical inset. This is a
-  WCAG 1.4.10 Reflow (AA) failure on a page C1 adds a card to. Belongs to identity/curriculum.
-  Since 2026-10-18 it is held on the Arabic-sweep allowlist (2 entries, under a ceiling): fixing
-  it turns that entry stale and fails the run until the entry is removed.
+- ~~**`/account` overflows horizontally in Arabic**~~ **FIXED 2026-10-19**
+  (ntf-recipient-locale-tz). The "Preferred teacher gender" radio group's visually-hidden
+  form mirrors (Radix puts one `<input>` per radio inside a form, shifted one item-width
+  toward the start edge) stuck out past the page edge in a right-to-left document, which
+  counts as scrollable overflow. `RadioCardGroup` now takes them out of layout
+  (`[&>input]:hidden`); they still submit. The Arabic-sweep allowlist is empty and its
+  ceiling is 0. `rch-i18n-rtl-leak-fixes` keeps the rest of its list (raw times,
+  `TimezoneBar` locale, icon flips).
+- **The time zone picker does not offer `UTC`.** `Intl.supportedValuesOf("timeZone")` omits
+  the `UTC` alias in Chromium, so `TimezoneBar` (availability editor and the `/account`
+  card) cannot choose it. A user whose device is not in UTC cannot go back to the default
+  once they pick another zone; "Use device time zone" is the only way, from a device that
+  is. `account-locale.spec.ts` restores UTC that way.
 - ~~**N+1 in the teacher inbox.**~~ **FIXED 2026-09-13** (backend #57). Measured at **23
   queries for five offers**, now **7 and constant**: the teacher's own availability was re-read
   per row, and the student read and preference lookup were a query each. Batched via new
