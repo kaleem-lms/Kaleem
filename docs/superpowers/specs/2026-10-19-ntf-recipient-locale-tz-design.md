@@ -2,7 +2,7 @@
 name: ntf-recipient-locale-tz
 phase: v1 (wave 2, i18n stream)
 modules: [identity, i18n]
-status: draft
+status: approved
 created: 2026-10-19
 closed: null
 ---

@@ -1,6 +1,6 @@
 ---
 spec: docs/superpowers/specs/2026-10-19-ntf-recipient-locale-tz-design.md
-status: draft
+status: approved
 ---
 
 Worktrees: `kaleem-worktrees/backend-ntf-recipient-locale-tz` and
