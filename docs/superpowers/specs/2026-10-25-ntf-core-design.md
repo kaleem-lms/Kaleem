@@ -2,7 +2,8 @@
 name: ntf-core
 phase: v1 (wave 3, notifications stream)
 modules: [notifications]
-status: draft
+status: approved
+approved: 2026-10-25
 created: 2026-10-25
 closed: null
 ---
@@ -19,7 +20,7 @@ It adds:
 
 - a **kind registry** that is validated in Python;
 - **`notify()`**, which writes the in-app row in the producer's transaction and hands email
-  to a **channel interface** once that transaction commits;
+  to **channel interfaces** (email and push) once that transaction commits;
 - a **delivery log**;
 - a **preference model** with its services;
 - the **90-day purge** (`dec-retention-new-domains`);
@@ -31,17 +32,24 @@ migration.
 
 **Decisions it rests on.** `D-ntf-template-ownership` is answered: email copy lives in code
 with gettext, and there is no `EmailTemplate` table (ADR-0046 §5). So is
-`dec-retention-new-domains` (notification log 90 days). Two before-spec decisions are still
-**open**, and this spec assumes their recommended answers:
+`dec-retention-new-domains` (notification log 90 days). The two before-spec decisions are
+**answered** (owner, 2026-10-25), and the owner approved this spec the same day:
 
-- `D-ntf-channels`: email and in-app.
+- `D-ntf-channels`: **email, in-app and push.** This is not the recommended answer
+  (email and in-app); the owner chose push as well. The channel set is therefore
+  `CHANNELS = {"in_app", "email", "push"}`. v1 push is web push for the PWA. It needs VAPID
+  keys (an owner step on the VPS) and `rch-pwa-service-worker`, so **this unit builds the
+  push interface and no sender**. A follow-up unit adds the adapter (`ISSUES.md`). Until it
+  exists, a push delivery is recorded as `failed` with `error_code="channel_unconfigured"`
+  and an ERROR log, which is the same "no channel configured" path as email. It is never
+  silently dropped.
 - `D-ntf-mandatory-kinds`: security, payment and cancellation notices are mandatory; the
-  rest can be switched off.
+  rest can be switched off. A mandatory kind is locked on every channel, push included.
 
-The design does not depend on either answer. Channels are a Python set and
-`mandatory` is a flag that each producer sets on its own kind. A different answer changes
-which channel adapters exist and which flags producers set. It changes no table and no
-function here.
+Channels are a Python set and `mandatory` is a flag that each producer sets on its own
+kind, so the answers change no table and no function here. `Delivery.channel` and
+`NotificationPreference.channel` have no `choices`, so adding `push` needs no migration now
+or later.
 
 ## User flow
 
@@ -81,7 +89,7 @@ User 1──* NotificationPreference
   choices), `status` (`pending | sent | failed | suppressed`), `error_code`
   (`CharField(64)`, blank) and `updated_at`.
   - `UniqueConstraint(notification, channel)`.
-  - v1 writes only `email` rows. The in-app channel is the `Notification` row itself.
+  - v1 writes `email` and `push` rows. The in-app channel is the `Notification` row itself.
 - **`NotificationPreference`**: `user` (FK, CASCADE), `kind`, `channel`, `enabled` and
   `updated_at`.
   - `UniqueConstraint(user, kind, channel)`.
@@ -122,28 +130,32 @@ assigns. Until then nothing writes a row, so there is nothing to purge.
 There is no HTTP API. The public Python API is `kaleem/notifications/services.py`. Other
 modules import only this file.
 
-- `register_kind(key, *, title, channels=frozenset({"in_app", "email"}), mandatory=False, params=None)`.
+- `register_kind(key, *, title, channels=DEFAULT_CHANNELS, mandatory=False, params=None)`.
   - `key` is `"<app_label>.<name>"`, and `app_label` must be an installed `kaleem.*` app.
   - `title` must be a lazy gettext object, so the in-app feed and the email render it in
     the reader's language.
-  - `channels` must be a non-empty subset of `CHANNELS = {"in_app", "email"}`.
+  - `channels` must be a non-empty subset of `CHANNELS = {"in_app", "email", "push"}`.
+    `DEFAULT_CHANNELS` is `{"in_app", "email"}`: push is opt-in per kind, so a kind that
+    does not ask for it never produces a push delivery (and, before the adapter exists, never
+    an unconfigured-channel ERROR).
   - Registering an equal definition again does nothing, because Django may call `ready()`
     twice. A different definition under the same key raises `ImproperlyConfigured`.
 - `list_kinds() -> list[Kind]` and `get_kind(key) -> Kind`. `Kind` is a frozen dataclass.
 - `notify(kind, *, recipient_ids, link, dedupe_key, params=None) -> int` returns the
   number of new notifications.
-  - For each recipient, it works out `in_app` and `email` from the kind's channels and the
-    preferences. A mandatory kind ignores preferences. Preferences come from one query.
+  - For each recipient, it works out `in_app`, `email` and `push` from the kind's channels
+    and the preferences. A mandatory kind ignores preferences on every channel. Preferences
+    come from one query.
   - It creates each notification with `get_or_create` on the idempotency key. A key that
     exists already is skipped: no new row and no second email.
-  - A new row gets an `email` `Delivery`:
-    - `pending` when email is on;
-    - `suppressed` when the recipient switched email off;
-    - `failed` with `error_code="channel_unconfigured"` when no channel is configured. This
-      case also logs at ERROR, so it is never silent.
-    - If both channels are off, the row is still written, with `in_app=False`, so the log
+  - A new row gets one `Delivery` for each of `email` and `push` that the kind lists:
+    - `pending` when the channel is on;
+    - `suppressed` when the recipient switched that channel off;
+    - `failed` with `error_code="channel_unconfigured"` when no channel adapter is
+      configured. This case also logs at ERROR, so it is never silent.
+    - If every channel is off, the row is still written, with `in_app=False`, so the log
       shows why nothing arrived.
-  - The pending ids go to the email channel through
+  - The pending ids go to each channel through
     `transaction.on_commit(..., robust=True)`. Nothing is sent if the producer rolls
     back. If the dispatch itself raises, the exception is logged, the producer's request is
     not failed after its commit, and the delivery stays `pending`.
@@ -157,11 +169,23 @@ modules import only this file.
     zone from `identity.services.get_recipient_locale`. It reads the language and time zone
     at send time, so a change the user made after `notify()` is honoured. It returns `None`
     once the delivery is no longer pending, or is gone because it was purged or erased.
-  - `record_delivery_result(delivery_id, *, sent, error_code="") -> bool` moves a delivery
-    from `pending` to `sent` or `failed`. A second call changes nothing and returns `False`.
+  - `record_delivery_result(delivery_id, *, sent, error_code="") -> bool` moves an
+    **email** delivery from `pending` to `sent` or `failed`. A second call changes nothing
+    and returns `False`, and so does a call with a push delivery's id.
+- **Push channel interface.** The same shape, fixed now so the adapter unit builds against
+  it. `PushChannel` is a `Protocol` with `dispatch(delivery_ids: Sequence[int]) -> None`,
+  loaded with `import_string` from `settings.NOTIFICATIONS_PUSH_CHANNEL` (default `None`).
+  **No sender ships in this unit.**
+  - `get_pending_push_delivery(delivery_id) -> PushDelivery | None` returns the same fields
+    as `EmailDelivery` for a `push` delivery, and `None` once it is no longer pending, is
+    gone, or is not a push delivery.
+  - `record_push_delivery_result(delivery_id, *, sent, error_code="") -> bool` moves a
+    **push** delivery from `pending` to `sent` or `failed`, once.
+  - A push subscription (a browser endpoint) is not stored here. The adapter unit owns that
+    table, its personal-data hooks and its erase.
 - **Preferences.**
   - `get_preferences(user_id) -> list[Preference]` returns one entry per registered kind
-    and channel: `kind`, `channel`, `enabled` and `mandatory`.
+    and per channel that kind lists: `kind`, `channel`, `enabled` and `mandatory`.
   - `set_preference(user_id, kind, channel, enabled)`. It raises `ValidationError` with
     `field="kind"` for an unknown kind and `field="channel"` for an unknown channel. For a
     mandatory kind it raises `ValidationError(_("This notification cannot be switched off."), field="enabled")`.
@@ -208,7 +232,9 @@ ADR amendment rather than a one-line edit.
 - The in-app feed API and the bell (`ntf-inapp-feed`), the preferences UI and unsubscribe
   (`ntf-preferences`), and every concrete kind with its producer call (the producer units).
 - Reminder scheduling (`ntf-reminders`) and the beat entry for the purge (first producer).
-- Push, WhatsApp and SMS (`D-ntf-channels`).
+- The push sender: VAPID keys, the subscription store and the service worker. That is a
+  follow-up unit (`ISSUES.md`), gated on `rch-pwa-service-worker` and an owner VPS step.
+- WhatsApp and SMS (`D-ntf-channels`: not in v1).
 - Who receives a child's notices (`D-ntf-parent-recipients`, decided per producer).
 
 ## Test plan
@@ -222,9 +248,11 @@ ADR amendment rather than a one-line edit.
     (`django_capture_on_commit_callbacks`). A rollback writes and dispatches nothing.
   - The same dedupe key twice gives one row and one dispatch.
   - Preferences are honoured per channel, and a mandatory kind ignores them.
-  - Both channels off gives `in_app=False` and a `suppressed` delivery.
-  - With no channel configured, the delivery is `failed`/`channel_unconfigured` and an
-    ERROR is logged. A raising channel leaves the delivery `pending`, logs, and does not
+  - Every channel off gives `in_app=False` and `suppressed` deliveries.
+  - A kind that lists `push` gets a push delivery, dispatched to the push channel on commit;
+    one that does not gets none.
+  - With no channel configured (email or push), the delivery is
+    `failed`/`channel_unconfigured` and an ERROR is logged. A raising channel leaves the delivery `pending`, logs, and does not
     raise into the producer.
   - Bad links, params and dedupe keys are refused. Datetimes round-trip as UTC.
   - The query count is bounded per recipient.
@@ -232,8 +260,9 @@ ADR amendment rather than a one-line edit.
   `threading.Barrier`, both calling `notify()` with the same key for one recipient, gives
   exactly one `Notification`, one `Delivery` and one dispatch. It must go red with the
   unique constraint removed.
-- **Delivery services:** pending gives the dataclass with the current locale; a terminal
-  status gives `None`; a second `record_delivery_result` gives `False` and leaves the row
+- **Delivery services (email and push):** pending gives the dataclass with the current
+  locale; a terminal status gives `None`; a call with the other channel's id is refused;
+  a second `record_delivery_result` gives `False` and leaves the row
   unchanged.
 - **Preferences:** defaults are on; a switch round-trips; unknown kinds and channels are
   refused and mandatory kinds are refused, each with the correct `field`.
@@ -253,6 +282,7 @@ concurrency test above stands in for it, as the programme entry says.
 
 ## Open questions
 
-- **`D-ntf-channels`** and **`D-ntf-mandatory-kinds`** are open before-spec decisions. This
-  spec assumes the recommended answers (above), and no answer changes its structure. The
-  owner confirms both before build.
+None. `D-ntf-channels` (email, in-app and push) and `D-ntf-mandatory-kinds` were answered
+and the spec approved by the owner on 2026-10-25. Still open elsewhere, and not blocking
+this unit: who sends push (the follow-up adapter unit), and when the first producer adds
+the purge beat entry.
