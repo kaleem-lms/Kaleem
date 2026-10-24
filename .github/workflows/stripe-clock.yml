@@ -91,6 +91,12 @@ jobs:
           tar -xzf stripe.tar.gz stripe
           sudo install -m 0755 stripe /usr/local/bin/stripe
           stripe version | tee /dev/stderr | grep -Fx "stripe version ${STRIPE_CLI_VERSION}" >/dev/null
+      # The test session compiles the translation catalogs (rch-i18n-server-strings), which
+      # shells out to GNU gettext. Same check as ci.yml.
+      - name: Ensure GNU gettext
+        run: |
+          command -v msgfmt >/dev/null && command -v xgettext >/dev/null \
+            || { sudo apt-get update -q && sudo apt-get install -y --no-install-recommends gettext; }
       - name: Migrate
         run: python manage.py migrate --noinput
       - name: Run the dunning harness
