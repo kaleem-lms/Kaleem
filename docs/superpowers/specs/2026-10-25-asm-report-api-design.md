@@ -2,7 +2,7 @@
 name: asm-report-api
 phase: v1 (wave 3, assessment stream; roadmap B4)
 modules: [assessment]
-status: draft
+status: approved
 created: 2026-10-25
 closed: null
 ---
@@ -24,7 +24,7 @@ asm-teacher-report-ui builds the form and the list on top of it.
 | `dec-lesson-outcomes` | Answered. Reports share the close-out window, `starts_at <= now < starts_at + 7 days`, measured from the start. |
 | `asm-d-report-audience` | Answered (option 2, 90 days). Readers are those `assessment.services.can_read_report` already admits. |
 | `asm-d-report-content` | Answered (option 2). The PUT body is schema v1, exactly as `kaleem/assessment/content.py` validates it. |
-| `asm-d-report-mandatory` | **Open.** This spec assumes the recommended answer, **prompted but optional**. Reports due is the prompt, and nothing is gated on a report. A lesson whose window closes without one simply leaves the list. Option 1 (mandatory) leaves this API unchanged, because pay and analytics read `reported_session_ids`; their units would decide what "counts". Option 3 (optional, not prompted) would remove `reports-due/` from this unit. |
+| `asm-d-report-mandatory` | Answered 2026-10-25, option 2: **prompted but optional**. Reports due is the prompt, and nothing is gated on a report. A lesson whose window closes without one simply leaves the list. Option 1 (mandatory) would have left this API unchanged, because pay and analytics read `reported_session_ids`. Option 3 (optional, not prompted) would have removed `reports-due/` from this unit. |
 
 ## User flow
 
@@ -196,10 +196,10 @@ no events, and no notices (asm-report-notices handles those).
 
 ## Open questions
 
-1. **`asm-d-report-mandatory`: is a report mandatory for a lesson to count?** This spec
-   assumes "prompted but optional". The owner's answer is needed before this spec is
-   approved.
-2. **Reporting is limited to held lessons.** A teacher cannot report a lesson that is
-   still running or not yet closed out, which the foundation allowed. They close it first
-   (the UI reaches the form from the close-out control). The owner approves this along
-   with the spec.
+None. The owner approved this spec on 2026-10-25 as written, and answered the two
+questions it carried:
+
+1. **`asm-d-report-mandatory`**: option 2, prompted but optional.
+2. **Reporting is limited to held lessons.** A teacher cannot report a lesson that is still
+   running or not yet closed out, which the foundation allowed. They close it first (the UI
+   reaches the form from the close-out control). Approved.

@@ -1,6 +1,6 @@
 ---
 spec: docs/superpowers/specs/2026-10-25-asm-report-api-design.md
-status: draft
+status: approved
 ---
 
 # Plan: asm-report-api
@@ -18,8 +18,8 @@ Worktrees:
 Constraints:
 - **No migration, no dependency change, no new ADR.**
 - **Floors:** never edit `fail_under` (dec-floor-ownership).
-- **Start condition:** the spec's open question 1 (`asm-d-report-mandatory`) is answered
-  and the owner approves the spec. If the answer is option 3, drop step 4 and its tests.
+- **Start condition:** met. The owner approved the spec on 2026-10-25 and answered
+  `asm-d-report-mandatory` with option 2 (prompted but optional), so step 4 stays.
 
 ## Steps
 
