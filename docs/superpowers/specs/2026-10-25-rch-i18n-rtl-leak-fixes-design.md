@@ -2,7 +2,8 @@
 name: rch-i18n-rtl-leak-fixes
 phase: v1 (wave 2, stream i18n)
 modules: [identity, scheduling]
-status: draft
+status: approved
+approved: 2026-10-25
 created: 2026-10-25
 closed: null
 ---
@@ -84,21 +85,16 @@ All in `dashboard`; no route added or removed.
 Done = built, on staging, and checked in the browser in Arabic and English on `/availability`,
 `/account` and the user menu.
 
-## Arabic digits (`rch-d-ar-numerals`, OPEN)
+## Arabic digits (`rch-d-ar-numerals`, RESOLVED 2026-10-25)
 
-The decision is open and the unit is parked on it. Measured on Node 24.19's ICU: bare `ar`
-resolves to Latin digits (`numberingSystem: "latn"`, `1,234`, `12:00 ص`), while `ar-SA` and
-`ar-EG` resolve to Arabic-Indic (`١٬٢٣٤`). The app passes bare `ar`. So the UI mixes digit sets
-only where a browser's ICU is older than the CLDR change that moved bare `ar` to Latin; on such a
-browser the `Intl`-formatted numbers turn Arabic-Indic while raw strings stay Latin. Fixes 1 and 2
-remove two raw-string sources whichever way it goes.
+Resolved by the owner on 2026-10-25: **CLDR default digits for bare `ar`** (ADR-0020). The unit
+passes `i18n.language` to `Intl` as above and adds no `intlLocale` helper, no `ar-u-nu-latn` pin and
+no guard against `Intl` call sites (plan Step 8 is not run).
 
-- **CLDR default** (recommended by the programme, ADR-0020): pass `i18n.language` as above. No more
-  work in this unit.
-- **Latin digits**: add `intlLocale(lng)` to `src/lib/i18n.ts` returning `ar-u-nu-latn` for Arabic,
-  and route every `Intl.*Format` call site through it: 15 calls in 11 files across `billing`,
-  `booking`, `matching` and `ui` (listed in the plan), plus the two this unit adds, plus a guard test that no shipped file passes
-  `i18n.language` to `Intl` directly. One size class of extra touch, same size label (M).
+Context kept for the record: on Node 24.19's ICU bare `ar` resolves to Latin digits (`1,234`,
+`12:00 ص`), while `ar-SA` and `ar-EG` resolve to Arabic-Indic. A browser whose ICU predates the CLDR
+change that moved bare `ar` to Latin may show Arabic-Indic digits in `Intl`-formatted numbers; that is
+accepted. Fixes 1 and 2 remove two raw-string sources whichever way the decision went.
 
 ## Personal data (ADR-0023)
 
@@ -154,5 +150,5 @@ older ICU (where the digit question bites), and the call room.
 
 ## Open questions
 
-- **`rch-d-ar-numerals`**: CLDR default or Latin digits? Open; the unit escalates on it.
+- **`rch-d-ar-numerals`**: resolved 2026-10-25, CLDR default digits (see above).
 - **`hg-arabic-review`**: the five `_zero` drafts. Holds spec closure, not the merge.

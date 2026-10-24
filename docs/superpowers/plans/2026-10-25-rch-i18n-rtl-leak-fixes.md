@@ -1,6 +1,6 @@
 ---
 spec: docs/superpowers/specs/2026-10-25-rch-i18n-rtl-leak-fixes-design.md
-status: draft
+status: approved
 ---
 
 Repos: `dashboard` (code), `meta` (this plan and the spec). Branch `feat/rch-i18n-rtl-leak-fixes`
@@ -11,8 +11,8 @@ migration, no seed change, no `ci.yml` change, no coverage-floor edit. Shared fi
 `src/locales/ar/common.json` (programme `shared_files`); a conflict there is resolved by script
 (i18n guide rule 4).
 
-**Gate before Step 1:** `rch-d-ar-numerals` must be answered. Steps 1 to 7 are the same either way;
-Step 8 runs only if the answer is "Latin digits".
+**Gate before Step 1:** `rch-d-ar-numerals` was answered 2026-10-25: CLDR default digits. Steps 1 to 7
+run; Step 8 is NOT run.
 
 ## Steps
 
@@ -93,7 +93,7 @@ Step 8 runs only if the answer is "Latin digits".
    the test process, or a `\s`-tolerant regex. Keep `selectOption("09:00")` (it matches values).
    Check `timezone.spec.ts` and `account-locale.spec.ts` for raw-time text and update likewise.
 
-8. [ ] **Only if `rch-d-ar-numerals` = Latin digits.** Add `intlLocale(lng)` to `src/lib/i18n.ts`
+8. [-] **NOT RUN: `rch-d-ar-numerals` resolved as CLDR default digits (2026-10-25).** Kept for the record: Add `intlLocale(lng)` to `src/lib/i18n.ts`
    (`ar` → `ar-u-nu-latn`, else `lng`), test it, and route through it: `billing`
    `CancelSubscriptionDialog`, `PlanList`, `SubscriptionCard`; `booking` `ClaimSlotCard` (4 calls),
    `QuotaBadge`, `SessionCard` (2), `SessionList`; `matching` `MatchOfferList`; `ui`
