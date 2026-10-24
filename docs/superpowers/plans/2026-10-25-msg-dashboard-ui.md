@@ -1,6 +1,6 @@
 ---
 spec: docs/superpowers/specs/2026-10-25-msg-dashboard-ui-design.md
-status: draft
+status: approved
 ---
 
 Repos: `dashboard` only (worktree `/home/abdulkhalek/Projects/kaleem-worktrees/dashboard-msg-dashboard-ui`,

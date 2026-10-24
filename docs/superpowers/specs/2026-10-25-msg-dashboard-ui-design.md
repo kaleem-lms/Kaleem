@@ -2,7 +2,7 @@
 name: msg-dashboard-ui
 phase: v1 (wave 3, msg stream)
 modules: [messaging]
-status: draft
+status: approved
 created: 2026-10-25
 closed: null
 ---
