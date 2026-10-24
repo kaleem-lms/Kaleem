@@ -2,10 +2,122 @@
 name: stripe-test-clock-harness
 phase: B
 modules: [billing, platform]
-status: shipped
+status: in-progress
 created: 2026-09-04
-closed: 2026-09-04
+closed: null
 ---
+
+> **Reopened 2026-10-19** by `inf-stripe-clock-harness-red` (first shipped and closed
+> 2026-09-04). The harness has been red since 2026-09-24. The amendment below states the
+> cause and the fix; everything after it is the original spec, unchanged.
+
+## Amendment 2026-10-19: red since 2026-09-24
+
+### Goal
+
+Get the weekly harness green again, find out why it broke, and make the next break of
+this kind explain itself in the log. Plan:
+[2026-10-19-inf-stripe-clock-harness-red.md](../plans/2026-10-19-inf-stripe-clock-harness-red.md).
+
+### Diagnosis (from the run logs and the Stripe CLI source)
+
+| Run | Date | CLI installed | Result |
+| --- | --- | --- | --- |
+| 35201027095 | 2026-09-17 | 1.50.11 | 5 passed |
+| 35975540211 | 2026-09-24 | 1.51.1 | 5 errors at setup |
+| 36847477236 | 2026-10-01 | 1.53.0 | 5 errors at setup |
+| 37764709960 | 2026-10-08 | 1.53.1 | 5 errors at setup |
+| 38704936926 | 2026-10-15 | 1.53.1 | 5 errors at setup |
+
+- Every red run fails in the `webhook_secret` fixture with "`stripe listen` never reported
+  'Ready!' within 60s". The message is wrong about the time. Each fixture errored about
+  0.7 s after it started. `readline()` returned EOF, so the forwarder **exited**. It did not
+  time out. Its output was read and thrown away, so the log never showed why.
+- `stripe listen --print-secret` succeeded in every red run. If it had not, its own
+  failure message would have shown. So the key authenticates. **The key is not the
+  cause.** `hg-stripe-key-conditional` does not fire.
+- Stripe CLI **v1.51.0** (released 2026-09-17 22:37 UTC, after the last green run)
+  shipped "Redesign stripe listen event selection flags" (stripe/stripe-cli#2006). In
+  `pkg/cmd/listen.go` at v1.51.1 and at v1.53.1, the `--events` default changed from
+  `["*"]` to `[]`, and `validateForwardingConfig` now refuses `--forward-to` unless one of
+  `--events`, `--all-snapshot` or `--all-thin` is given: "must specify events to forward
+  using --events, --all-snapshot, or --all-thin". The check runs before credentials are
+  resolved, and `--print-secret` is exempt from it. That matches both observations above.
+  The harness runs `stripe listen --forward-to <url> --skip-verify` with no event flag.
+- The workflow installs whatever the apt repo's `stable` channel holds, so the change
+  arrived unannounced.
+- The 2026-09-10 red run has a different cause: submodule checkout failed ("could not read
+  Username"), and the next run was green. That cause is not in this amendment's scope.
+
+Confidence: high, from source and logs. The CLI was not run locally, because sub-agents
+cannot download release binaries. The first dispatch confirms the cause, and the
+deliberate red below confirms it directly.
+
+### Decisions
+
+1. **Forward with `--all-snapshot`.** This restores exactly what the old default
+   (`--events '*'`, all snapshot events) did. kaleem consumes no thin events. An explicit
+   event list would be narrower, but the delivery probe relies on `customer.created`, an
+   event kaleem's handlers ignore. Tightening that probe is an existing `ISSUES.md` entry
+   and is not part of this fix.
+2. **Pin the CLI to an exact release, verified by SHA-256.** Install the GitHub release
+   tarball `stripe_1.53.1_linux_x86_64.tar.gz` (asset digest
+   `sha256:032fe0b849a9d6a222488bc846445bafeae993af1026b78a8121d02321ca1fd1`, read from
+   the GitHub release API on 2026-10-19), not the apt package. Release assets cannot be
+   changed after publishing, and the digest check fails closed. An apt channel may not
+   keep old versions, so pinning there is not reliable. 1.53.1 is the binary the last red
+   run used, so the fix is proven against the exact CLI that failed. The workflow asserts
+   `stripe version` equals the pin. Bumping the pin is a deliberate PR: change the version
+   and digest, then dispatch. The runbook records this.
+3. **The CLI's output goes into the failure message, redacted.** When the forwarder fails
+   to report ready, the message says whether it **exited** (with its exit code) or is still
+   running after the timeout, followed by the last lines it printed. The repo and its
+   Actions logs are public, so `whsec_…` and `sk_/rk_` key values are masked before
+   printing. GitHub masks only the registered secret, and the CLI's `whsec_` is not one.
+   The `--print-secret` failure message gets the same redaction.
+4. **Proof is two dispatches, run by the conductor.** First, a green `workflow_dispatch` on
+   this branch. Second, a deliberate red on a throwaway branch whose backend pin drops
+   `--all-snapshot` again. That run must go red, and its log must show the CLI's own
+   "must specify events" line and a non-zero exit code. This one run proves the cause, the
+   fix and the new diagnostic together. A `cancelled` conclusion is not a result.
+
+### Scope delta
+
+- **Personal data (ADR-0023):** none new. The harness creates synthetic `example.com`
+  users in a throwaway CI database and Stripe test mode.
+- **User flow, data model, API, frontend:** unchanged. No migration, so there is no
+  expand/contract step.
+- **Modules:** test code under `backend/tests/` (outside coverage measurement, so the
+  floor cannot move), `.github/workflows/stripe-clock.yml`, and
+  `docs/runbook/stripe-billing.md`. The local-dev command in the runbook,
+  `stripe listen --forward-to …`, breaks on CLI ≥ 1.51 for the same reason, so it gets
+  `--all-snapshot` too.
+- **e2e:** none. The harness is the end-to-end check, and its runtime (about 3 to 5 min)
+  does not change.
+
+### Out of scope (D10)
+
+These stay as `ISSUES.md` entries: the readiness `readline()` that can block without a
+bound, the stale-clock sweep, the API key on argv, the loose delivery probe, and the
+basil-vs-dahlia gap. Also out of scope: making the harness gate deploys, and changing the
+cron.
+
+### Test plan
+
+- Unit tests with no network, in the default backend run: the forward command names its
+  events; redaction masks `whsec_`/`sk_`/`rk_` values; a child process that exits early is
+  reported with its exit code and its output, quickly and without "within 60s"; a child
+  process that prints `Ready!` is reported ready. Each is mutation-checked.
+- A green `stripe-clock` dispatch on the branch: 5 passed, and the `stripe version` line
+  equals the pin.
+- A red `stripe-clock` dispatch on the mutant branch, showing the CLI's refusal in the log.
+
+### Open questions
+
+None. If the green dispatch gets past setup and then fails on
+`test_forwarded_events_match_our_configured_api_version`, the Stripe account's default API
+version has moved since 2026-09-17. That is a separate signal and needs the owner, so it
+is escalated, not fixed here.
 
 ## Goal
 

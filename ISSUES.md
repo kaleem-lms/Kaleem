@@ -338,6 +338,13 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
 
 ## Someday
 
+- **The /account time-zone sync is one-way.** Changing the zone in the new Language and time
+  zone card refetches the availability panel, but saving a zone in the availability panel on the
+  same page does not refresh the card. Found 2026-10-19 by ntf-recipient-locale-tz.
+- **identity imports scheduling internals** (`@/features/scheduling/queries`, and
+  `TimezoneBar` from `@/features/scheduling`), against the dashboard's no-cross-feature-import
+  rule. Move the shared time-zone pieces to `src/lib` or a shared component. Found 2026-10-19.
+
 - **No call diagnostic for a connect timeout.** The client's 10 s signaling deadline lands on
   "Couldn't reach the session server" but reports nothing: it needs a new `CallDiagnostic.Code`
   on the backend plus the contract test. Found 2026-10-18 by lb-call-connection-failure-path.
@@ -719,13 +726,14 @@ None blocks the phase; each was reviewed and consciously deferred.
   candidate and is the larger change: `Subscription` mirrors no `current_period_start`, so
   there is no second bound to derive an id from without a billing migration.
 
-**The C2 scoping cluster — one root cause, three symptoms:**
+**Left by `lb-parent-acts-for-child` (a parent books for a child; two subjects book):**
 
-- `claim_slot(actor, weekday, start_time)` carries **no parameter naming the student or the
-  subject**. Consequently: a student with two subjects cannot book at all (refused loudly rather
-  than guessing which subject a lesson belongs to); a **parent cannot claim or end** a weekly time
-  or see a quota counter; and `GET /slots/` had to be narrowed to students. Adding that parameter
-  is the single fix for all three.
+- **A parent cannot set a child's subject interests.** `curriculum`'s `me/student-subjects/` is
+  self-only, and a child gets no match request, so no assignment, without an interest. The child
+  sets their own today. Its own unit: a curriculum endpoint a parent may call with a linked
+  child, and the child picker on `/account`.
+- **Switching child on `/schedule` is locked while an availability edit is unsaved**, with a hint,
+  rather than carrying or discarding the edit. A "discard and switch" choice would be kinder.
 
 **The rest:**
 
@@ -770,12 +778,19 @@ phase; each was reviewed and consciously deferred rather than missed.
   deleted, because without it both threads reach the INSERT and the unique index refuses one —
   which `accept_offer` now converts into a `ConflictError` too. Same type, different mechanism.
   The MESSAGE separates them, and the assertion names which one refused when it fails.
-- **`/account` overflows horizontally in Arabic** — `scrollWidth` 1162 vs `innerWidth` 1018
-  (144px); clean at 1003/1018 in English. Traced to the "Preferred teacher gender" radio group's
-  visually-hidden inputs using a physical `left:-159px` instead of a logical inset. This is a
-  WCAG 1.4.10 Reflow (AA) failure on a page C1 adds a card to. Belongs to identity/curriculum.
-  Since 2026-10-18 it is held on the Arabic-sweep allowlist (2 entries, under a ceiling): fixing
-  it turns that entry stale and fails the run until the entry is removed.
+- ~~**`/account` overflows horizontally in Arabic**~~ **FIXED 2026-10-19**
+  (ntf-recipient-locale-tz). The "Preferred teacher gender" radio group's visually-hidden
+  form mirrors (Radix puts one `<input>` per radio inside a form, shifted one item-width
+  toward the start edge) stuck out past the page edge in a right-to-left document, which
+  counts as scrollable overflow. `RadioCardGroup` now takes them out of layout
+  (`[&>input]:hidden`); they still submit. The Arabic-sweep allowlist is empty and its
+  ceiling is 0. `rch-i18n-rtl-leak-fixes` keeps the rest of its list (raw times,
+  `TimezoneBar` locale, icon flips).
+- **The time zone picker does not offer `UTC`.** `Intl.supportedValuesOf("timeZone")` omits
+  the `UTC` alias in Chromium, so `TimezoneBar` (availability editor and the `/account`
+  card) cannot choose it. A user whose device is not in UTC cannot go back to the default
+  once they pick another zone; "Use device time zone" is the only way, from a device that
+  is. `account-locale.spec.ts` restores UTC that way.
 - ~~**N+1 in the teacher inbox.**~~ **FIXED 2026-09-13** (backend #57). Measured at **23
   queries for five offers**, now **7 and constant**: the teacher's own availability was re-read
   per row, and the student read and preference lookup were a query each. Batched via new
@@ -984,8 +999,8 @@ proves; all are robustness of an unattended job.
   **Two existing tests drove that editor and asserted the payload contained the slots** — they
   passed, and they encoded the illusion as correct behaviour. That is the third time today a
   green test was protecting nothing. The control is gone, because one that accepts input and
-  throws it away is worse than none: the parent believes the times are set. Editing a child's
-  real availability remains a genuine missing feature with its own entry.
+  throws it away is worse than none: the parent believes the times are set. A parent now edits a
+  child's real availability on `/schedule` (`lb-parent-acts-for-child`).
 - `TimezoneBar` picker has no Escape-to-close, and its listbox `aria-label` reuses the search
   label.
 - `WeeklyAvailabilityEditor` pill React key collides on two identical ranges in one day
