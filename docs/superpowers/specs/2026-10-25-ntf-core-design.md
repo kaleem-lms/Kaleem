@@ -99,7 +99,7 @@ The roadmap names `NotificationLog`. Here it is `Notification` plus `Delivery`.
 `ReminderSchedule` stays with `ntf-reminders`.
 
 **`params` is not a free-form blob.** Each kind declares its parameter names and types, and
-only `int` and `datetime` are allowed. `notify()` refuses anything else, and datetimes are
+only `int` and `datetime` are allowed. `notify()` refuses anything else, requires exactly the declared names, and datetimes are
 stored as ISO-8601 UTC. No `str` type exists, so a name, an email address or any message
 text cannot be stored here. Links are checked the same way. A link must be an app-relative
 path that matches `^/[A-Za-z0-9/_-]*$`, with no `//`, no scheme and no query string. That
@@ -186,10 +186,13 @@ modules import only this file.
 - **Preferences.**
   - `get_preferences(user_id) -> list[Preference]` returns one entry per registered kind
     and per channel that kind lists: `kind`, `channel`, `enabled` and `mandatory`.
-  - `set_preference(user_id, kind, channel, enabled)`. It raises `ValidationError` with
-    `field="kind"` for an unknown kind and `field="channel"` for an unknown channel. For a
+    A mandatory kind always reads as enabled, whatever is stored.
+  - `set_preference(user_id, kind, channel, *, enabled)`. `enabled` is keyword-only (the
+    repo's lint refuses a positional boolean). It raises `ValidationError` with
+    `field="kind"` for an unknown kind and `field="channel"` for an unknown channel or one
+    the kind does not list. For a
     mandatory kind it raises `ValidationError(_("This notification cannot be switched off."), field="enabled")`.
-- `purge_expired(now=None) -> int`. The task `kaleem.notifications.tasks.purge_expired_notifications`
+- `purge_expired(*, now=None) -> int`. The task `kaleem.notifications.tasks.purge_expired_notifications`
   is a thin wrapper around it. It deletes in batches and is idempotent.
 
 ## Frontend
