@@ -27,8 +27,9 @@ changes in this spec:
   tokens CI install step (E3), HarfBuzz shaping (E4), outlined lockup text (E5), the split
   of Task 8 into 8a and 8b (E7), the two dashboard wordmarks (E8), the drift mutation check (E12),
   the absolute `og:image` under the test container (E13), the wordmark descenders (E14) and the
-  `brand.mjs` export (E15). E2 and E3 also amend ADR-0043. E11 marks
-  the brief as being rewritten (`inf-brand-brief-rewrite`).
+  `brand.mjs` export (E15). E2 and E3 also amend ADR-0043. E11 records
+  that the brief was rewritten on 2026-10-25 (`inf-brand-brief-rewrite`), drafted by the
+  conductor, owner to review.
 
 ## Goal
 
