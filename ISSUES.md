@@ -47,36 +47,6 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
   these same pages 1.00 the same day (the new sweep is explicitly dark-first). A source lint
   also now rejects the primary/accent SURFACE colours used as text.
 
-- **Staging passwords are world-readable on a public `master`, and remain in git
-  history.** On 2026-09-08 `kaleem-lms/Kaleem` was public and
-  `curl https://raw.githubusercontent.com/kaleem-lms/Kaleem/master/STATE.md` returned
-  `KaleemC3d!2026` and `KaleemStaging!2026` to an anonymous caller. The owner then made the repo
-  private (as of 2026-09-11 `private: true`, and the same anonymous `curl` 404'd), but **it is
-  public again**: an anonymous fetch returned 200 on 2026-10-17 (journal `2026-W42`), and
-  `STATE.md` on `master` still shows the C3d fixture password. The strings also stay in history
-  at every older commit, and anyone who cloned or scraped them still holds them, exactly as the
-  `.gitleaksignore` rotation record says of the 588a1e35 credentials (ADR-0032).
-  **Do:** rotate the staging passwords for `c3d.student@`, `c3d.teacher@`,
-  `billing.clickthrough@`, `billing.recheck@`, `billing.failcard@` and the two `*.smoke@` users,
-  then keep the new ones out of the repo entirely.
-
-  ⏸ **DEFERRED by the owner 2026-09-13, and re-accepted 2026-10-17 (W42).** It stays under
-  *Blocks launch* and its severity is unchanged — deferring is a decision about **when**, not
-  about whether it matters. What the deferral actually accepts, stated so the next reader does
-  not have to reconstruct it: these credentials reach **staging only**. The 2026-09-13 deferral
-  rested on the repo being private, which bounded the exposure by whoever cloned during the open
-  window; with the repo public again, the owner accepted an **ongoing** exposure, not a bounded
-  one. It must still be done before preview and before real users and real money
-  (`lb-staging-credential-rotation`), and it cannot be done by rotating alone at that point —
-  the strings are in history for good, so the new ones must never enter the repo.
-
-  ⚠ **This is NOT the same task as unblocking the staging walk, and bundling them was my
-  error.** `STATE.md` called them "one task, not two". They share a symptom — no working
-  credential — but not a purpose: rotation is *security remediation* for leaked strings, while
-  the walk needs *any* working login. A fresh throwaway staging account, created and never
-  written down here, unblocks the walk without touching the leaked ones. That is a much smaller
-  piece of work and is now independent of this deferral.
-
 - ~~**`security` (gitleaks) skips on documentation-only changes, and root `*.md` counts as
   documentation.**~~ **FIXED 2026-09-13** (ADR-0042, meta). The `code == 'true'` clause is
   dropped from the `security` job alone; `verified != 'true'` stays, because a tree a PR

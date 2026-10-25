@@ -50,14 +50,15 @@ and hold a video call through our own coturn, but a delivered lesson still leave
 - ⚠ **A merge to `master` is a deploy** (ADR-0028).
 - ⚠ **Deploy between lessons.** A deploy still drops every call in progress — the drain is
   unbuilt (`ISSUES.md`, "Blocks launch").
-- ⚠ C3d staging fixture passwords (`c3d.student@`/`c3d.teacher@`, `KaleemC3d!2026`) proved
-  unstable once for no found reason — reset rather than assume a regression if refused again.
+- ⚠ C3d staging fixture accounts (`c3d.student@`/`c3d.teacher@`) proved unstable once for no found
+  reason — reset rather than assume a regression if refused again. Their passwords are not in the repo.
 - ⚠ Dependabot PRs #182/#183/#184 now report green with nothing tested (ADR-0038 consequence);
   #183 (`upload-artifact` 4→7) is a real upgrade `ci.yml` should take deliberately, not merge
   on the tick.
 - ⚠ **The meta repo is PUBLIC again** (anonymous fetch returned 200 on 2026-10-17, journal
-  `2026-W42`). Staging passwords are world-readable on `master`, in this file and in history.
-  The owner accepted the exposure again that day. Rotation (`lb-staging-credential-rotation`)
-  is still required before preview and launch — `ISSUES.md` → *Blocks launch*.
+  `2026-W42`). The staging passwords that were once committed here were **rotated and verified
+  2026-10-25** (`lb-staging-credential-rotation`): a login check and a database-wide check over all
+  staging users found none of the leaked values accepted. The strings stay in git history for good,
+  so new staging credentials never enter the repo.
 - ⚠ **The weekly stripe-clock harness has been red since 2026-09-24** (four failed runs, the
   last 2026-10-15; `inf-stripe-clock-harness-red`). No billing unit merges until it is green.

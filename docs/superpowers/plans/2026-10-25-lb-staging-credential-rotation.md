@@ -1,6 +1,6 @@
 ---
 spec: docs/superpowers/specs/2026-10-25-lb-staging-credential-rotation-design.md
-status: draft
+status: done
 ---
 
 Size S, meta docs only. Branch `feat/lb-staging-credential-rotation` in the meta worktree

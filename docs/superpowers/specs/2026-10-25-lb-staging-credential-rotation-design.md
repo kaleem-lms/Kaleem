@@ -2,9 +2,9 @@
 name: lb-staging-credential-rotation
 phase: v1 programme (wave 1, ops stream)
 modules: [staging (ops), docs]
-status: draft
+status: shipped
 created: 2026-10-25
-closed: null
+closed: 2026-10-25
 ---
 
 ## Goal
