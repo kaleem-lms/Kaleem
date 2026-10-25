@@ -311,6 +311,8 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
 
 ## Someday
 
+- **Seeded staging lessons will mail `.test` addresses once staging sends notification mail.** `seed_staging_pool` (ci-staging-pool-seed) puts four lessons in state for each unit's pool accounts, all on `pool.kaleem.test`, which cannot receive mail. The notification units own the mailer and should suppress or sink mail to that domain (`staging_pool.POOL_DOMAIN`) on staging so the provider does not see bounces.
+
 - **Messages show no "Seen" mark for the other side.** `msg-dashboard-ui` built the caller's own
   read state only (unread counts, the "New messages" divider, the pointer moving on view),
   because the API exposes the caller's unread count and not the counterpart's read pointer.

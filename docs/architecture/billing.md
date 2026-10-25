@@ -67,6 +67,21 @@ All inter-module and API-layer access goes through here.
 Errors are typed (`platform.exceptions.NotFoundError` / `ValidationError` /
 `PermissionDeniedError`), never bare `Exception`.
 
+### Fixture subscriptions: `grant_dev_subscription`
+
+Fixtures only (the e2e seeds and the staging pool seed). It manufactures a subscription with
+no charge behind it, so it refuses unless one of two cases holds:
+
+1. `settings.DEBUG` (local development and CI), as it always has; or
+2. the deployment is staging (`staging_pool.is_staging()`, the host of `FRONTEND_URL`) **and**
+   the user's address is a pool address (`pool.<unit>.<role>@pool.kaleem.test`,
+   `staging_pool.is_pool_email`), added by ci-staging-pool-seed.
+
+Production is refused for every address; staging is refused for every non-pool address. The
+fixture row is unpaid and has no `BillingCustomer`, so the nightly Stripe reconciler never
+sees it. Both refusals are tested and mutation-checked
+(`billing/tests/test_entitlement.py::TestGrantDevSubscriptionOnStaging`).
+
 ### `LIVE_STATUSES` vs. entitlement — read this before touching either
 
 Two different questions, two different answers, both deliberate:

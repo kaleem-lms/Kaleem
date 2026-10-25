@@ -10,7 +10,7 @@ them red with `backend-gate.sh <wt> <test file>`, then write the code.
 
 ## Steps
 
-1. [ ] **Platform helper.** Tests first in `kaleem/platform/tests/test_staging_pool.py`:
+1. [x] **Platform helper.** Tests first in `kaleem/platform/tests/test_staging_pool.py`:
    - `is_staging()` true for `https://app-staging.kaleem.academy`; false for
      `https://app.kaleem.academy`, `http://app.kaleem.localhost:5173`, `https://stagingx.example`.
    - `pool_email("lb-x", "teacher") == "pool.lb-x.teacher@pool.kaleem.test"`; `validate_unit`
@@ -21,14 +21,14 @@ them red with `backend-gate.sh <wt> <test file>`, then write the code.
    Code: `kaleem/platform/staging_pool.py` (constants `POOL_DOMAIN`, `ROLES`,
    `MIN_PASSWORD_LENGTH = 16`; pure functions, no business imports).
 
-2. [ ] **Billing guard.** Tests first, appended to `kaleem/billing/tests/test_entitlement.py`:
+2. [x] **Billing guard.** Tests first, appended to `kaleem/billing/tests/test_entitlement.py`:
    DEBUG + any user → granted (unchanged); `DEBUG=False` + staging + pool address → granted;
    staging + non-pool address → `RuntimeError`; production-like `FRONTEND_URL` + pool address →
    `RuntimeError`. Code: the guard in `grant_dev_subscription` becomes
    `settings.DEBUG or (staging_pool.is_staging() and staging_pool.is_pool_email(user.email))`,
    docstring updated. Nothing else in `billing/services.py` changes.
 
-3. [ ] **Identity command** `kaleem/identity/management/commands/seed_staging_pool_accounts.py`.
+3. [x] **Identity command** `kaleem/identity/management/commands/seed_staging_pool_accounts.py`.
    Tests first in `kaleem/identity/tests/test_seed_staging_pool_accounts.py`:
    - refuses off staging; refuses when run without the `password_hash` stealth option;
    - creates the three accounts, verified primary addresses, profiles, the parent link, teacher
@@ -40,7 +40,7 @@ them red with `backend-gate.sh <wt> <test file>`, then write the code.
    Code: options `--unit` (repeatable) and stealth `password_hash`; converges like `seed_e2e`'s
    `_account`, storing the given hash (as `seed_load_accounts` does).
 
-4. [ ] **Scheduling command** `kaleem/scheduling/management/commands/seed_staging_pool_lessons.py`.
+4. [x] **Scheduling command** `kaleem/scheduling/management/commands/seed_staging_pool_lessons.py`.
    Tests first in `kaleem/scheduling/tests/test_seed_staging_pool.py` (scheduling tests may
    import identity, billing and curriculum models; platform tests may not):
    - refuses off staging;
@@ -54,7 +54,7 @@ them red with `backend-gate.sh <wt> <test file>`, then write the code.
    `claim_slot`, reposition the three earliest lessons, `complete_session` on `held` with the
    seed's clock). Raises if the cycle does not yield exactly four lessons.
 
-5. [ ] **Platform orchestrator** `kaleem/platform/management/commands/seed_staging_pool.py`.
+5. [x] **Platform orchestrator** `kaleem/platform/management/commands/seed_staging_pool.py`.
    Tests first in `kaleem/platform/tests/test_seed_staging_pool.py`, with `call_command`
    mocked as `test_seed_e2e_all.py` does:
    - refuses off staging, on an empty or 15-character password, on no / repeated / malformed
@@ -67,7 +67,7 @@ them red with `backend-gate.sh <wt> <test file>`, then write the code.
    Django `createsuperuser` pattern), one `make_password` per run, one `transaction.atomic()`
    per unit, per-unit addresses and lesson times printed, then a counts line.
 
-6. [ ] **Idempotency and scope, end to end** (the D3 substitute), in
+6. [x] **Idempotency and scope, end to end** (the D3 substitute), in
    `kaleem/scheduling/tests/test_seed_staging_pool.py`, calling the real orchestrator with
    `stdin=io.StringIO(...)` under `override_settings(DEBUG=False, FRONTEND_URL=<staging>)`:
    - two runs → identical counts of users, addresses, profiles, links, subscriptions,
@@ -86,7 +86,7 @@ them red with `backend-gate.sh <wt> <test file>`, then write the code.
    and see the joinable lesson's Join control, as the teacher see `toClose` in the close-out
    list, in both themes, Arabic RTL and 320px (dec-d9-substitute).
 
-8. [ ] **Close-out notes for the conductor:** `docs/architecture/platform.md` (the helper and the
+8. [x] **Close-out notes for the conductor:** `docs/architecture/platform.md` (the helper and the
    command), `docs/architecture/billing.md` (the guard's second case), a short
    `docs/runbook/staging-pool.md` (how and when to run it, no secrets), the D3 statement "no
    e2e, by design", the `hg-staging-accounts` text ("Django shell until ...") updated in the
