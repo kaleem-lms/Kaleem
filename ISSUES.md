@@ -311,6 +311,12 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
 
 ## Someday
 
+- **Messages show no "Seen" mark for the other side.** `msg-dashboard-ui` built the caller's own
+  read state only (unread counts, the "New messages" divider, the pointer moving on view),
+  because the API exposes the caller's unread count and not the counterpart's read pointer.
+  A "Seen" receipt needs a backend field first, then a mark in `MessageItem`. Owner confirmed
+  the narrower reading of "receipts" with the spec (2026-10-25).
+
 - **The root `brand/` package is stale.** It dates from June 2026 (9448fe3, made for Stitch) and
   carries the pre-ADR-0040 v0.1.1 palette, which contradicts the shipped one. The new brand brief
   says it is not an input. Wants deleting or marking historical by the brand stream. Found
