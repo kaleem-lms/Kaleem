@@ -1,6 +1,6 @@
 ---
 spec: docs/superpowers/specs/2026-10-25-sched-reschedule-design.md
-status: draft
+status: approved
 ---
 
 The unit uses two worktrees on `feat/sched-reschedule`, each made from `origin/main` (runbook
