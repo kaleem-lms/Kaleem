@@ -288,10 +288,6 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
   migration and one default assertion — so every row held `[]` and the drop lost nothing. The
   migration's docstring records that, since the next reader of a `RemoveField` on a JSON
   column will want to know whether data went with it.
-- ~~**Dashboard zod validation messages are not i18n'd**~~ **FIXED 2026-10-25**
-  (lb-zod-i18n) — one i18next-driven zod error map (`src/lib/zod.ts`) over a lazily loaded
-  `validation` catalogue; every schema imports `z` from `@/lib/zod`. The English copy of every
-  zod-validated field changed to plain sentences.
 - A validation error already on screen does not re-translate when the language is switched; it
   updates on the next validation (typing or submitting). Same for the curriculum
   `validate: () => t(...)` forms. Rare (the language toggle sits away from the form), so not fixed.
