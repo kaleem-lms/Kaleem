@@ -24,7 +24,7 @@ no test pollutes the global one. It mirrors notifications' `fresh_kinds`.
 
 ## Part 1: the bus (backend PR 1, release N)
 
-1. [ ] **Type and handler registry.** Write `tests/test_events_registry.py` first:
+1. [x] **Type and handler registry.** Write `tests/test_events_registry.py` first:
    - `test_register_type_and_lookup`
    - `test_equal_reregistration_is_a_noop`
    - `test_conflicting_type_raises`
@@ -39,7 +39,7 @@ no test pollutes the global one. It mirrors notifications' `fresh_kinds`.
    `InvalidEventError(ValueError)` and the module-level aliases. The shape follows
    `personal_data.py`.
 
-2. [ ] **Models and migration.** Write `tests/test_events_models.py` first:
+2. [x] **Models and migration.** Write `tests/test_events_models.py` first:
    - `test_handled_pair_is_unique` (an `IntegrityError` on the duplicate)
    - `test_deleting_event_cascades_handled`
    - `test_type_has_no_choices` (`_meta.get_field("type").choices is None`)
@@ -48,7 +48,7 @@ no test pollutes the global one. It mirrors notifications' `fresh_kinds`.
    `migrations/__init__.py`, and `makemigrations platform` to produce `0001_initial`, which
    is additive only. Add the GIN index on `user_ids` and a btree index on `occurred_at`.
 
-3. [ ] **`publish`.** Write `tests/test_events_publish.py` first:
+3. [x] **`publish`.** Write `tests/test_events_publish.py` first:
    - `test_outside_atomic_raises`
    - `test_unregistered_type_raises`
    - `test_wrong_class_raises`
@@ -66,7 +66,7 @@ no test pollutes the global one. It mirrors notifications' `fresh_kinds`.
    Mutation-check this step: call `delay` directly instead of `on_commit`, and
    `test_enqueues_only_on_commit` must go red.
 
-4. [ ] **`deliver` and `deliver_event`.** Write `tests/test_events_deliver.py` first:
+4. [x] **`deliver` and `deliver_event`.** Write `tests/test_events_deliver.py` first:
    - `test_runs_each_handler_once_and_records`
    - `test_second_deliver_is_noop`
    - `test_raising_handler_rolls_back_only_itself`: its write is gone, its pair is pending,
@@ -82,7 +82,7 @@ no test pollutes the global one. It mirrors notifications' `fresh_kinds`.
    retries. Mutation-check it by dropping the per-handler atomic:
    `test_raising_handler_rolls_back_only_itself` must go red.
 
-5. [ ] **Sweep, purge and replay.** Write `tests/test_events_jobs.py` and
+5. [x] **Sweep, purge and replay.** Write `tests/test_events_jobs.py` and
    `tests/test_replay_events_command.py` first:
    - the sweep window edges (4m59s and 24h+1s skipped; 5m and 24h enqueued), and a handled
      pair skipped
@@ -95,20 +95,20 @@ no test pollutes the global one. It mirrors notifications' `fresh_kinds`.
    Then write `sweep_pending_events` and `purge_old_events` in `tasks.py` and
    `management/commands/replay_events.py`. **No beat entries yet** (part 2).
 
-6. [ ] **Probe.** Write `tests/test_event_bus_probe_command.py` first. Under eager Celery the
+6. [x] **Probe.** Write `tests/test_event_bus_probe_command.py` first. Under eager Celery the
    probe exits 0. With `delay` patched to a no-op and `--timeout 1`, it exits non-zero.
 
    Then register `platform.bus_probe` (type and no-op handler) in `apps.py` `ready()` and
    write `management/commands/event_bus_probe.py`.
 
-7. [ ] **Personal-data hooks.** Write `tests/test_events_personal_data.py` first, using
+7. [x] **Personal-data hooks.** Write `tests/test_events_personal_data.py` first, using
    `assert_hooks_honour_contract("platform.events", seed=..., make_user=...)`. `seed`
    publishes one probe-shaped event with that user in `user_fields`. Then write
    `events_personal_data.py` (export and erase by `user_ids__contains`) and register it in
    `PlatformConfig.ready()`. Run `tests/test_personal_data_hooks_cover_every_model.py`; it
    must pass with no edit, because both models are named by the hooks.
 
-8. [ ] **Docs (meta).**
+8. [x] **Docs (meta).**
    - ADR text "domain event bus" (spec Module boundaries). It goes to the conductor for a
      number.
    - A "The domain event bus" section in `docs/architecture/platform.md`, with how to
@@ -119,15 +119,15 @@ no test pollutes the global one. It mirrors notifications' `fresh_kinds`.
 
    This meta change lands with part 1's pin bump.
 
-9. [ ] **Full gate, merge `origin/main`, hand back part 1.**
+9. [x] **Full gate, merge `origin/main`, hand back part 1.**
 
 ## Part 2: scheduling publishes (backend PR 2, release N+1, after part 1 deploys)
 
-10. [ ] **Event types.** Write `kaleem/scheduling/tests/test_events.py::test_types_registered`
+10. [x] **Event types.** Write `kaleem/scheduling/tests/test_events.py::test_types_registered`
     first. Then write `kaleem/scheduling/events.py`, holding `SessionCompleted`,
     `SessionCancelled` and `register()`, and call `register()` from `SchedulingConfig.ready()`.
 
-11. [ ] **Publish on close-out and cancellation.** Write the payload tests in
+11. [x] **Publish on close-out and cancellation.** Write the payload tests in
     `kaleem/scheduling/tests/test_events.py` first:
     - `complete_session` publishes `outcome="held"`, and `mark_student_absent` publishes
       `"student_absent"`
@@ -155,15 +155,15 @@ no test pollutes the global one. It mirrors notifications' `fresh_kinds`.
     back. That is pinned by the refusal cells, and it holds by construction, so it has no
     separate mutation.
 
-12. [ ] **Beat entries.** Write `tests/test_beat_schedule.py` (or extend the existing beat
+12. [x] **Beat entries.** Write `tests/test_beat_schedule.py` (or extend the existing beat
     test) first: both entries exist and name registered tasks. Then add
     `platform-sweep-pending-events` (`*/10`) and `platform-purge-old-events` (daily, at the
     conductor's slot) to `CELERY_BEAT_SCHEDULE` in `config/settings/base.py`.
 
-13. [ ] **Docs (meta).** Under `docs/architecture/scheduling.md`, in "Jobs" or "Public API",
+13. [x] **Docs (meta).** Under `docs/architecture/scheduling.md`, in "Jobs" or "Public API",
     list the two published events and their payloads, and point to platform.md.
 
-14. [ ] **Full gate, merge `origin/main`, hand back part 2.**
+14. [x] **Full gate, merge `origin/main`, hand back part 2.**
 
 ## Migrations
 
