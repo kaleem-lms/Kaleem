@@ -338,6 +338,12 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
 
 ## Someday
 
+- **Messages show no "Seen" mark for the other side.** `msg-dashboard-ui` built the caller's own
+  read state only (unread counts, the "New messages" divider, the pointer moving on view),
+  because the API exposes the caller's unread count and not the counterpart's read pointer.
+  A "Seen" receipt needs a backend field first, then a mark in `MessageItem`. Owner confirmed
+  the narrower reading of "receipts" with the spec (2026-10-25).
+
 - **The /account time-zone sync is one-way.** Changing the zone in the new Language and time
   zone card refetches the availability panel, but saving a zone in the availability panel on the
   same page does not refresh the card. Found 2026-10-19 by ntf-recipient-locale-tz.
