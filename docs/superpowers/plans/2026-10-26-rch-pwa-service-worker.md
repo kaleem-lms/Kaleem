@@ -3,130 +3,136 @@ spec: docs/superpowers/specs/2026-10-26-rch-pwa-service-worker-design.md
 status: draft
 ---
 
-Size L, about three days. Starts only after `rch-d-pwa-offline-scope` is answered and the spec
-is approved. Dashboard work on `feat/rch-pwa-service-worker` in
+Size L, about four days. Starts only after the owner approves the spec and answers its open
+questions (a changed answer edits the projection test and nothing else). Dashboard work on
+`feat/rch-pwa-service-worker` in
 `/home/abdulkhalek/Projects/kaleem-worktrees/dashboard-rch-pwa-service-worker` (runbook §1),
-then `pnpm install --frozen-lockfile`. Meta work (ADR, runbook, arch doc, CLAUDE.md D3 row) in
-`/home/abdulkhalek/Projects/kaleem-worktrees/meta-rch-pwa-service-worker`.
+then `pnpm install --frozen-lockfile`. Meta work (ADR, runbook, arch doc, D3 row, ISSUES line)
+in `/home/abdulkhalek/Projects/kaleem-worktrees/meta-rch-pwa-service-worker`.
 
-No dependency change, no migration, no backend change, no coverage floor edit
-(`dec-floor-ownership`). `nginx.conf` is a serialization point: the conductor confirms no other
-unit holds it before step 7.
+No dependency change, no migration, no backend change, no coverage-floor edit
+(`dec-floor-ownership`). Serialization points for the conductor: `nginx.conf` and
+`vite.config.ts` (listed), plus `src/main.tsx` and `src/lib/api.ts` (not listed: check
+`rch-dashboard-code-splitting` and `rch-security-headers`), and `features/identity/queries.ts`
+with `lb-gdpr-erasure` (whichever lands second adds the wipe to `useDeleteAccount`).
 
 ## Files
 
 | File | Change |
 | --- | --- |
-| `src/sw/policy.ts` (+ test) | new: pure request classification (`handled`, `strategy`) |
-| `src/sw/worker.ts` (+ test) | new: `installWorker(scope, manifest)` wires install/activate/fetch/message on a scope object |
-| `src/sw/kill.ts` (+ test) | new: the self-retiring worker |
-| `src/sw/mode.ts` | new: `SW_MODE` (the kill switch) |
-| `src/sw/entry.ts` | new: one call into `installWorker` or the kill worker with `self` and the injected manifest |
-| `src/lib/sw/register.ts` (+ test) | new: lazy registration, update prompt, call hold, visibility check |
-| `src/features/identity/require-auth.ts` (+ test) | `OfflineError` on a no-response failure |
-| `src/features/shell/OfflineScreen.tsx` (+ test) | new |
+| `src/sw/policy.ts`, `worker.ts`, `kill.ts`, `mode.ts`, `entry.ts` (+ tests) | new: the worker, as in the shell-only draft; activate keeps `kaleem-offline-v1` |
+| `src/lib/offline/projection.ts` (+ test) | new: `toOfflineSchedule(me, sessions, now)` keeps the named fields only |
+| `src/lib/offline/store.ts` (+ test) | new: `saveSchedule`, `readSchedule(now)` (age and ended-lesson filter, owner check) on `kaleem-offline-v1` |
+| `src/lib/offline/wipe.ts` (+ test) | new: `wipeOfflineData()`, no `@/` imports (imported by `lib/api.ts`) |
+| `src/lib/sw/register.ts` (+ test) | new: lazy registration, prompt, call hold, visibility check, the query-cache subscription that saves and switch-wipes |
+| `src/lib/api.ts` (+ test) | response interceptor: wipe on 401 or 403 `not_authenticated` |
+| `src/features/identity/require-auth.ts` (+ test) | `OfflineError` on no response or `navigator.onLine === false` |
+| `src/features/identity/queries.ts` (+ test) | `useLogout` (and `useDeleteAccount` if landed) wipe on success |
+| `src/features/shell/OfflineScreen.tsx` (+ test) | new: offline message, saved schedule, Try again |
 | `src/routes/_authed.tsx`, `src/routes/_call.tsx` | `errorComponent` |
 | `src/ui/toast.tsx` (+ test) | optional `duration` |
-| `src/main.tsx` | dynamic import of the registration after `load` (prod only) |
-| `src/locales/{en,ar}/common.json` | `offline.*`, `update.*` |
-| `vite.config.ts` | the `sw` input, fixed `sw.js` name, manifest injection |
-| `scripts/check-sw.mjs` (+ `.test.mjs`) | new: build check, run from `pnpm build` |
-| `package.json` | `build` script appends `node scripts/check-sw.mjs` (no dependency change) |
-| `nginx.conf` | `location = /sw.js` |
-| `playwright.config.ts` | `serviceWorkers: "block"` |
-| `e2e/pwa.spec.ts` | new |
-| `e2e/security-headers.spec.ts` | add `/sw.js` |
-| meta: `docs/adr/NNNN-service-worker-policy.md` | new (number from the conductor) |
-| meta: `docs/runbook/service-worker.md` | new: the kill switch, step by step |
-| meta: `docs/architecture/overview.md`, `CLAUDE.md` D3 table | PWA row and a short worker section |
+| `src/main.tsx` | `mutations: { networkMode: "always" }`; dynamic import of the registration after `load` (prod) |
+| `src/lib/i18n-namespaces.ts` (+ test), `src/locales/{en,ar}/offline.json` | new `offline` catalogue |
+| `vite.config.ts`, `scripts/check-sw.mjs` (+ `.test.mjs`), `package.json` `build` | worker build, manifest injection, build check |
+| `nginx.conf`, `e2e/security-headers.spec.ts` | `location = /sw.js` |
+| `playwright.config.ts`, `e2e/pwa.spec.ts` | `serviceWorkers: "block"`; the new flows |
+| meta: `docs/adr/NNNN-service-worker-and-offline-data.md` | new, number from the conductor |
+| meta: `docs/runbook/service-worker.md`, `docs/architecture/overview.md`, `CLAUDE.md` D3, `ISSUES.md` | kill switch and rollback; worker section; PWA row; privacy-notice follow-up |
 
 ## Steps
 
-1. [ ] **Spike: the build shape (before any test).** In the worktree, add `src/sw/entry.ts` as a
-   second Rollup input with `entryFileNames` mapping it to `sw.js`. Run `pnpm build`. Record:
-   the output has no `import`, it is not in `dist/index.html`, and the budget line is
-   unchanged. If Vite 8 shares a chunk with the worker or will not emit a fixed name, build the
-   worker in the plugin's `closeBundle` with Vite's `build()` in library mode instead. Measure,
-   in a throwaway spec, whether `context.route("**/sw.js")` serves a changed worker to
-   Chromium's update check; that decides e2e flow 3. Record both results in the PR.
-2. [ ] **Worker policy, red then green.** Write `src/sw/policy.test.ts` and
-   `src/sw/worker.test.ts` with a fake scope (listeners map, fake `caches`, `fetch` and
-   `clients`). The cases are the spec's "Worker policy" list. Then write `policy.ts` and
-   `worker.ts`. Mutation-check: make `handled` accept cross-origin, see the API case go red.
-3. [ ] **Kill worker, red then green.** `src/sw/kill.test.ts` (the spec's "Kill mode"
-   cases), then `kill.ts`, `mode.ts`, `entry.ts`. Mutation-check: add a `clients.navigate`,
-   see red.
-4. [ ] **Build plugin and `check-sw.mjs`, red then green.** Write
-   `scripts/check-sw.test.mjs` against fixture `dist` folders: a missing `sw.js`, an `import`
-   in it, a list missing an initial script, and an entry containing the API base or `/api/`
-   each fail. Then the plugin in `vite.config.ts` (injects the file list and a build id
-   derived from it) and the script. `pnpm build` must pass budget and check.
-5. [ ] **`requireAuth`, red then green.** In `require-auth.test.ts`: a 401 response
-   redirects; a 500 response redirects (unchanged); an axios error without `response`
-   throws `OfflineError` and no redirect. Mutation-check: revert to the bare `catch`, see the
-   no-response case go red.
-6. [ ] **`OfflineScreen` and `toast` duration, red then green.** Tests: en and ar render,
-   heading focused, Try again calls `router.invalidate`, the `online` event retries, jest-axe
-   clean; `toast({ duration: Infinity })` is not dismissed after 5 s while the default still
-   is. Wire `errorComponent` on `_authed` and `_call`. Add the strings to both
-   `common.json` files.
-7. [ ] **Registration and prompt, red then green.** `src/lib/sw/register.test.ts` with a fake
-   `navigator.serviceWorker`: the spec's "Registration" cases, including another tab's
-   `controllerchange` not reloading this one and the hold on a `/_call` match. Then
-   `register.ts` and the `main.tsx` dynamic import. Mutation-check: drop the call hold, see red.
-8. [ ] **Bundle measurement.** `pnpm build`: the initial JS line must stay within 1 KB of
-   main's (the `requireAuth` branch and the strings). Paste both numbers in the PR. Over the
-   budget: stop and escalate; never raise it.
-9. [ ] **nginx and headers e2e, red then green.** Add `/sw.js` to
-   `security-headers.spec.ts`, asserting the header block plus a JavaScript media type and
-   `Cache-Control: no-cache` (red: today the SPA fallback answers `text/html`). Then the
-   location.
-10. [ ] **`e2e/pwa.spec.ts`, red then green.** `test.use({ serviceWorkers: "allow" })`, one
-    read-only seeded account from the conductor's allocation. Flows 1 and 2 as the spec
-    describes, flow 3 if step 1 showed it can run. Set `serviceWorkers: "block"` in the config
-    and run the whole suite locally in an e2e slot (runbook §2) to confirm nothing else moved.
-    Mutation-check flow 1 against a build with step 5 reverted (expect `/login`).
-11. [ ] **Meta docs.** ADR "Service worker policy" (hand-written vs Workbox, the four rules,
-    the kill switch), `docs/runbook/service-worker.md`, a worker section in
-    `docs/architecture/overview.md`, and the D3 table row stating exactly what the e2e proves,
-    including "nothing on Safari/iOS".
-12. [ ] **Gates and hand-back.** `dashboard-gate.sh <WT>` full; merge `origin/main` (never
-    rebase) and re-run; `gitleaks-range.sh`; the runbook §3 checks and hand-back block.
+1. [ ] **Spike (before any test).** Build `src/sw/entry.ts` as a second Rollup input named
+   `sw.js`; record that it has no `import`, is not in `dist/index.html`, and the budget line
+   is unchanged (fallback: build it in `closeBundle` with Vite's library mode). In a
+   throwaway spec, measure (a) whether `context.route("**/sw.js")` reaches Chromium's update
+   check (decides e2e flow 4) and (b) that `caches` and a worker are available on
+   `http://app.kaleem.localhost` in CI's topology (a secure context). Record both in the PR.
+2. [ ] **Worker, red then green.** `policy.test.ts`, `worker.test.ts`, `kill.test.ts` with a
+   fake scope (listeners, `caches`, `fetch`, `clients`): the spec's worker and kill cases.
+   Mutation-checks: let `handled` accept cross-origin (API case red); add a
+   `clients.navigate` to kill mode (red); let activate delete `kaleem-offline-v1` (red).
+3. [ ] **Projection, red then green.** `projection.test.ts`: a row carrying every current
+   field plus an unknown one yields exactly the seven keys (asserted with `Object.keys`, so a
+   spread fails); 14-day cut-off; `view` from `resolveViewerRole`. Mutation-check: replace
+   the named pick with a spread, see red.
+4. [ ] **Store and wipe, red then green.** `store.test.ts` and `wipe.test.ts` with a fake
+   `caches`: no save without a controller or `me`; save then read round-trips; a 15-day-old
+   copy is deleted and `null`; ended lessons filtered; a different owner id is never
+   returned. Mutation-check: drop the age check, see red.
+5. [ ] **Wipe triggers, red then green.** `api.test.ts`: the interceptor wipes on 401 and 403
+   `not_authenticated`, not on 403 `permission_denied`, 404, 500 or no response, and still
+   rejects with the original error. `queries.test.tsx`: `useLogout` (and `useDeleteAccount`)
+   success wipes. `register.test.ts`: a `["me"]` update with another id wipes before the next
+   save. Mutation-check each: remove the call, see red.
+6. [ ] **`requireAuth`, red then green.** 401, 403 and 500 still redirect; no response and
+   `navigator.onLine === false` throw `OfflineError`. Mutation-check: restore the bare
+   `catch`, see red.
+7. [ ] **`OfflineScreen`, catalogue and toast, red then green.** en and ar, with and without a
+   copy, the "Saved for … / Saved …" lines, no button inside the list, heading focused, retry
+   on click and `online`, jest-axe clean; `i18n-namespaces.test.ts` still forbids a static
+   import; `toast({ duration: Infinity })` survives 5 s. Wire both `errorComponent`s.
+8. [ ] **Registration and offline mutations, red then green.** `register.test.ts` with a fake
+   `navigator.serviceWorker` and a real `QueryClient`: the spec's registration cases; a
+   `["sessions"]` success saves only under a controller; `"off"` wipes and unregisters. A
+   `main`-shaped client test: with `onlineManager.setOnline(false)` a mutation rejects instead
+   of pausing (mutation-check: drop the option, see it pause). Then `main.tsx`.
+9. [ ] **Build check, red then green.** `check-sw.test.mjs` on fixture `dist` folders (no
+   `sw.js`; an `import`; a missing initial script; an API-base or `/api/` entry), then the
+   plugin and the script. `pnpm build` passes budget and check.
+10. [ ] **Bundle measurement.** Initial JS within 1 KB of main's; both numbers in the PR. Over:
+    stop and escalate, never raise the budget.
+11. [ ] **nginx, red then green.** `/sw.js` in `security-headers.spec.ts` (header block, a
+    JavaScript type, `no-cache`; red today: the SPA fallback answers `text/html`), then the
+    location.
+12. [ ] **`e2e/pwa.spec.ts`, red then green.** The spec's flows with one seeded student who has
+    lessons (`seed_e2e_matching`; the conductor allocates it, used read-only but for its own
+    sign-out). Set `serviceWorkers: "block"` and run the whole suite in an e2e slot (runbook
+    §2). Mutation-checks: flow 1 against step 6 reverted (expect `/login`); flow 3 against the
+    `useLogout` wipe removed (expect the copy to survive).
+13. [ ] **Meta docs.** ADR "Service worker and offline data" (hand-written worker, the rules,
+    Cache Storage over IndexedDB, the field list, the wipes, the kill switch as the rollback),
+    the runbook, the architecture section, the D3 row (what the flows prove; deletion wipe and
+    kill switch unit-only; nothing on Safari/iOS), and an `ISSUES.md` line for the
+    privacy-notice sentence.
+14. [ ] **Gates and hand-back.** Full `dashboard-gate.sh <WT>`; merge `origin/main` (never
+    rebase) and re-run; `gitleaks-range.sh`; runbook §3 checks.
 
 ## Gates
 
 `/home/abdulkhalek/Projects/kaleem-worktrees/_tools/dashboard-gate.sh <WT> <test>` in the TDD
-loop, and the full gate (tsc, lint, `test:coverage --maxWorkers=6`, build with budget and
-`check-sw`, the colour check) before hand-back. e2e locally in slot 1 or 2; CI is the
-authority. Time budget: about 40 s for `pwa.spec.ts`, within the suite's 9 minutes.
+loop; the full gate (tsc, lint, `test:coverage --maxWorkers=6`, build with budget and
+`check-sw`, colours) before hand-back. e2e locally in slot 1 or 2; CI is the authority. Time
+budget: about 60 s for `pwa.spec.ts`, inside the suite's 9 minutes.
 
 ## Risks
 
-- **The worker serves a broken shell to everyone.** Network-first navigation limits it to
-  offline users, and the kill switch reaches every browser on its next update check. The
+- **A child's data left on a device.** Named-field projection (step 3 test fails on a
+  spread), six wipe triggers each unit-tested and mutation-checked, a 14-day ceiling, no copy
+  without a worker. Residual, stated in the spec: a device never opened again keeps it until
+  the browser clears it.
+- **A wipe missed on a path not listed.** Every path to "not signed in" passes through an API
+  answer (wipe 3) or sign-out/deletion; the e2e proves two of them end to end.
+- **The worker serves a broken shell.** Network-first navigation and the kill switch; the
   runbook is written before merge.
-- **Initial bundle over 580 KB.** Registration and the prompt are lazy; only the
-  `requireAuth` branch and the strings are added. Measured in step 8; escalate if over.
-- **Vite 8 will not emit an import-free fixed-name worker.** Fallback in step 1
-  (`closeBundle` with library mode). Both fail: escalate (a dependency would be scope growth).
-- **The update e2e cannot be driven.** Covered by unit tests, and the D3 row says so.
-- **Existing specs change meaning under a worker.** `serviceWorkers: "block"` keeps every
-  other spec as it is; step 10 runs the whole suite.
-- **Blue-green switch mid-install.** `addAll` fails as a whole and the browser retries; no
-  half-filled cache is ever used.
-- **A tab in a call when another tab applies an update.** The call tab does not reload. Its
-  next lazy chunk is fetched from the network, as without a worker, and the existing chunk
-  reload guard applies as today.
-- **CSP.** If `rch-security-headers`' CSP lands without allowing a same-origin worker,
-  registration fails silently. Its spec and this one are held together by the conductor.
-- **Safari/iOS.** Not verifiable here; stated in the spec and the D3 row, not claimed.
+- **Initial bundle over 580 KB.** Everything but the guard, wipe, interceptor and option is
+  lazy; measured in step 10; escalate if over.
+- **`networkMode: "always"` changes app-wide mutation behaviour.** Offline taps now fail at
+  once rather than firing later; the full unit suite and e2e show whether anything relied on
+  pausing.
+- **Vite 8 will not emit an import-free fixed-name worker.** Fallback in step 1; both fail:
+  escalate (a dependency is scope growth).
+- **The update e2e cannot be driven.** Unit tests only; the D3 row says so.
+- **CSP blocks the worker** if `rch-security-headers` omits it; the conductor holds the two.
+- **Collision with `lb-gdpr-erasure` and other `main.tsx`/`api.ts` units.** Merge
+  `origin/main` before hand-back; the second to land adds the deletion wipe.
+- **Safari/iOS.** Not verifiable here; stated, not claimed.
 
 ## Verification
 
-Each step's tests go red before green, and the four named mutation checks are repeated by the
-reviewer. The whole: the full dashboard gate, CI's e2e with `pwa.spec.ts` in its log, then
-the staging click-through (`dec-d9-substitute`): install the worker, go offline in DevTools,
-reload, see the offline screen in both themes, in Arabic RTL and at 320px; check Cache
-Storage holds no API URL; after the next staging deploy, see the prompt outside a call and
-not inside one. Real-device
-install stays with `rch-pwa-device-verification`.
+Every step red before green; the named mutation checks repeated by the reviewer. Then the
+full gate, CI's e2e with `pwa.spec.ts` in its log, and the staging click-through
+(`dec-d9-substitute`): load the schedule, go offline in DevTools, reload, see the offline
+screen with the saved lessons in both themes, Arabic RTL and 320px; inspect Cache Storage
+(only app-origin URLs; the offline entry has the named fields only); sign out and see the
+entry gone; after the next staging deploy see the prompt outside a call and not inside one.
+Real-device installs stay with `rch-pwa-device-verification`.
