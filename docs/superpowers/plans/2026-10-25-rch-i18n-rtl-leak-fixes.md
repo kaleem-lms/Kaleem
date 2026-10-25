@@ -16,7 +16,7 @@ run; Step 8 is NOT run.
 
 ## Steps
 
-1. [ ] **`src/lib/wall-time.ts`, test first** (`src/lib/wall-time.test.ts`).
+1. [x] **`src/lib/wall-time.ts`, test first** (`src/lib/wall-time.test.ts`).
    Red cases: `formatWallTime("09:00","en")` is `9:00 AM` (match `/^9:00\sAM$/`, ICU puts U+202F
    before AM); `"13:30"` → `/^1:30\sPM$/`; `"09:00:00"` equals `"09:00"`; `formatWallTime("09:00","ar")`
    contains `ص` and no `AM`; `formatWallTimeRange("09:00","10:00","en")` equals
@@ -26,7 +26,7 @@ run; Step 8 is NOT run.
    `timeZone: "UTC"` and run the suite under `TZ=Asia/Tokyo pnpm vitest run src/lib/wall-time.test.ts`;
    the clock cases go red.
 
-2. [ ] **`WeeklyAvailabilityEditor` uses it.** Tests first in `WeeklyAvailabilityEditor.test.tsx`:
+2. [x] **`WeeklyAvailabilityEditor` uses it.** Tests first in `WeeklyAvailabilityEditor.test.tsx`:
    - new: after `i18n.changeLanguage("ar")`, the Saturday pill's text equals
      `formatWallTimeRange("09:00","12:00","ar")` and `screen.queryByText(/09:00/)` is null;
    - new: an overlap in Arabic puts the formatted range in the error;
@@ -38,12 +38,12 @@ run; Step 8 is NOT run.
    they assert raw text. Mutation check: restore `{slot.start_time} – {slot.end_time}`; the Arabic
    pill case goes red.
 
-3. [ ] **`TimezoneBar` offset in the app's language.** Test first in `TimezoneBar.test.tsx`: with
+3. [x] **`TimezoneBar` offset in the app's language.** Test first in `TimezoneBar.test.tsx`: with
    `i18n.changeLanguage("ar")` (restored in `afterEach`) the bar's text contains `غرينتش`; the
    existing `/GMT[+-]\d|UTC[+-]\d/` case stays. Then `getOffsetLabel(timeZone, i18n.language)`
    and add `i18n.language` to the `useMemo` deps. Mutation check: put `undefined` back; red.
 
-4. [ ] **Sign-out icon mirrors; directional-icon guard.**
+4. [x] **Sign-out icon mirrors; directional-icon guard.**
    - `UserMenu.test.tsx`: open the menu, the sign-out item's `svg` has class `rtl:-scale-x-100`.
      Then add the class to `<LogOut>`.
    - `src/lib/rtl-icons.test.ts`: `import.meta.glob("/src/**/*.tsx", { query: "?raw", eager: true })`
@@ -54,7 +54,7 @@ run; Step 8 is NOT run.
      `<ArrowLeft className="rtl:-scale-x-100" />` passes). `EXEMPT` list empty. Mutation check:
      remove the class from `ExitToSchedule`'s `ArrowLeft`; the real-tree case goes red.
 
-5. [ ] **Radix reads the reading direction.** Test first in `src/lib/direction.test.tsx`: render
+5. [x] **Radix reads the reading direction.** Test first in `src/lib/direction.test.tsx`: render
    `<DirectionProvider><RadioCardGroup …three options…/></DirectionProvider>` with the locale `ar`,
    focus the first radio, `userEvent.keyboard("{ArrowLeft}")`, expect the second focused; in `en`,
    ArrowRight does that. Then wrap `children` in `<Direction.Provider dir={dir}>` (import
@@ -62,7 +62,7 @@ run; Step 8 is NOT run.
    Mutation check: remove the wrapper; the Arabic case goes red (this is the ISSUES.md defect).
    Run the `rating-input` tests too: its explicit `dir` must still win.
 
-6. [ ] **Five Arabic `_zero` strings; allowlist to zero.** In `src/locales/ar/common.json`, insert by
+6. [x] **Five Arabic `_zero` strings; allowlist to zero.** In `src/locales/ar/common.json`, insert by
    script (parse, set, write with tabs), next to each family:
 
    | Key | DRAFT for hg-arabic-review |
@@ -81,7 +81,7 @@ run; Step 8 is NOT run.
    one-entry allowlist. Red first: set the ceiling to 0 before adding the strings and watch rule 3
    name all five. Update the i18n guide's "Five families still lack" paragraph in meta.
 
-7. [ ] **e2e.** New `e2e/rtl-leaks.spec.ts` (teacher account, `localStorage` locale and theme set
+7. [x] **e2e.** New `e2e/rtl-leaks.spec.ts` (teacher account, `localStorage` locale and theme set
    after `login`, as `arabic-sweep.spec.ts` does; never saves the locale on the server):
    - (a) `/availability` in Arabic: open the add form on one day, add `09:00`–`10:00` by value,
      the pill's text matches `/ص/` and not `/09:00/`; the time-zone line contains `غرينتش`. Leave
@@ -101,7 +101,7 @@ run; Step 8 is NOT run.
    test: no shipped file passes `i18n.language` or a bare `locale` straight into `Intl.*`. Each
    file's test asserts `٠-٩` never appears under `ar`.
 
-9. [ ] **Close-out (meta + ISSUES).** Mark fixed in `ISSUES.md`: the five `_zero` families, the
+9. [x] **Close-out (meta + ISSUES).** Mark fixed in `ISSUES.md`: the five `_zero` families, the
    `RadioCardGroup` arrow keys, and the "keeps the rest of its list" sentence under the `/account`
    overflow entry. Add the `hg-arabic-review` batch line for the five drafts. `docs/developer-guide/i18n.md`:
    the zero-form paragraph, the "not covered" line (raw times and directional icons are now

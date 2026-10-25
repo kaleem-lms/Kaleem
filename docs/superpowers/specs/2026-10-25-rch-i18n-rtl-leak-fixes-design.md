@@ -148,6 +148,18 @@ e2e (D3, `scheduling` and `identity` areas have shipped):
 Not covered, said plainly: Safari and iOS (no Apple device in this project), browsers with an
 older ICU (where the digit question bites), and the call room.
 
+## Drafts for `hg-arabic-review`
+
+Machine-written; the reviewer may change any of them (and the `billing.plan*Desc` noun).
+
+| Key | Draft |
+| --- | --- |
+| `availability.copyConfirmBody_zero` | لن يستبدل هذا الفترات في أي يوم آخر. |
+| `availability.weeklyTotal_zero` | لا توجد ساعات أسبوعيًا |
+| `billing.planFamilyDesc_zero` | لولي أمر وأبنائه. لا حصص لكل طفل كل شهر. |
+| `billing.planIndividualDesc_zero` | لطالب واحد. لا حصص كل شهر. |
+| `booking.showPast_zero` | لا توجد جلسات سابقة |
+
 ## Open questions
 
 - **`rch-d-ar-numerals`**: resolved 2026-10-25, CLDR default digits (see above).
