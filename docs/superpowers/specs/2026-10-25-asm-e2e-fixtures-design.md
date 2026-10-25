@@ -2,7 +2,7 @@
 name: asm-e2e-fixtures
 phase: v1 (wave 3, assessment stream)
 modules: [identity (seed only), scheduling (seed only), assessment (seed only), dashboard e2e]
-status: draft
+status: built
 created: 2026-10-25
 closed: null
 ---

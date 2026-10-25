@@ -582,10 +582,27 @@ this module is a gettext call, with its Arabic in `kaleem/scheduling/locale/`.
 | `scheduling-purge-call-diagnostics` | `tasks.purge_call_diagnostics` -> `diagnostics.purge_expired` | Beat, `crontab(hour="4", minute="11")`, after the other nightly jobs |
 | `sync_match_requests` | management command | By hand, for staff. Production never strictly needs it: the same reconcile runs on read |
 | `seed_e2e_matching` | management command | Fixture for the e2e suite; separate from identity's `seed_e2e` because identity may not import curriculum or billing |
+| `seed_e2e_assessment_lessons` | management command | Fixture for the assessment flows; see "E2E fixtures" below |
 
 Beat times are crontab hours in the Celery timezone, which `config/settings/base.py` sets from
 `TIME_ZONE` (UTC). The task bodies stay thin wrappers so the logic is testable without a broker
 and callable by hand from a shell.
+
+## E2E fixtures
+
+`seed_e2e_assessment_lessons` gives the assessment teacher (`e2e.asm.teacher`) one student
+(`e2e.asm.student`, Quran) and four 60-minute lessons, repositioned onto offsets from the seed's
+run and closed out through `booking.complete_session` / `mark_student_absent`, so the close-out
+window guard is exercised rather than bypassed: `heldReported` (now - 3 days, held),
+`heldUnreported` (now - 2 days, held), `studentAbsent` (now - 1 day) and `toClose` (now - 3
+hours, still scheduled). It resets only that student's scheduling rows, so the call flows'
+lesson (the booked student's) is never touched. Both parties are available Thursday 15:00-18:00
+UTC, a window no other seeded account uses: `sync_match_requests` is global, and an overlap
+with another entitled student's open request would offer it to this teacher. The dev
+subscription allows four lessons a cycle and all four are used, so a fifth state needs a second
+student. Rules for flows that use these: write only to your own lesson, and assert on your own
+row rather than a list's length. `seed_e2e_assessment` (assessment) then files the fixture
+report; the accounts come from identity's `seed_e2e`.
 
 ## Personal data held
 

@@ -1,6 +1,6 @@
 ---
 spec: docs/superpowers/specs/2026-10-25-asm-e2e-fixtures-design.md
-status: draft
+status: built
 ---
 
 # Plan: asm-e2e-fixtures
@@ -17,7 +17,7 @@ and the seed manifest are all on it), dashboard `origin/main` a776875.
 
 ### Backend
 
-1. [ ] **Accounts (identity).** Test first in `kaleem/identity/tests/test_seed_e2e.py`:
+1. [x] **Accounts (identity).** Test first in `kaleem/identity/tests/test_seed_e2e.py`:
    - `test_seeds_the_assessment_accounts_with_their_profiles`: four emails, profiles
      Teacher / Student / Parent / Parent.
    - `test_the_assessment_accounts_are_verified_and_can_authenticate`.
@@ -33,7 +33,7 @@ and the seed manifest are all on it), dashboard `origin/main` a776875.
    asm_student)`; `ParentStudent.objects.filter(parent=other_parent.parent_profile).delete()`;
    the count line. Mutation-check M6 (spec).
 
-2. [ ] **Lessons (scheduling).** Tests first in new
+2. [x] **Lessons (scheduling).** Tests first in new
    `kaleem/scheduling/tests/test_seed_e2e_assessment_lessons.py`, seeding with
    `seed_e2e`, `seed_e2e_matching`, `seed_e2e_family_booking` then the new command (the
    manifest's order, so the shared-database interactions are real):
@@ -63,7 +63,7 @@ and the seed manifest are all on it), dashboard `origin/main` a776875.
    offsets; `complete_session` x2 and `mark_student_absent` with the seed's `now`.
    Mutation-check M1, M3, M4.
 
-3. [ ] **Report (assessment).** Tests first in new
+3. [x] **Report (assessment).** Tests first in new
    `kaleem/assessment/tests/test_seed_e2e_assessment.py` (full manifest order, plus the
    lessons command):
    - `test_it_refuses_to_run_outside_debug`.
@@ -86,10 +86,10 @@ and the seed manifest are all on it), dashboard `origin/main` a776875.
    seed did not run). Needs `kaleem/assessment/management/__init__.py` and
    `commands/__init__.py`. Mutation-check M2.
 
-4. [ ] **Manifest.** Append `seed_e2e_assessment_lessons` then `seed_e2e_assessment` to
+4. [x] **Manifest.** Append `seed_e2e_assessment_lessons` then `seed_e2e_assessment` to
    `config/e2e_seeds.txt`; extend `test_shipped_manifest_is_todays_ci_order` first.
 
-5. [ ] **Backend gate.** `backend-gate.sh <wt>` full (migrate, `makemigrations --check`,
+5. [x] **Backend gate.** `backend-gate.sh <wt>` full (migrate, `makemigrations --check`,
    pytest with coverage, ruff, ruff format, lint-imports, mypy). Expect no migration and
    all contracts kept. Commit with explicit paths, e.g.
    `test(seeds): assessment fixture accounts and lesson states` /
@@ -97,16 +97,16 @@ and the seed manifest are all on it), dashboard `origin/main` a776875.
 
 ### Dashboard
 
-6. [ ] **Accounts module.** New `e2e/accounts/assessment.ts` (`ASSESSMENT_ACCOUNTS`,
+6. [x] **Accounts module.** New `e2e/accounts/assessment.ts` (`ASSESSMENT_ACCOUNTS`,
    `ASSESSMENT_REPORT`, a header naming the three backend commands as the contract and the
    ownership table from the spec); import and spread in `e2e/fixtures.ts`.
 
-7. [ ] **Sign-in flow.** New `e2e/assessment-fixtures.spec.ts`: for each key of
+7. [x] **Sign-in flow.** New `e2e/assessment-fixtures.spec.ts`: for each key of
    `ASSESSMENT_ACCOUNTS`, a fresh context runs `login(page, key)` (which asserts it landed
    on Home). Mutation-check M5 locally if an e2e slot is free; otherwise CI is the proof
    and the reviewer repeats it.
 
-8. [ ] **Dashboard gate.** `dashboard-gate.sh <wt>` full (tsc, lint, coverage, build).
+8. [x] **Dashboard gate.** `dashboard-gate.sh <wt>` full (tsc, lint, coverage, build).
    Nothing in `src/` changes, so coverage must be unchanged.
 
 ### Hand-back
