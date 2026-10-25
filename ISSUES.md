@@ -115,11 +115,13 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
   `account` migrations were applied first hits `InconsistentMigrationHistory` and the
   deploy aborts. This bit staging once (2026-06-10, fixed by recreating the DB). Either
   start prod empty or write the documented repair step first.
-- **`deploy-staging` `needs:` every check, so a red required check makes the deploy
-  *silently skip*** — the PR looks merged but nothing shipped. That bit us on #88. Add a
-  deploy gate or status so a skipped deploy is visible rather than looking like success.
-  (The squash-divergence half of this entry is **resolved** by ADR-0028: no `develop`, and
-  merge commits for anything carrying submodule pointers.)
+- ~~**`deploy-staging` `needs:` every check, so a red required check makes the deploy
+  *silently skip*** — the PR looks merged but nothing shipped. That bit us on #88.~~ **FIXED
+  2026-10-25** (`lb-deploy-pipeline-hardening`): the `deploy-outcome` job runs after it on every
+  master push and fails with "master is not on staging", naming the gates, unless staging has the
+  commit or the push was documentation-only. (The squash-divergence half of this entry was
+  **resolved** by ADR-0028: no `develop`, and merge commits for anything carrying submodule
+  pointers.)
 - **GDPR operational obligations.** ADR-0023 fixed the by-design engineering rule and the
   email leaks; these are the heavier operational duties, all still missing: a data-retention
   policy, a DSAR / right-to-erasure flow (export + delete a user's data), a cookie/consent
@@ -144,11 +146,12 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
   and the state recorded AFTER the old colour was torn down. The host was remediated by
   hand — pruned 73G/0-free to 7.5G/65G-free, `.active-color` restored to `green`.
   **What remains open:** (a) nothing monitors disk on that host, so the next capacity
-  problem is also found by a failed deploy; (b) `docker image prune` now runs only on a
-  SUCCESSFUL deploy, so a run of consecutive failures still accumulates images; (c) the
-  prune keeps 24h of images, which after this incident's `prune -a` means there is
-  currently NO local rollback target — `restore_signaling()` and a rollback would have to
-  re-pull from GHCR. Worth a cheap disk alarm before it bites in production.
+  problem is also found by a failed deploy (`lb-uptime-host-alerts`). ~~(b) `docker image prune`
+  runs only on a SUCCESSFUL deploy, so a run of consecutive failures still accumulates images;
+  (c) the prune keeps 24h of images, so there is no dependable local rollback target.~~ **(b) and
+  (c) FIXED 2026-10-25** (`lb-deploy-pipeline-hardening`): retention is by deploy count
+  (`KEEP_DEPLOYS`, default 5, recorded in `/opt/kaleem/.deploy-history`), runs at the start of every
+  deploy as well as the end, and keeps the last five deploys' images for rollback.
 - **Live lessons have no captions, no real-time text and no audio-activity indicator; the
   accessibility statement that says so is not published yet.** Decided 2026-10-18
   (ADR-0054, amends ADR-0040): state the gap and build after launch. The clause named
@@ -551,7 +554,10 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
   today. The "a container nobody pointed the check at" failure is narrowed, not eliminated; the
   root container that defeated the original fix was exactly this class.
 
-- **The deploy's file sync now downloads its own binary, unchecksummed.** `appleboy/scp-action`
+- ~~**The deploy's file sync now downloads its own binary, unchecksummed.**~~ **FIXED 2026-10-25**
+  (`lb-deploy-pipeline-hardening`): the file sync and the remote run use the runner's own OpenSSH
+  in place of both `appleboy` actions, so nothing is downloaded at deploy time. The original
+  entry follows. `appleboy/scp-action`
   v1 is a composite action: instead of running a pinned Docker image, it `curl`s the `drone-scp`
   binary onto the runner at deploy time (default v1.8.0, GitHub releases, no checksum). The action
   tag is pinned, the thing it fetches is not. This is the step that carries `turnserver.conf` to
@@ -627,6 +633,9 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
   and putting it in the merge path is a standing cost on every PR. Fix AND gate, or stop
   calling it a gate. Measured here so the decision has real numbers.
 
+- **The infra submodule's `CLAUDE.md` still calls the deploy script `deploy.sh`** (its file list
+  and its rollback line); the script is `scripts/ship.sh`. Spotted 2026-10-25 while hardening the
+  deploy pipeline; left alone there (D10).
 - ~~**`docs/runbook/deploy.md` still calls the deploy script `scripts/deploy.sh`.**~~ **FIXED
   2026-09-13** — every reference now says `scripts/ship.sh`, so the commands survive a
   copy-paste.
