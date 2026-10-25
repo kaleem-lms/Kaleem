@@ -896,6 +896,14 @@ proves; all are robustness of an unattended job.
 
 ### Backend
 
+- **No push sender yet (ntf-core, owner choice 2026-10-25: channels are email, in-app and
+  push).** `ntf-core` ships the push channel interface (`PushChannel`, the two push delivery
+  services, `settings.NOTIFICATIONS_PUSH_CHANNEL = None`) and no adapter, so a push delivery
+  is recorded `failed`/`channel_unconfigured` and logged at ERROR. Needs a follow-up unit:
+  web push for the PWA (VAPID keys as an owner VPS env step, `rch-pwa-service-worker`, a
+  subscription table with its own personal-data hooks, the sender and a settings opt-in).
+  Kinds opt into push explicitly (`DEFAULT_CHANNELS` omits it), so nothing logs an error
+  until a producer asks for push.
 - Email security alerts dispatch via `send_email_message.delay(...)` *inside*
   `@transaction.atomic` (`identity.services.add_email_address` / `set_primary_email`). In
   prod the worker can pick the task up before commit. The clean fix is
