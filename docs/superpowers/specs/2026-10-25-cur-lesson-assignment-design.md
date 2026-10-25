@@ -2,7 +2,7 @@
 name: cur-lesson-assignment
 phase: v1 (wave 3, curriculum stream)
 modules: [curriculum, dashboard (curriculum, shell)]
-status: draft
+status: approved
 created: 2026-10-25
 closed: null
 ---
@@ -29,8 +29,9 @@ What exists (backend `origin/main` 3cf6e75, dashboard `origin/main` a776875):
 
 **Decision basis.** dec-cur-terminology (resolved: *lesson* is curriculum, *session* is a
 call). dec-cur-ownership (resolved 2026-10-18, option 1: courses are private to the teacher;
-**students keep access after a teacher change**). **dec-cur-parent-visibility: OPEN.** This
-spec is drafted on its recommended option, *read-only*; see Open questions.
+**students keep access after a teacher change**). **dec-cur-parent-visibility: resolved
+2026-10-25, option 1 (read-only).** The owner approved this spec on 2026-10-25, including the
+three choices listed under Open questions.
 
 ## User flow
 
@@ -226,9 +227,11 @@ The CLAUDE.md D3 table gains a `curriculum — assignment` row at ship.
 
 ## Open questions
 
-- **dec-cur-parent-visibility (OPEN, blocks this spec):** what can parents see of assigned
-  lessons? Read-only (recommended, drafted here) / full, including marking complete /
-  nothing. "Nothing" removes the parent view, the nav change and e2e flow 2; "full" moves
-  nothing here (there is nothing to complete yet) but binds cur-lesson-completion.
-- For the owner's approval with the spec: teacher erasure and deletes cascade to students'
-  lessons; a former teacher cannot withdraw; a lesson added later is not auto-assigned.
+None. Resolved 2026-10-25:
+
+- **dec-cur-parent-visibility = option 1, read-only.** Parents see their children's assigned
+  lessons and cannot change anything. Completion by a parent stays out (cur-lesson-completion).
+- **Approved as drafted:** deleting a course, unit or lesson, or erasing the teacher, removes
+  those lessons from students; a former teacher can neither see nor withdraw a student's
+  lessons after a teacher change (the student keeps them); a lesson added to a unit later is
+  not assigned automatically.

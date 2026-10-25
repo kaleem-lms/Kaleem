@@ -1,12 +1,12 @@
 ---
 spec: docs/superpowers/specs/2026-10-25-cur-lesson-assignment-design.md
-status: draft
+status: approved
 ---
 
 # Plan: cur-lesson-assignment
 
-Blocked until dec-cur-parent-visibility is answered and the owner approves the spec. If the
-answer is "nothing", drop dashboard step 4's parent half, the nav change and e2e flow 2.
+Unblocked 2026-10-25: dec-cur-parent-visibility is answered (option 1, read-only) and the
+owner approved the spec.
 
 Branch `feat/cur-lesson-assignment` in `backend-cur-lesson-assignment` and
 `dashboard-cur-lesson-assignment` (runbook section 1, from `origin/main`), plus the meta
@@ -120,7 +120,7 @@ Each reverted, seen red, restored:
 
 ## Risks
 
-- **Open decision.** dec-cur-parent-visibility parks the build. Fallback: none; wait.
+- **Open decision.** None left (dec-cur-parent-visibility resolved, read-only).
 - **Shared `services.py` and migration numbering** with cur-lesson-resources or
   cur-content-storage. Append-only edits; the conductor renumbers 0005 at freshness.
 - **e2e seed interplay.** `curriculum.spec.ts` reorders the seeded course in the same run.
