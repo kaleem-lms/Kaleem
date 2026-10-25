@@ -2,13 +2,15 @@
 name: rch-pwa-service-worker
 phase: v1 (wave 2, PWA stream)
 modules: [dashboard main.tsx, dashboard require-auth, dashboard lib/api, dashboard nginx.conf, dashboard vite.config.ts]
-status: draft
+status: approved
+approved: 2026-10-26
 created: 2026-10-26
 closed: null
 ---
 
-> **Needs the owner's approval** (`dec-spec-approval`): it keeps a copy of personal data,
-> often a child's, on the device. The product questions are at the end.
+> **Approved by the owner on 2026-10-26** (`dec-spec-approval`): it keeps a copy of personal
+> data, often a child's, on the device. The owner's answers to the product questions are
+> recorded at the end.
 
 ## Goal
 
@@ -283,16 +285,11 @@ Also: `security-headers.spec.ts` covers `/sw.js`; the rest of the suite passes w
 `serviceWorkers: "block"`. Not in e2e: the deletion wipe (unit only; an e2e deletion would
 consume a seeded account) and the kill switch (a build-time mode; unit tests and the runbook).
 
-## Open questions (owner)
+## Owner's answers (2026-10-26)
 
-1. **Names in the copy.** Keep the teacher's and the student's names (recommended: a parent
-   with two children cannot tell rows apart without them), or keep subject and time only?
-2. **Teachers.** A teacher's copy holds every one of their students' names for 14 days. Keep
-   teachers in (recommended, they need to know who is next), or keep the schedule offline for
-   students and parents only?
-3. **14 days** for both the look-ahead and the maximum age (matches the session lifetime).
-   Shorter (7)?
-4. **On by default, no setting** (recommended; sign-out is the control), or an opt-in
-   "Keep my schedule on this device" choice?
-5. **Privacy notice.** Should it say the schedule is kept on the device? The wording is legal
-   text, so it is yours; the legal pass is deferred, and this unit records it in `ISSUES.md`.
+1. **Names in the copy: kept.** The teacher's and the student's names stay in the offline copy.
+2. **Teachers: included.** A teacher's copy is kept like everyone else's.
+3. **14 days** for both the look-ahead and the maximum age.
+4. **On by default, no setting.** Sign-out is the control.
+5. **Privacy notice:** the wording is legal text and the legal pass is deferred. This unit adds
+   one `ISSUES.md` line and does not depend on it.

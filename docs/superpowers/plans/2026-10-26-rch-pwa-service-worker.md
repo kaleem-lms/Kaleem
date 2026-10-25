@@ -1,10 +1,9 @@
 ---
 spec: docs/superpowers/specs/2026-10-26-rch-pwa-service-worker-design.md
-status: draft
+status: approved
 ---
 
-Size L, about four days. Starts only after the owner approves the spec and answers its open
-questions (a changed answer edits the projection test and nothing else). Dashboard work on
+Size L, about four days. The owner approved the spec and answered its questions on 2026-10-26 (all as recommended). Dashboard work on
 `feat/rch-pwa-service-worker` in
 `/home/abdulkhalek/Projects/kaleem-worktrees/dashboard-rch-pwa-service-worker` (runbook §1),
 then `pnpm install --frozen-lockfile`. Meta work (ADR, runbook, arch doc, D3 row, ISSUES line)
