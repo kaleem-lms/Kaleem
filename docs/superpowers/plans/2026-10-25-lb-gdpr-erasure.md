@@ -1,6 +1,6 @@
 ---
 spec: docs/superpowers/specs/2026-10-25-lb-gdpr-erasure-design.md
-status: draft
+status: approved
 ---
 
 Worktrees: `backend-lb-gdpr-erasure` and `dashboard-lb-gdpr-erasure` on

@@ -2,7 +2,7 @@
 name: lb-gdpr-erasure
 phase: v1 (wave 3, legal stream)
 modules: [identity, billing, scheduling, curriculum, platform]
-status: draft
+status: approved
 created: 2026-10-25
 closed: null
 ---
