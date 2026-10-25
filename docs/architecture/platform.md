@@ -26,6 +26,7 @@ Decision: `docs/adr/0063-domain-event-bus.md`.
 | Health | `views.py` | `/health/live/` and `/health/ready/` (outside `/api/v1/`, on the closed allowlist) |
 | Email task | `tasks.py` | `send_email_message`, the Celery send of one already-rendered email |
 | Seed command | `management/commands/seed.py` | `manage.py seed basic|rich` |
+| Staging pool | `staging_pool.py`, `management/commands/seed_staging_pool.py` | the pool address scheme, the staging check and the seed orchestrator; below |
 | Personal-data registry | `personal_data.py`, `personal_data_contract.py` | below |
 | Teaching-link port | `teaching.py` | below |
 | Domain event bus | `events.py`, `models.py`, `tasks.py`, `event_probe.py`, `events_personal_data.py`, `management/commands/replay_events.py`, `event_bus_probe.py` | below |
@@ -262,3 +263,35 @@ follows:
 `sections` is `export_user(user)` verbatim. A module that joins later appears with no change
 there; `version` changes only if the envelope does. Nothing is stored: the file is built per
 request and returned `Cache-Control: no-store`.
+
+## The staging account pool
+
+Spec: `docs/superpowers/specs/2026-10-25-ci-staging-pool-seed-design.md`. Runbook:
+`docs/runbook/staging-pool.md`.
+
+Programme step 11 verifies each unit on staging with that unit's own accounts, and the
+lessons those accounts need are time-bound, so one idempotent command keeps them fresh:
+`manage.py seed_staging_pool --unit <slug> [--unit ...]`, with the pool password on
+**standard input** only (never argv, environment, output or repo).
+
+`staging_pool.py` is pure and imports no business module:
+
+- `is_staging()` reads the host of `FRONTEND_URL` and is true only when a whole `staging`
+  label is present (`app-staging.kaleem.academy`). No new setting or env var; production and
+  local development are refused. `require_staging(name)` is the `CommandError` form.
+- `pool_email(unit, role)`, `is_pool_email(email)` and `validate_unit(slug)` define the one
+  address scheme, `pool.<unit>.<role>@pool.kaleem.test`; the match is exact and case-sensitive.
+- `MIN_PASSWORD_LENGTH = 16`.
+
+The work splits by owner, because platform may not import a business module. The
+orchestrator checks staging, the password and the slugs, hashes the password once, then calls
+by command name, one `transaction.atomic()` per unit: `seed_staging_pool_accounts` (identity:
+three verified accounts, profiles, the parent link; never staff) then
+`seed_staging_pool_lessons` (scheduling: subjects, availability, the fixture subscription,
+the match, the slot and four lessons in time-bound states). Module commands re-check
+staging, take the password only as a Django hash through a stealth option with no flag, and
+touch only the named units' pool addresses. Billing carries the one widened guard
+(`grant_dev_subscription`, see `billing.md`).
+
+Not covered: scheduled runs (a `ship.sh` flag is deferred), staff accounts, pruning a
+finished unit's accounts, and mail suppression for `.test` recipients (`ISSUES.md`).
