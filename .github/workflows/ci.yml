@@ -597,6 +597,21 @@ jobs:
           sys.exit(1)
           "
 
+      # The domain event bus end to end (ADR-0063): publish a platform.bus_probe event and
+      # wait until the real worker records the probe handler's HandledEvent. That proves
+      # on_commit, the broker, the worker, the handler and the record in one go, which no
+      # unit test can (they run Celery eagerly). Nothing user-visible changes with the
+      # bus, so there is no Playwright flow; this is the unit's e2e.
+      - name: Prove the event bus delivers through the worker
+        working-directory: backend
+        run: |
+          python manage.py event_bus_probe --timeout 60 || {
+            status=$?
+            echo "event bus probe failed; the worker's log follows"
+            cat /tmp/celery.log
+            exit "${status}"
+          }
+
       - name: Install dashboard dependencies
         working-directory: dashboard
         run: pnpm install --frozen-lockfile
