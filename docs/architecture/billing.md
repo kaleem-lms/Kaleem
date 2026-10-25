@@ -298,4 +298,15 @@ the customer-since date, each subscription's plan type, sessions per cycle, amou
 status and dates, and the user's incidents as `{kind, first_seen_at, resolved_at}`. Withheld:
 every Stripe id and the provider's event clock, and an incident's detail, severity,
 occurrences and resolver (staff-only). `SubscriptionPlan` and `StripeEventLog` are listed
-`NOT_PERSONAL`. The erase hook is lb-gdpr-erasure.
+`NOT_PERSONAL`.
+
+## Personal-data erasure
+
+The erase hook (`billing.subscriptions`, order 100, the first to run) **refuses** while the
+user has a subscription in `LIVE_STATUSES`: it raises `SubscriptionStillActiveError` (a
+`ConflictError`, `error_code` `subscription_active`, 409) and the whole erasure rolls back.
+A live subscription can still bill upstream, so erasure never cancels, prorates or refunds;
+the person cancels first. Otherwise it blanks each incident's `detail` (free text staff
+wrote). `Subscription` and `BillingCustomer` rows stay unchanged: they hold no name or email
+and are kept 12 months after closure (lb-dec-retention); lb-gdpr-retention-jobs purges them,
+and the provider's customer record, on that clock.
