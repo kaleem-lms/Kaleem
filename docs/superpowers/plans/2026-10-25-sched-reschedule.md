@@ -24,7 +24,7 @@ The conductor allocates the following before step 1:
 
 ## Steps
 
-1. [ ] **The cancellation rule (backend).**
+1. [x] **The cancellation rule (backend).**
    - Tests first, in `tests/test_close_out_matrix.py`. This file is extended, never forked.
      - Add the clock `"24h before start": START - 24h`.
      - In `_refusal`, add the guard `(cancel and now >= START, ConflictError, "already
@@ -54,7 +54,7 @@ The conductor allocates the following before step 1:
      - Make `may_cancel` ignore `starts_at`. The `may_cancel` column goes red.
      - Record both checks in the private note.
 
-2. [ ] **Model and migration.**
+2. [x] **Model and migration.**
    - Tests first, in `tests/test_booking_models.py`:
      - `rescheduled_from` is nullable;
      - a second row with the same `rescheduled_from` raises `IntegrityError`
@@ -66,7 +66,7 @@ The conductor allocates the following before step 1:
      `tests/test_admin.py`.
    - Add the `rebooked_count` matrix column here.
 
-3. [ ] **The read side.**
+3. [x] **The read side.**
    - Tests first, in `tests/test_read_api.py`:
      - `SessionInfo.rescheduled_from_id` round-trips;
      - `services.sessions_to_rebook(actor, student, now)` includes or excludes each
@@ -77,7 +77,7 @@ The conductor allocates the following before step 1:
      - add `sessions_to_rebook` to `services.py` and its docstring;
      - add the export field to `personal_data.py`.
 
-4. [ ] **Offered times.**
+4. [x] **Offered times.**
    - Tests first, in a new `tests/test_booking_reschedule.py`. `booking.reschedule_options(actor,
      session_id, now)`:
      - includes a time exactly 24h ahead and excludes one at 24h - 1min;
@@ -91,7 +91,7 @@ The conductor allocates the following before step 1:
    - Then implement it, reusing `matching.overlap_intervals` per week and `_fitting_candidates`.
      Before computing options, apply the refusals from step 5's table (404 and the 409s).
 
-5. [ ] **Rebooking.**
+5. [x] **Rebooking.**
    - Tests first, in the same file. `booking.reschedule_session(actor, session_id, starts_at,
      now)`:
      - writes the row the spec describes. The source is unchanged, and quota `used` goes up
@@ -121,7 +121,7 @@ The conductor allocates the following before step 1:
      - Drop the already-rebooked check. Its refusal test goes red, then the IntegrityError
        surfaces.
 
-6. [ ] **The weekly-time side.**
+6. [x] **The weekly-time side.**
    - Tests first, in `tests/test_booking_claim.py`. An upcoming rebooked session of the
      teacher, or of the student:
      - is removed from `slot_options`;
@@ -131,7 +131,7 @@ The conductor allocates the following before step 1:
      own-conflict set in both functions.
    - **Mutation check:** revert the addition. The claim test goes red.
 
-7. [ ] **API.**
+7. [x] **API.**
    - Tests first, in `tests/test_booking_api.py`:
      - each new route's status codes and `error_code`;
      - `to-rebook` scoping: self, child, teacher `[]`, stranger-named student 404;
@@ -144,7 +144,7 @@ The conductor allocates the following before step 1:
    - Add `rescheduled_from` to `SessionSerializer`.
    - `test_api_versioning_is_enforced` must stay green.
 
-8. [ ] **e2e fixture (backend).**
+8. [x] **e2e fixture (backend).**
    - Tests first, in a new `tests/test_seed_e2e_rebook.py`. The seed converges:
      - one assignment;
      - wide availability for both people;
@@ -159,7 +159,7 @@ The conductor allocates the following before step 1:
      - append the command to `config/e2e_seeds.txt`.
    - Run the full backend gate: `_tools/backend-gate.sh <backend wt>`.
 
-9. [ ] **Dashboard data layer.**
+9. [x] **Dashboard data layer.**
    - Tests first, in `schemas.test.ts`, `api.test.ts` and `queries.test.tsx`:
      - `Session.rescheduled_from` is accepted as an int or null;
      - the three new `bookingApi` calls use relative paths;
@@ -168,7 +168,7 @@ The conductor allocates the following before step 1:
      - options are fetched only when enabled.
    - Then update `schemas.ts`, `api.ts`, `queries.ts` and `index.ts`.
 
-10. [ ] **Copy.**
+10. [x] **Copy.**
     - Add `locales/en/reschedule.json` and `locales/ar/reschedule.json` with the card, dialog,
       chip, announcement and empty-options strings. Use "session", not "lesson".
     - Add the namespace to `FEATURE_CATALOGUES`, and `loader: () => loadNamespace("reschedule")`
@@ -176,7 +176,7 @@ The conductor allocates the following before step 1:
     - `parity.test.ts`, `terminology.test.ts` and `i18n-namespaces.test.ts` must pass. Extend
       the route test for the loader.
 
-11. [ ] **Components.**
+11. [x] **Components.**
     - Tests first:
       - `RebookCard.test.tsx`: loading, error, empty (renders nothing) and list states, and
         each button's accessible name.
@@ -190,7 +190,7 @@ The conductor allocates the following before step 1:
     - Run the full dashboard gate: `_tools/dashboard-gate.sh <dashboard wt>`. It covers the
       bundle budget and the built-CSS check.
 
-12. [ ] **e2e (D3).**
+12. [x] **e2e (D3).**
     - Add `e2e/rebook.spec.ts`, with the accounts in `e2e/accounts/booking.ts`. Serial, one
       flow:
       1. Log in as the rebook student. Expect 4 upcoming sessions and "4 of 4 used".
@@ -203,7 +203,7 @@ The conductor allocates the following before step 1:
     - **Mutation check:** run the flow against a backend whose rebook view returns the payload
       without writing the row. The post-reload assertion goes red.
 
-13. [ ] **Docs (meta, same branch).**
+13. [x] **Docs (meta, same branch).**
     - `docs/architecture/scheduling.md`:
       - add the cancellation rule;
       - add rebooking: the rules, the endpoints and the generator interplay;
