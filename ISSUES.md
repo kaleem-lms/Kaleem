@@ -311,6 +311,12 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
 
 ## Someday
 
+- **Senders should skip `is_active=False` recipients.** An erased account (lb-gdpr-erasure)
+  keeps its row with the placeholder address `erased-<id>@erased.invalid`, which is never
+  deliverable. Any later notification or email sender that does not filter inactive users
+  will try to mail it and bounce. Wants one filter in the notification layer's recipient
+  resolution, not one per producer.
+
 - **Messages show no "Seen" mark for the other side.** `msg-dashboard-ui` built the caller's own
   read state only (unread counts, the "New messages" divider, the pointer moving on view),
   because the API exposes the caller's unread count and not the counterpart's read pointer.

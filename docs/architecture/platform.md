@@ -163,7 +163,10 @@ Every module that stores personal data joins it, in that module's own PR. Contra
 - `register_erase(name, fn, *, models, order=500)`: `fn(user) -> None`. Removes or
   anonymizes this one user's data, following lb-dec-erasure-semantics ("anonymize in
   place"). Idempotent. Whether erasing a parent touches a child account is caller policy
-  (lb-gdpr-erasure), not hook policy.
+  (lb-gdpr-erasure): the caller leaves a child's account alone and unlinks it, and no hook
+  touches another person's account. A hook may also **refuse** an erasure by raising a
+  `KaleemError`: the transaction rolls back and the error reaches the client through the
+  usual handler (billing refuses while a subscription is live).
 - `name` is `"<app_label>.<topic>"`. `models` lists model labels as strings
   (`"curriculum.TeacherSubject"`), so platform imports no model.
 - `export_user(user)` runs the export hooks in name order and returns a dict keyed by hook
@@ -171,7 +174,8 @@ Every module that stores personal data joins it, in that module's own PR. Contra
   one `transaction.atomic()`: if any hook raises, every database change rolls back. Work
   on outside systems (storage, Stripe) is deferred with `transaction.on_commit`.
 - Identity's hooks use `order=900`, so they run last and other modules can still resolve
-  relationships through identity's services while they erase.
+  relationships through identity's services while they erase. Billing's uses `order=100`,
+  so a refusal happens before any other hook has changed anything.
 - Retention periods are not part of the interface.
 
 ### Joining a module: four steps
@@ -201,9 +205,10 @@ installed `kaleem.*` app. Each must be named by at least one export hook and one
 hook, be listed in `NOT_PERSONAL`, or sit in an app on a pending list. It also checks that
 a hook declares only models of the app its name starts with, that every `NOT_PERSONAL`
 label names a real model, and that no pending entry is stale: a pending app whose models
-are all covered fails until its entry is removed, so the lists only shrink. Today
-`PENDING_EXPORT` is empty (every module has an export hook) and `PENDING_ERASE` holds
-identity, billing, scheduling and curriculum, which join in lb-gdpr-erasure.
+are all covered fails until its entry is removed, so the lists only shrink. Today both
+`PENDING_EXPORT` and `PENDING_ERASE` are empty: every module that stores personal data has
+an export hook and an erase hook (identity, billing, scheduling and curriculum joined the
+erase side in lb-gdpr-erasure). A new module's models fail the guard until it joins.
 `NOT_PERSONAL` holds the reference models: `billing.SubscriptionPlan`,
 `billing.StripeEventLog` and `curriculum.Subject`.
 
@@ -214,10 +219,29 @@ guard only walks `kaleem.*`. **Identity's hooks own them.**
 
 ### Not covered
 
-`erase_user` has no caller yet (lb-gdpr-erasure). Not part of the registry: the endpoints,
-re-authentication, the dashboard, retention periods and purge jobs, erasure of linked
-accounts, admin `LogEntry` rows, sessions, logs and backups. The export file's envelope
-belongs to identity's endpoint, below.
+`erase_user`'s one caller is identity's `delete_account` (`POST /api/v1/identity/me/delete/`,
+below). Not part of the registry: the endpoints, re-authentication, the dashboard, retention
+periods and purge jobs (lb-gdpr-retention-jobs), a parent or staff erasing someone else,
+sessions, logs and backups. Admin `LogEntry` rows are scrubbed by identity's erase hook.
+The export file's envelope belongs to identity's endpoint, below.
+
+### What the erase hooks do (lb-gdpr-erasure)
+
+Anonymize in place (lb-dec-erasure-semantics): the `User` row and its profiles stay as empty
+anchors for records other people keep, and everything that identifies the person goes.
+
+- `billing.subscriptions` (order 100): refuses with `subscription_active` (409) while a
+  subscription is `active`, `past_due`, `unpaid` or `incomplete`; otherwise blanks incident
+  `detail`. Subscription and customer rows stay for 12 months (lb-dec-retention).
+- `curriculum.subjects`: deletes the person's taught subjects and subject interests.
+- `scheduling.lessons`: deletes availability, declines and call diagnostics, cancels open
+  requests, ends every active assignment the person is in (either side) with its weekly
+  times, and cancels their upcoming sessions with the quota unit returned. Past sessions
+  stay. Video rooms of cancelled sessions end after commit.
+- `identity.account` (order 900): see `identity.md`.
+
+Records the other person also holds are kept: sessions, chats (messaging blanks the
+messages) and ended assignments.
 
 ### What the export hooks hold, and the file built from them
 
