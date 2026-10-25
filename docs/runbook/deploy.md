@@ -44,6 +44,17 @@ bash scripts/ship.sh <previous-sha>
 A rolled-back SHA moves to the end of the history. A SHA older than the last five may have been
 removed from the host; `ship.sh` then pulls it from GHCR, which keeps every SHA tag.
 
+**Signaling in a rollback.** The shared `signaling` service does not follow `DEPLOY_SHA`. `ship.sh`
+step 3b sets `SIGNALING_SHA` to the SHA the relay is already running when its fingerprint matches
+the incoming image's, and to the deploy SHA otherwise, and the compose file reads
+`${SIGNALING_SHA:-${DEPLOY_SHA:-latest}}`. So a rollback to an older SHA leaves a running relay
+alone when that older image carries the same relay (its log line says `signaling unchanged`), and
+recreates it on the older SHA when it does not. If a deploy aborts at the signaling health gate,
+`restore_signaling` puts back the image that was running, through `SIGNALING_SHA`. A manual
+`docker compose up -d signaling` must set `SIGNALING_SHA` (see "Pinning or rolling back signaling
+by hand" in `docs/runbook/signaling.md`), or it moves the relay onto `DEPLOY_SHA`'s image or
+`:latest`.
+
 ## Image retention (what keeps the disk bounded)
 
 `ship.sh` removes every `ghcr.io/kaleem-lms/*` image whose tag is a commit SHA unless that SHA is

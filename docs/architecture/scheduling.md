@@ -23,7 +23,7 @@ Specs: `2026-06-25-scheduling-availability-design.md` (availability) ·
 (domain events).
 ADRs: 0033 (depends on curriculum and billing) · 0034 (custom WebRTC, group lessons deferred) ·
 0035 (signaling as a separate service) · 0036 (feature components split hook and presentation) ·
-0037 (signaling is shared, not blue-green) · 0039 (pre-negotiated transceivers) · 0046 (v1
+0037 (signaling is shared, not blue-green) · 0064 (a deploy no longer ends a call) · 0039 (pre-negotiated transceivers) · 0046 (v1
 roadmap reconciliation, which drops trials) · 0054 (live-lesson captions: the stated gap) · 0063 (domain event bus). Operations live in `docs/runbook/signaling.md`,
 `turn.md` and `video-call.md`, not here.
 
@@ -613,10 +613,27 @@ this module is a gettext call, with its Arabic in `kaleem/scheduling/locale/`.
 | `platform-sweep-pending-events`, `platform-purge-old-events` | `kaleem.platform.tasks` (the bus, `platform.md`) | Beat, `crontab(minute="*/10")` and `crontab(hour="4", minute="41")`. Listed here because the events they deliver are scheduling's |
 | `sync_match_requests` | management command | By hand, for staff. Production never strictly needs it: the same reconcile runs on read |
 | `seed_e2e_matching` | management command | Fixture for the e2e suite; separate from identity's `seed_e2e` because identity may not import curriculum or billing |
+| `seed_e2e_assessment_lessons` | management command | Fixture for the assessment flows; see "E2E fixtures" below |
 
 Beat times are crontab hours in the Celery timezone, which `config/settings/base.py` sets from
 `TIME_ZONE` (UTC). The task bodies stay thin wrappers so the logic is testable without a broker
 and callable by hand from a shell.
+
+## E2E fixtures
+
+`seed_e2e_assessment_lessons` gives the assessment teacher (`e2e.asm.teacher`) one student
+(`e2e.asm.student`, Quran) and four 60-minute lessons, repositioned onto offsets from the seed's
+run and closed out through `booking.complete_session` / `mark_student_absent`, so the close-out
+window guard is exercised rather than bypassed: `heldReported` (now - 3 days, held),
+`heldUnreported` (now - 2 days, held), `studentAbsent` (now - 1 day) and `toClose` (now - 3
+hours, still scheduled). It resets only that student's scheduling rows, so the call flows'
+lesson (the booked student's) is never touched. Both parties are available Thursday 15:00-18:00
+UTC, a window no other seeded account uses: `sync_match_requests` is global, and an overlap
+with another entitled student's open request would offer it to this teacher. The dev
+subscription allows four lessons a cycle and all four are used, so a fifth state needs a second
+student. Rules for flows that use these: write only to your own lesson, and assert on your own
+row rather than a list's length. `seed_e2e_assessment` (assessment) then files the fixture
+report; the accounts come from identity's `seed_e2e`.
 
 ## Personal data held
 
@@ -670,11 +687,24 @@ detached, closed) and takes the same path as an unexpected close, so the backoff
 and never answers the upgrade fires neither `open` nor `close`, so before this the room read
 "Connecting…" for ever. The failure it reports depends on whether this hook instance ever
 opened: `unreachable` ("Couldn't reach the session server") if never, `lost` ("Connection to the
-session server was lost") after the first open. Both are retryable terminal screens; 4401, 4409
-and 4410 are unchanged. **Try again** remounts the room, re-acquiring the microphone and
+session server was lost") once it had opened and the reconnects are spent. Both are retryable
+terminal screens; 4401, 4409 and 4410 are unchanged. **Try again** remounts the room, re-acquiring the microphone and
 the chosen devices, and the camera only if the person's latest choice (the Lobby's, then any
 in-room toggle, reported up through `onMediaChoiceChange`) had it on. No diagnostic row is
 written for a connect timeout (it would need a new `CallDiagnostic` code).
+
+**A drop after an open is not the end of a call** (`lb-signaling-deploy-continuity`, ADR-0064).
+After the hook has opened, a close the server gave no reason for (a relay restart is 1012 or
+1006, as is a network blip) sets no failure while reconnect attempts remain: `connected` goes
+`false`, `failure` stays `null`, and the peer connection and local media are kept. Media is peer
+to peer and never passes through the relay, so the call carries on. `lost` is set only on the
+last failed attempt, because `useCallRoom` treats it as terminal and stops the camera. A drop
+before the first open, and the codes the server names (4400, 4401, 4409, 4410), report at once.
+When both peers rejoin, the relay sends `peer-joined` and the teacher re-offers on the same
+`RTCPeerConnection`. On the server side, `signaling/fingerprint.py` (standard library only; the
+"signaling imports neither kaleem nor django" contract stays) prints a SHA-256 of what the relay
+runs, which `ship.sh` uses to leave the container alone when nothing it runs changed. It is a CLI
+(`python -m signaling.fingerprint`) and adds no route, wire change or stored data.
 
 ## Deliberately not here
 
