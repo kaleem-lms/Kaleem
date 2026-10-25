@@ -102,8 +102,8 @@ print(f"Ended {count} active room(s).")
 Run this **before** the deploy that changes `WS_DOMAIN` lands, ideally during
 the same "deploy between lessons" window the rest of this runbook already
 calls for. Any lesson genuinely in progress at that moment will need to
-reload — same as the existing "deploys drop live calls" trade-off below, not
-a new one. `_ensure_room` will mint a fresh `Room` pinned to the new
+reload. That is a room row being ended, which is a different thing from the relay
+restarting (see "Deploys and live calls" below). `_ensure_room` will mint a fresh `Room` pinned to the new
 `WS_DOMAIN` the next time each session's participants join.
 
 ## Rotating the shared secret
@@ -115,10 +115,15 @@ halves of the pair must change together:
 2. Update `DJANGO_SIGNALING_SECRET` in `.env.production` on the VPS (the one
    file both the `django-*` services and the shared `signaling` service read
    via `env_file`).
-3. Redeploy (`bash scripts/ship.sh <sha>`), which recreates the new colour's
-   Django containers and, since `signaling` is a shared service that every
-   deploy re-applies (see "Deployment" above), also recreates the signaling
-   container with the updated value.
+3. Redeploy (`bash scripts/ship.sh <sha>`). Step 4 re-applies the shared `signaling` service,
+   and compose recreates a service whose `env_file` contents changed even when its image tag did
+   not, so the relay picks up the new secret on the same deploy that recreates the new colour's
+   Django containers. (A deploy that leaves the relay's code alone otherwise keeps the container,
+   see "Deploys and live calls" below, so this env-file change is the only thing recreating it.)
+   Check it the first time: `docker inspect --format '{{.State.StartedAt}}' kaleem-signaling-1`
+   before and after must differ. If it does not, compose on the host does not hash `env_file`;
+   recreate by hand with "Pinning or rolling back signaling by hand" below, using the SHA the
+   container already runs, and raise it in `ISSUES.md`.
 
 Because a join token is signed with the secret at the moment a student or
 teacher opens the lesson page, **every outstanding, unused token becomes
@@ -313,13 +318,7 @@ Read them in aggregate, not one at a time:
 | Scattered "malformed token" | Usually crawlers and scanners hitting the endpoint. Only interesting in volume. |
 | "token is for room X" | A real capability being replayed against a different room. Investigate. |
 
-## Deploys drop live calls
-
-This section used to be "Deploys drop live calls, and can split a room" and
-covered two separate problems. **The split-room half is now structurally
-impossible and this section no longer covers it. The dropped-calls half is
-unchanged, still open, and is still the reason for the operational rule
-below.**
+## Deploys and live calls
 
 **Room splitting: gone, not just fixed.** Through C3c, signaling ran as
 `signaling-blue` / `signaling-green` — two independent processes — and a
@@ -333,33 +332,82 @@ of ADR-0037, signaling is one shared replica** (see "Deployment" above), not
 two colour-scoped ones, so there is no second process for a participant to be
 handed and no colour for a room's pin to outlive. `Room.signaling_url` still
 exists and is still written and replayed the same way, but with a single
-signaling host it can no longer disagree with the live deployment. This is
-implemented and unit-tested; it has not yet been verified with a live
-staging colour flip (the gate that would prove it — see `ISSUES.md`).
+signaling host it can no longer disagree with the live deployment. Implemented and unit-tested;
+not yet verified by a live staging colour flip (see ISSUES.md).
 
-**A deploy still kills every call in progress. STILL OPEN.** This used to be
-described as "step 8 stops the old colour" — that specific mechanism is gone,
-since signaling is no longer part of either colour's service list and is
-never stopped by a flip. But the underlying problem is unchanged: room
-membership is an in-process dict with no drain, and `scripts/ship.sh` step 4
-runs `docker compose up -d ... signaling` on **every** deploy. If that
-command recreates the container — because a deploy actually changes the
-signaling image, its compose definition, or its env — every room in it
-closes at once, both participants' sockets die, and neither browser is told
-why in a way it can recover from. This is now *worse* in blast radius than
-before: there used to be an unaffected colour to fail over to; now there is
-only one signaling process for the whole deployment, so a signaling redeploy
-affects every live call, not half of them. Fixing this needs a join-routing
-drain that does not exist yet (stop routing new joins, wait for rooms to
-empty, then recreate). Tracked in `ISSUES.md` under *Blocks launch*.
+**An ordinary deploy no longer touches a call** (ADR-0064, amending ADR-0037). Two things
+used to end one, and both are handled.
 
-**Operational rule, still in force: deploy between lessons.** Check the
-schedule before shipping, especially before a deploy that touches the
-signaling service itself. If you must ship during a lesson, expect to tell
-those participants to reload.
+1. *The server.* `signaling` runs the backend image, so every deploy has a new tag and step 4
+   used to recreate it every time. `ship.sh` now (step 3b, `choose_signaling_sha` in
+   `scripts/deploy-lib.sh`) compares `python -m signaling.fingerprint` for the running container
+   with the same command on the incoming image. The fingerprint is a SHA-256 over the files under
+   `signaling/` (not tests or bytecode), every installed distribution, the interpreter version and
+   the base image's dpkg status. Equal: the deploy log prints
+   `signaling unchanged (<fp12>); keeping <sha>`, `SIGNALING_SHA` is exported as the SHA already
+   running, and compose finds nothing to change. Different, or either side cannot be read (no
+   running container, an image from before the fingerprint existed, a failed `docker run`,
+   output that is not 64 hex characters, a running image that is not a
+   `ghcr.io/kaleem-lms/backend:<sha>` tag): the log prints
+   `signaling changed; recreating on <sha> (<reason>)` and signaling is recreated, which is what
+   every deploy used to do. `SIGNALING_SHA` is exported, not a prefix, because step 5's profile
+   `up -d` re-applies signaling too.
+2. *The client.* A drop after the socket has opened is no longer a failure while reconnect
+   attempts remain. The call carries on, because media is peer to peer and never passes through
+   the relay. The hook reconnects on its backoff (0.5, 1, 2, 4, 8 s: 15.5 s in all), the relay
+   sends `peer-joined`, and the teacher re-offers on the same connection. Only when the budget
+   is spent does the "connection lost" screen appear.
+
+The compose healthcheck has `start_period: 30s` and `start_interval: 1s`, so a recreated relay
+is routable about a second after it starts instead of after the first 15 s probe. That is what
+keeps a recreate inside the client's budget. It needs Docker Engine 25 or newer; on an older
+Engine drop `start_interval` and set `interval: 2s`.
+
+**Still true: a restart is not free.** A recreate closes every socket at once. A person whose
+reconnect is slow, or an outage longer than about 15 s, ends on the "connection lost" screen and
+must tap Try again. Deploy between lessons when a change touches `signaling/`, its dependencies
+or the base image, which is when the log line above says `changed`.
+
+**Reading the deploy log.** `signaling unchanged` is the normal case. `signaling changed;
+recreating` on a deploy that did not touch the relay means the fingerprint moved (a dependency
+bump or a rebuilt base image counts), or a read failed and the reason is in the same line.
+The first deploy after ADR-0064 landed always says `changed`, because the running image had no
+fingerprint module.
+
+### Pinning or rolling back signaling by hand
+
+The compose image is `ghcr.io/kaleem-lms/backend:${SIGNALING_SHA:-${DEPLOY_SHA:-latest}}`. A
+manual `docker compose up -d signaling` with neither variable set runs `:latest`, and with only
+`DEPLOY_SHA` set runs that SHA. To pin the relay to a known image:
+
+```bash
+cd /opt/kaleem
+SIGNALING_SHA=<sha> DEPLOY_SHA=<sha> docker compose -f docker-compose.production.yml \
+  --env-file .env.production up -d --no-deps signaling
+```
+
+### Measuring a restart (the staging check)
+
+The numbers in ADR-0064 come from forcing a recreate during a live call and timing
+recreate-to-healthy, from the VPS:
+
+```bash
+cd /opt/kaleem
+SHA=$(docker inspect --format "{{.Config.Image}}" kaleem-signaling-1); SHA=${SHA##*:}
+T0=$(date +%s%N)
+SIGNALING_SHA=$SHA DEPLOY_SHA=$SHA docker compose -f docker-compose.production.yml \
+  --env-file .env.production up -d --no-deps --force-recreate signaling
+until [ "$(docker inspect --format "{{.State.Health.Status}}" kaleem-signaling-1)" = healthy ]; do sleep 0.2; done
+echo "recreate->healthy $(( ($(date +%s%N)-T0)/1000000 )) ms"
+```
+
+**Operational rule, still in force for changes to the relay itself: deploy between lessons.** If
+you must ship during a lesson and the log says `changed`, expect the call to ride out the restart
+in most cases, and tell the participants to tap Try again if a "connection lost" screen appears.
 
 ## Related
 
 - `docs/runbook/deploy.md` — general blue-green deploy flow (`scripts/ship.sh`)
 - ADR-0035 — signaling as its own Django-free deployable
 - ADR-0037 — signaling as one shared service instead of one per deploy colour
+- ADR-0064 — a deploy no longer ends a call on the relay (fingerprint gate, client resume, faster health gate)
