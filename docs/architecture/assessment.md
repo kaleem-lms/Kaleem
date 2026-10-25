@@ -2,10 +2,12 @@
 
 What happened in a lesson, and how each side rated it: a teacher's report on a lesson, and
 the stars one party gives the other. Today that is two tables, a typed report schema, a
-Python service interface and the personal-data hooks. There is **no HTTP route and no
-screen yet**: asm-report-api, asm-ratings, asm-admin-oversight and the UI units add them.
+Python service interface, the personal-data hooks and the report routes (asm-report-api).
+There is **no rating route and no screen yet**: asm-ratings, asm-admin-oversight and the UI
+units add them.
 
-Spec: `docs/superpowers/specs/2026-10-18-asm-module-foundation-design.md` · ADR-0051
+Specs: `docs/superpowers/specs/2026-10-18-asm-module-foundation-design.md`,
+`docs/superpowers/specs/2026-10-25-asm-report-api-design.md` · ADR-0051
 (the edge to scheduling) · ADR-0048 (export and erase hooks) · Status: built, awaiting landing
 by asm-module-foundation; no progress snapshot (`asm-d-progress-scope`, deferred).
 
@@ -62,7 +64,7 @@ belong to the teacher-report UI, not here.
 ## Public API
 
 Everything outside the module goes through `kaleem.assessment.services`, which returns
-frozen dataclasses (`ReportInfo`, `RatingSummary`), never models. Lesson facts come from
+frozen dataclasses (`ReportInfo`, `ReportView`, `ReportDue`, `RatingSummary`), never models. Lesson facts come from
 `scheduling.services.get_session`; the student's parents from
 `identity.services.is_parent_of`; "is their current teacher" from
 `scheduling.services.active_assignments`.
@@ -70,7 +72,9 @@ frozen dataclasses (`ReportInfo`, `RatingSummary`), never models. Lesson facts c
 | Service | Does |
 | --- | --- |
 | `parse_report_content(data)` | Validates content of a known version; `ValidationError` otherwise |
-| `save_report(author, session_id, content)` | Creates or replaces the lesson's report |
+| `save_report(author, session_id, content, *, now=None)` | Creates or replaces the lesson's report, for a held lesson inside its window |
+| `report_view(viewer, session_id, *, now)` | The report (or `None`) with `may_write`, `may_edit` and `editable_until`; applies the read rule |
+| `reports_due(teacher, *, now)` | The teacher's held, unreported lessons inside the window, oldest first; 2 queries |
 | `get_report(session_id)` | The report or `None`; the caller authorizes |
 | `can_read_report(user, session_id)` | The audience rule below |
 | `reports_for_student(viewer, student_id, *, before, limit)` | Keyset page, newest first, filtered by the same rule |
@@ -80,12 +84,35 @@ frozen dataclasses (`ReportInfo`, `RatingSummary`), never models. Lesson facts c
 | `purge_expired(*, now=None)` | The retention job; returns the rows changed; idempotent |
 
 **Writes.** `save_report` refuses, in this order: an unknown lesson (`NotFoundError`),
-anyone but the lesson's teacher (`PermissionDeniedError`), a cancelled lesson or one not yet
-started (`ConflictError`), then invalid content (`ValidationError`). Permission comes before
-state so an outsider learns nothing about a lesson. `record_rating` derives direction and
-ratee from which party the rater is; a parent or a non-party is refused. The outcome and
-7-day window rules of `dec-lesson-outcomes` are added to `save_report` by asm-report-api,
-once ana-session-outcomes has shipped the outcome.
+anyone but the lesson's teacher (`PermissionDeniedError`), then a `ConflictError` for a
+cancelled lesson, one not yet started, one past its window, one still `scheduled`, or one
+whose outcome is not `held`, and last invalid content (`ValidationError`). Permission comes
+before state so an outsider learns nothing about a lesson. The window is
+`scheduling.services.close_out_window` (`starts_at <= now < starts_at + 7 days`,
+`dec-lesson-outcomes`); this module keeps no second copy. A stale lesson that was never
+closed out reads "passed", not "close it out", and an outcome is never inferred from
+`None`. Replacing a report follows the same window; after it closes, correction belongs to
+staff (asm-admin-oversight). `record_rating` derives direction and ratee from which party
+the rater is; a parent or a non-party is refused, and its rules are unchanged.
+
+## Routes
+
+Mounted in `kaleem/assessment/api/urls.py` under `/api/v1/assessment/`, `IsAuthenticated`,
+session auth and CSRF as everywhere.
+
+| Route | Does |
+| --- | --- |
+| `GET sessions/<id>/report/` | `{session_id, report, may_write, may_edit, editable_until}`. 200 for the readers below, 403 for anyone else, 404 for an unknown lesson |
+| `PUT sessions/<id>/report/` | The body is the schema-v1 content object (JSON only). Answers 200 with the `GET` body, whether it created or replaced. 400 invalid content, 403 not the teacher, 404, 409 per the write rule |
+| `GET reports-due/` | The teacher's own held lessons in the window with no report, by `starts_at` then `session_id`. 403 without a teacher profile; a teacher who is also a parent sees teaching rows only |
+
+`may_write` is true only for the lesson's teacher, a `held` lesson, an open window and no
+report yet; `may_edit` is the same with a report. Both are decided on the server against its
+clock, and are false for every other reader. No new `error_code`: the flags are what a
+client branches on. `reports-due/` is the prompt of `asm-d-report-mandatory` (option 2,
+prompted but optional): nothing is gated on a report, and a lesson whose window closes
+without one just leaves the list. `subject_name` is translated in the serializer with
+`pgettext("subject name", ...)`, because assessment may not import curriculum.
 
 **Who may read a report** (`asm-d-report-audience`):
 
@@ -148,8 +175,10 @@ exempted from the two mirrors because they build users and lessons directly. No 
 
 ## Not here yet
 
-Any endpoint, serializer or screen; the outcome and window rule for writing; hiding a
-rating and staff correction of a report (asm-admin-oversight); parent ratings
+The rating endpoint and any screen; the per-student report list route (asm-report-views);
+notices and reminders (asm-report-notices); hiding a rating and staff correction of a report
+(asm-admin-oversight); parent ratings
 (`asm-d-parent-rating`, asm-ratings); a progress snapshot; seed accounts and lesson states
-(asm-e2e-fixtures). There is no e2e flow for this unit because it has no user-facing
-behaviour.
+(asm-e2e-fixtures). There is no e2e flow for this unit: the contract flow ("a filed report
+persists and leaves Reports due") lands with asm-teacher-report-ui, the first unit with a
+screen.
