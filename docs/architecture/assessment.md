@@ -178,7 +178,17 @@ exempted from the two mirrors because they build users and lessons directly. No 
 The rating endpoint and any screen; the per-student report list route (asm-report-views);
 notices and reminders (asm-report-notices); hiding a rating and staff correction of a report
 (asm-admin-oversight); parent ratings
-(`asm-d-parent-rating`, asm-ratings); a progress snapshot; seed accounts and lesson states
-(asm-e2e-fixtures). There is no e2e flow for this unit: the contract flow ("a filed report
-persists and leaves Reports due") lands with asm-teacher-report-ui, the first unit with a
-screen.
+(`asm-d-parent-rating`, asm-ratings); a progress snapshot. There is no e2e flow for this
+unit's behaviour: the contract flow ("a filed report persists and leaves Reports due") lands
+with asm-teacher-report-ui, the first unit with a screen.
+
+## E2E fixture
+
+`seed_e2e_assessment` (a management command, DEBUG-guarded like every e2e seed) files the
+fixture report on the assessment teacher's earliest held lesson and deletes any report or
+rating a flow left on that teacher's other lessons, so a reseed converges. It reaches lessons
+through `scheduling.services.sessions_between` and writes through `services.save_report`, so
+no import contract changes. The accounts and the four lesson states it works on are described
+in `docs/architecture/scheduling.md` ("E2E fixtures") and
+`docs/superpowers/specs/2026-10-25-asm-e2e-fixtures-design.md`; the TS side is
+`dashboard/e2e/accounts/assessment.ts`.
