@@ -849,7 +849,7 @@ jobs:
       - name: Date for the trivy DB cache key
         id: day
         run: echo "day=$(date -u +%F)" >> "$GITHUB_OUTPUT"
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: ~/.cache/trivy
           key: trivy-db-${{ steps.day.outputs.day }}
