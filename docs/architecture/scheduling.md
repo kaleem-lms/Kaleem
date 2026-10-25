@@ -22,7 +22,7 @@ Specs: `2026-06-25-scheduling-availability-design.md` (availability) ·
 `2026-10-18-ana-session-outcomes-design.md` (lesson close-out).
 ADRs: 0033 (depends on curriculum and billing) · 0034 (custom WebRTC, group lessons deferred) ·
 0035 (signaling as a separate service) · 0036 (feature components split hook and presentation) ·
-0037 (signaling is shared, not blue-green) · 0063 (a deploy no longer ends a call) · 0039 (pre-negotiated transceivers) · 0046 (v1
+0037 (signaling is shared, not blue-green) · 0064 (a deploy no longer ends a call) · 0039 (pre-negotiated transceivers) · 0046 (v1
 roadmap reconciliation, which drops trials) · 0054 (live-lesson captions: the stated gap). Operations live in `docs/runbook/signaling.md`,
 `turn.md` and `video-call.md`, not here.
 
@@ -645,7 +645,7 @@ the chosen devices, and the camera only if the person's latest choice (the Lobby
 in-room toggle, reported up through `onMediaChoiceChange`) had it on. No diagnostic row is
 written for a connect timeout (it would need a new `CallDiagnostic` code).
 
-**A drop after an open is not the end of a call** (`lb-signaling-deploy-continuity`, ADR-0063).
+**A drop after an open is not the end of a call** (`lb-signaling-deploy-continuity`, ADR-0064).
 After the hook has opened, a close the server gave no reason for (a relay restart is 1012 or
 1006, as is a network blip) sets no failure while reconnect attempts remain: `connected` goes
 `false`, `failure` stays `null`, and the peer connection and local media are kept. Media is peer

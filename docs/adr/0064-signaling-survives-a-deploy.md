@@ -1,5 +1,5 @@
 ---
-number: 0063
+number: 0064
 title: A deploy no longer ends a call on the signaling relay
 status: proposed
 date: 2026-10-25
@@ -112,9 +112,9 @@ values is sensitive.
 
 | | Measured | Expected from the code |
 | --- | --- | --- |
-| Docker Engine and compose versions (`start_interval` needs Engine 25+) | | |
-| M1 (before): forced recreate to healthy | | about 15 s |
-| M1: first page close to "lost", and whether frames stopped | | about 1 s, frames stop |
+| Docker Engine and compose versions (`start_interval` needs Engine 25+) | Engine 29.4.0, compose 5.1.2 (2026-10-25) | |
+| M1 (before): forced recreate to healthy | 15,934 ms and 15,871 ms, two runs, no call open (2026-10-25) | about 15 s |
+| M1: first page close to "lost", and whether frames stopped | not measured live; the e2e flow run against the pre-fix hook showed the lost screen (mutation check) | about 1 s, frames stop |
 | M2 (after): forced recreate to healthy | | about 2 s |
 | M2: terminal screen, frames | | none, frames keep rising |
 | M3: container ID, `StartedAt` and image across an unrelated deploy | | all unchanged |

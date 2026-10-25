@@ -332,9 +332,10 @@ of ADR-0037, signaling is one shared replica** (see "Deployment" above), not
 two colour-scoped ones, so there is no second process for a participant to be
 handed and no colour for a room's pin to outlive. `Room.signaling_url` still
 exists and is still written and replayed the same way, but with a single
-signaling host it can no longer disagree with the live deployment.
+signaling host it can no longer disagree with the live deployment. Implemented and unit-tested;
+not yet verified by a live staging colour flip (see ISSUES.md).
 
-**An ordinary deploy no longer touches a call** (ADR-0063, amending ADR-0037). Two things
+**An ordinary deploy no longer touches a call** (ADR-0064, amending ADR-0037). Two things
 used to end one, and both are handled.
 
 1. *The server.* `signaling` runs the backend image, so every deploy has a new tag and step 4
@@ -370,7 +371,7 @@ or the base image, which is when the log line above says `changed`.
 **Reading the deploy log.** `signaling unchanged` is the normal case. `signaling changed;
 recreating` on a deploy that did not touch the relay means the fingerprint moved (a dependency
 bump or a rebuilt base image counts), or a read failed and the reason is in the same line.
-The first deploy after ADR-0063 landed always says `changed`, because the running image had no
+The first deploy after ADR-0064 landed always says `changed`, because the running image had no
 fingerprint module.
 
 ### Pinning or rolling back signaling by hand
@@ -387,7 +388,7 @@ SIGNALING_SHA=<sha> DEPLOY_SHA=<sha> docker compose -f docker-compose.production
 
 ### Measuring a restart (the staging check)
 
-The numbers in ADR-0063 come from forcing a recreate during a live call and timing
+The numbers in ADR-0064 come from forcing a recreate during a live call and timing
 recreate-to-healthy, from the VPS:
 
 ```bash
@@ -409,4 +410,4 @@ in most cases, and tell the participants to tap Try again if a "connection lost"
 - `docs/runbook/deploy.md` — general blue-green deploy flow (`scripts/ship.sh`)
 - ADR-0035 — signaling as its own Django-free deployable
 - ADR-0037 — signaling as one shared service instead of one per deploy colour
-- ADR-0063 — a deploy no longer ends a call on the relay (fingerprint gate, client resume, faster health gate)
+- ADR-0064 — a deploy no longer ends a call on the relay (fingerprint gate, client resume, faster health gate)
