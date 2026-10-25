@@ -67,6 +67,21 @@ All inter-module and API-layer access goes through here.
 Errors are typed (`platform.exceptions.NotFoundError` / `ValidationError` /
 `PermissionDeniedError`), never bare `Exception`.
 
+### Fixture subscriptions: `grant_dev_subscription`
+
+Fixtures only (the e2e seeds and the staging pool seed). It manufactures a subscription with
+no charge behind it, so it refuses unless one of two cases holds:
+
+1. `settings.DEBUG` (local development and CI), as it always has; or
+2. the deployment is staging (`staging_pool.is_staging()`, the host of `FRONTEND_URL`) **and**
+   the user's address is a pool address (`pool.<unit>.<role>@pool.kaleem.test`,
+   `staging_pool.is_pool_email`), added by ci-staging-pool-seed.
+
+Production is refused for every address; staging is refused for every non-pool address. The
+fixture row is unpaid and has no `BillingCustomer`, so the nightly Stripe reconciler never
+sees it. Both refusals are tested and mutation-checked
+(`billing/tests/test_entitlement.py::TestGrantDevSubscriptionOnStaging`).
+
 ### `LIVE_STATUSES` vs. entitlement — read this before touching either
 
 Two different questions, two different answers, both deliberate:
@@ -283,4 +298,15 @@ the customer-since date, each subscription's plan type, sessions per cycle, amou
 status and dates, and the user's incidents as `{kind, first_seen_at, resolved_at}`. Withheld:
 every Stripe id and the provider's event clock, and an incident's detail, severity,
 occurrences and resolver (staff-only). `SubscriptionPlan` and `StripeEventLog` are listed
-`NOT_PERSONAL`. The erase hook is lb-gdpr-erasure.
+`NOT_PERSONAL`.
+
+## Personal-data erasure
+
+The erase hook (`billing.subscriptions`, order 100, the first to run) **refuses** while the
+user has a subscription in `LIVE_STATUSES`: it raises `SubscriptionStillActiveError` (a
+`ConflictError`, `error_code` `subscription_active`, 409) and the whole erasure rolls back.
+A live subscription can still bill upstream, so erasure never cancels, prorates or refunds;
+the person cancels first. Otherwise it blanks each incident's `detail` (free text staff
+wrote). `Subscription` and `BillingCustomer` rows stay unchanged: they hold no name or email
+and are kept 12 months after closure (lb-dec-retention); lb-gdpr-retention-jobs purges them,
+and the provider's customer record, on that clock.
