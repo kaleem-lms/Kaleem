@@ -14,7 +14,9 @@ they are English on an Arabic page (ISSUES.md, "Dashboard zod validation message
 i18n'd"): zod's own defaults ("Too small: expected string to have >=8 characters", "Invalid
 email address") on every `zodResolver` form, and one hardcoded English refine message
 (`registerSchema.birthdate`). This unit installs one i18next-driven zod error map so no schema
-or form has to translate its own messages. Measured at dashboard `origin/main` 7338e08.
+or form has to translate its own messages. Measured at dashboard `origin/main` 7338e08; re-checked at 80e4290
+(2026-10-25: the six zod imports, the two schema `message:` strings and the 15 `zodResolver`
+call sites are unchanged; curriculum's new schemas are response types only).
 
 Where the messages come from today:
 
@@ -86,7 +88,8 @@ All in `dashboard`; no route added.
   `{ params: { key: "invalidBirthdate" } }`. **`scheduling/schemas.ts`** refine: `message:
   "endAfterStart"` becomes `params: { key: "endAfterStart" }`, path unchanged.
 - **`validation` feature namespace** (owner decision: lazy catalogues; `common.json` does not
-  grow). `src/locales/{en,ar}/validation.json`, one line in `FEATURE_CATALOGUES`. Seven keys;
+  grow). `src/locales/{en,ar}/validation.json`, one line in `FEATURE_CATALOGUES`
+  (`src/lib/i18n-namespaces.ts`). Seven keys;
   `tooShort` is a plural family (`_one`/`_other` in English, all six forms in Arabic, `_zero`
   included) written `{{count, number}}` so i18next formats the digit with `Intl.NumberFormat`
   in the page's language. `endAfterStart` reuses the reviewed Arabic of
