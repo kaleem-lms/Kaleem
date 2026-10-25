@@ -2,9 +2,9 @@
 
 ## What it is
 
-`ci.yml` (meta repo) runs the ten-job suite — `backend-lint`, `backend-test`,
+`ci.yml` (meta repo) runs the eleven-job suite — `backend-lint`, `backend-test`,
 `dashboard-lint`, `dashboard-build`, `marketing-build`, `e2e`, `security`, `image-scan`,
-`sast`, `deploy-staging` —
+`sast`, `deploy-staging`, `deploy-outcome` —
 only when a change can actually break something, and only once per proven tree. ADR-0038
 records why; this page is for reading a run and knowing which behaviour is a bug and which
 is the design working as intended.
@@ -70,6 +70,29 @@ documentation-only push reports `code=false`, so both the seven gates and the de
 nothing reaches staging. This is correct — there is nothing in a docs-only change for staging
 to serve differently — but it means a `docs/**` push produces no deploy log to check if you
 go looking for one.
+
+## `deploy-outcome`: a skipped deploy is no longer silent
+
+`deploy-outcome` runs after `deploy-staging` on every master push (`always()`), so a red gate no
+longer leaves a grey, skipped deploy among green jobs. It passes when staging has the commit, or
+when `triage` says the push was documentation-only (with a notice), and fails otherwise with
+"master is not on staging", naming each gate that did not pass. Dependabot pushes are red by
+design: their gates skip, and staging lagging master is what should be seen. The decision is
+`.github/scripts/deploy-outcome.sh`, tested by `test-deploy-outcome.sh` in the `security` job. See
+`docs/runbook/deploy.md`.
+
+## What the `security` job checks about the deploy pipeline itself
+
+Beside the scanners, it runs `infra/scripts/test-deploy-lib.sh` (image retention, deploy history,
+the service-list comparison, `ship.sh --list-services`; infra has no CI of its own),
+`check-shipsh-services.sh` on the real compose file and `ship.sh` (every non-profile compose
+service is in `ship.sh`'s start lists), the tests for `deploy-outcome.sh`, and
+`check-staging-host-key.sh` (the pinned host-key file is one well-formed ed25519 entry under the
+alias). None of these needs Docker running, and none needs a secret.
+
+What no PR run can prove, because `deploy-staging` runs only on a master push: the OpenSSH
+transport and the host-key pin, the buildx cache (the second deploy's log shows `CACHED` layers),
+and the retention step's real removals. They are verified on the first master runs after a change.
 
 ## `triage` is a single point of failure for everything downstream
 
@@ -201,3 +224,5 @@ pin first; whatever it newly reports follows the date guard like any other findi
   self-test, which runs as a `triage` step on every run
 - `.github/scripts/{gitleaks-history,pnpm-audit,sca-gate,semgrep-scan}.sh` and `test-security-scripts.sh` — the
   security wrappers and their self-test (ADR-0047)
+- `.github/scripts/{check-shipsh-services,deploy-outcome,check-staging-host-key}.sh` and their
+  `test-*.sh` — the deploy-pipeline checks above

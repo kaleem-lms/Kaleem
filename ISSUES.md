@@ -47,36 +47,6 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
   these same pages 1.00 the same day (the new sweep is explicitly dark-first). A source lint
   also now rejects the primary/accent SURFACE colours used as text.
 
-- **Staging passwords are world-readable on a public `master`, and remain in git
-  history.** On 2026-09-08 `kaleem-lms/Kaleem` was public and
-  `curl https://raw.githubusercontent.com/kaleem-lms/Kaleem/master/STATE.md` returned
-  `KaleemC3d!2026` and `KaleemStaging!2026` to an anonymous caller. The owner then made the repo
-  private (as of 2026-09-11 `private: true`, and the same anonymous `curl` 404'd), but **it is
-  public again**: an anonymous fetch returned 200 on 2026-10-17 (journal `2026-W42`), and
-  `STATE.md` on `master` still shows the C3d fixture password. The strings also stay in history
-  at every older commit, and anyone who cloned or scraped them still holds them, exactly as the
-  `.gitleaksignore` rotation record says of the 588a1e35 credentials (ADR-0032).
-  **Do:** rotate the staging passwords for `c3d.student@`, `c3d.teacher@`,
-  `billing.clickthrough@`, `billing.recheck@`, `billing.failcard@` and the two `*.smoke@` users,
-  then keep the new ones out of the repo entirely.
-
-  ⏸ **DEFERRED by the owner 2026-09-13, and re-accepted 2026-10-17 (W42).** It stays under
-  *Blocks launch* and its severity is unchanged — deferring is a decision about **when**, not
-  about whether it matters. What the deferral actually accepts, stated so the next reader does
-  not have to reconstruct it: these credentials reach **staging only**. The 2026-09-13 deferral
-  rested on the repo being private, which bounded the exposure by whoever cloned during the open
-  window; with the repo public again, the owner accepted an **ongoing** exposure, not a bounded
-  one. It must still be done before preview and before real users and real money
-  (`lb-staging-credential-rotation`), and it cannot be done by rotating alone at that point —
-  the strings are in history for good, so the new ones must never enter the repo.
-
-  ⚠ **This is NOT the same task as unblocking the staging walk, and bundling them was my
-  error.** `STATE.md` called them "one task, not two". They share a symptom — no working
-  credential — but not a purpose: rotation is *security remediation* for leaked strings, while
-  the walk needs *any* working login. A fresh throwaway staging account, created and never
-  written down here, unblocks the walk without touching the leaked ones. That is a much smaller
-  piece of work and is now independent of this deferral.
-
 - ~~**`security` (gitleaks) skips on documentation-only changes, and root `*.md` counts as
   documentation.**~~ **FIXED 2026-09-13** (ADR-0042, meta). The `code == 'true'` clause is
   dropped from the `security` job alone; `verified != 'true'` stays, because a tree a PR
@@ -145,11 +115,13 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
   `account` migrations were applied first hits `InconsistentMigrationHistory` and the
   deploy aborts. This bit staging once (2026-06-10, fixed by recreating the DB). Either
   start prod empty or write the documented repair step first.
-- **`deploy-staging` `needs:` every check, so a red required check makes the deploy
-  *silently skip*** — the PR looks merged but nothing shipped. That bit us on #88. Add a
-  deploy gate or status so a skipped deploy is visible rather than looking like success.
-  (The squash-divergence half of this entry is **resolved** by ADR-0028: no `develop`, and
-  merge commits for anything carrying submodule pointers.)
+- ~~**`deploy-staging` `needs:` every check, so a red required check makes the deploy
+  *silently skip*** — the PR looks merged but nothing shipped. That bit us on #88.~~ **FIXED
+  2026-10-25** (`lb-deploy-pipeline-hardening`): the `deploy-outcome` job runs after it on every
+  master push and fails with "master is not on staging", naming the gates, unless staging has the
+  commit or the push was documentation-only. (The squash-divergence half of this entry was
+  **resolved** by ADR-0028: no `develop`, and merge commits for anything carrying submodule
+  pointers.)
 - **GDPR operational obligations.** ADR-0023 fixed the by-design engineering rule and the
   email leaks; these are the heavier operational duties, all still missing: a data-retention
   policy, a DSAR / right-to-erasure flow (export + delete a user's data), a cookie/consent
@@ -174,11 +146,12 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
   and the state recorded AFTER the old colour was torn down. The host was remediated by
   hand — pruned 73G/0-free to 7.5G/65G-free, `.active-color` restored to `green`.
   **What remains open:** (a) nothing monitors disk on that host, so the next capacity
-  problem is also found by a failed deploy; (b) `docker image prune` now runs only on a
-  SUCCESSFUL deploy, so a run of consecutive failures still accumulates images; (c) the
-  prune keeps 24h of images, which after this incident's `prune -a` means there is
-  currently NO local rollback target — `restore_signaling()` and a rollback would have to
-  re-pull from GHCR. Worth a cheap disk alarm before it bites in production.
+  problem is also found by a failed deploy (`lb-uptime-host-alerts`). ~~(b) `docker image prune`
+  runs only on a SUCCESSFUL deploy, so a run of consecutive failures still accumulates images;
+  (c) the prune keeps 24h of images, so there is no dependable local rollback target.~~ **(b) and
+  (c) FIXED 2026-10-25** (`lb-deploy-pipeline-hardening`): retention is by deploy count
+  (`KEEP_DEPLOYS`, default 5, recorded in `/opt/kaleem/.deploy-history`), runs at the start of every
+  deploy as well as the end, and keeps the last five deploys' images for rollback.
 - **Live lessons have no captions, no real-time text and no audio-activity indicator; the
   accessibility statement that says so is not published yet.** Decided 2026-10-18
   (ADR-0054, amends ADR-0040): state the gap and build after launch. The clause named
@@ -380,11 +353,10 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
   nothing references it (seen in `rch-pwa-manifest-head`). It ships in every build. Delete it
   in a unit that already touches `public/`.
 
-- **Five Arabic plural families have no `_zero` form**, so at count 0 an Arabic page falls back
-  to English: `availability.copyConfirmBody`, `availability.weeklyTotal`,
-  `billing.planFamilyDesc`, `billing.planIndividualDesc`, `booking.showPast`. Held on the parity
-  gate's `ZERO_FORM_ALLOWLIST` (ceiling 5). Needs native-reviewed Arabic copy; owned by
-  rch-i18n-rtl-leak-fixes. Found 2026-10-18.
+- ~~**Five Arabic plural families have no `_zero` form**~~ **FIXED 2026-10-25**
+  (rch-i18n-rtl-leak-fixes). The five Arabic `_zero` strings are in the catalogue and the parity
+  gate's `ZERO_FORM_ALLOWLIST` is empty at ceiling 0. The wording is a DRAFT until the Arabic
+  review (`hg-arabic-review`) signs it off.
 - **The call room is not in the Arabic sweep.** It needs a session in progress and live media;
   it is swept in English by `session-ui.spec.ts` only. Found 2026-10-18.
 - **`dashboard/e2e/` is neither type-checked (tsconfig `include`: `src`) nor linted (biome
@@ -396,12 +368,10 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
   but nothing runs it on a PR, so a seed or journey can rot unnoticed. Found 2026-10-18
   by rch-load-test-harness.
 
-- **`RadioCardGroup` arrow keys are mirrored the wrong way under Arabic.** Radix roving
-  focus treats every group as LTR unless a `DirectionProvider` is mounted, and the app
-  mounts none, so in RTL ArrowRight moves to the card on the left. The fix is to mount
-  Radix's `DirectionProvider` once in `main.tsx`, driven by the active locale.
-  `RatingInput` works around it locally by passing `dir` itself. Found 2026-10-18
-  (`asm-ui-primitives`).
+- ~~**`RadioCardGroup` arrow keys are mirrored the wrong way under Arabic.**~~ **FIXED
+  2026-10-25** (rch-i18n-rtl-leak-fixes). The app's `DirectionProvider` now also mounts Radix's
+  `Direction.Provider` with the same direction, so every Radix group's roving focus follows the
+  reading direction. `RatingInput`'s explicit `dir` stays as the element-level override.
 
 - **Two leftovers from the lesson-to-session wording change (`cur-session-wording`).**
   `src/routes/design-preview.tsx` still shows "lesson" in its hard-coded sample copy (a
@@ -584,7 +554,10 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
   today. The "a container nobody pointed the check at" failure is narrowed, not eliminated; the
   root container that defeated the original fix was exactly this class.
 
-- **The deploy's file sync now downloads its own binary, unchecksummed.** `appleboy/scp-action`
+- ~~**The deploy's file sync now downloads its own binary, unchecksummed.**~~ **FIXED 2026-10-25**
+  (`lb-deploy-pipeline-hardening`): the file sync and the remote run use the runner's own OpenSSH
+  in place of both `appleboy` actions, so nothing is downloaded at deploy time. The original
+  entry follows. `appleboy/scp-action`
   v1 is a composite action: instead of running a pinned Docker image, it `curl`s the `drone-scp`
   binary onto the runner at deploy time (default v1.8.0, GitHub releases, no checksum). The action
   tag is pinned, the thing it fetches is not. This is the step that carries `turnserver.conf` to
@@ -660,6 +633,9 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
   and putting it in the merge path is a standing cost on every PR. Fix AND gate, or stop
   calling it a gate. Measured here so the decision has real numbers.
 
+- **The infra submodule's `CLAUDE.md` still calls the deploy script `deploy.sh`** (its file list
+  and its rollback line); the script is `scripts/ship.sh`. Spotted 2026-10-25 while hardening the
+  deploy pipeline; left alone there (D10).
 - ~~**`docs/runbook/deploy.md` still calls the deploy script `scripts/deploy.sh`.**~~ **FIXED
   2026-09-13** — every reference now says `scripts/ship.sh`, so the commands survive a
   copy-paste.
@@ -788,8 +764,8 @@ phase; each was reviewed and consciously deferred rather than missed.
   toward the start edge) stuck out past the page edge in a right-to-left document, which
   counts as scrollable overflow. `RadioCardGroup` now takes them out of layout
   (`[&>input]:hidden`); they still submit. The Arabic-sweep allowlist is empty and its
-  ceiling is 0. `rch-i18n-rtl-leak-fixes` keeps the rest of its list (raw times,
-  `TimezoneBar` locale, icon flips).
+  ceiling is 0. The rest of that list (raw times, `TimezoneBar` locale, icon flips) was fixed
+  2026-10-25 by rch-i18n-rtl-leak-fixes.
 - **The time zone picker does not offer `UTC`.** `Intl.supportedValuesOf("timeZone")` omits
   the `UTC` alias in Chromium, so `TimezoneBar` (availability editor and the `/account`
   card) cannot choose it. A user whose device is not in UTC cannot go back to the default
@@ -1122,6 +1098,12 @@ proves; all are robustness of an unattended job.
   teacher with several hundred students is polled for it. Fine at launch size; when it
   isn't, page the member chats in the database (newest first) and compute access only for the
   page. Not worth doing before a real teacher has that many.
+- **The `subject name` catalog lookup is repeated in `assessment`
+  (`asm-report-api`).** `assessment/api/serializers.py` translates a subject's name with
+  `pgettext("subject name", ...)` because assessment may not import `curriculum`; the
+  context string is now written in two places. If curriculum renames it, the Arabic
+  `subject_name` test in `assessment/tests/test_api.py` goes red. When a third module needs
+  it, move the lookup behind one `scheduling.services` helper.
 
 ## Known-good gotchas (not bugs — read before panicking)
 

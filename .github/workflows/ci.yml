@@ -706,6 +706,19 @@ jobs:
           .github/scripts/test-check-published-ports.sh
           .github/scripts/check-published-ports.sh infra/docker-compose.production.yml
 
+      # Deploy-pipeline checks. Every compose service outside a colour profile must be in
+      # ship.sh's explicit start lists, or it is never started and nothing says so (coturn
+      # once went unstarted with every health check green). The checkers are tested first, for
+      # the same reason as above; infra has no CI of its own, so its shell tests run here.
+      - name: The deploy pipeline's scripts and service lists
+        run: |
+          infra/scripts/test-deploy-lib.sh
+          .github/scripts/test-check-shipsh-services.sh
+          .github/scripts/check-shipsh-services.sh infra/docker-compose.production.yml infra/scripts/ship.sh
+          .github/scripts/test-deploy-outcome.sh
+          .github/scripts/test-check-staging-host-key.sh
+          .github/scripts/check-staging-host-key.sh
+
       # Known historical findings are allowlisted by fingerprint in `.gitleaksignore`,
       # one annotated line each, so a NEW secret in a NEW commit still fails here.
       # The image is pinned: an unpinned scanner changes what "green" means without a
@@ -1123,98 +1136,162 @@ jobs:
       - name: Set short SHA
         run: echo "SHORT_SHA=${GITHUB_SHA::7}" >> $GITHUB_ENV
 
+      # Secrets reach every step below through `env:`, never interpolated into a command line.
       - name: Log in to GHCR
-        run: echo "${{ secrets.GHCR_PAT }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+        env:
+          GHCR_PAT: ${{ secrets.GHCR_PAT }}
+          GHCR_USER: ${{ github.actor }}
+        run: printf '%s' "${GHCR_PAT}" | docker login ghcr.io -u "${GHCR_USER}" --password-stdin
 
-      - name: Build backend image
+      # buildx with a registry cache: the three images no longer build from scratch on every
+      # merge. The cache lives at ghcr.io/kaleem-lms/<image>:buildcache and is read and written
+      # ONLY here -- a master-push job that runs after every gate -- so a pull request can never
+      # seed it. Tags and image contents are as before; `--provenance=false` keeps the pushed
+      # manifest the same shape as the plain `docker build` + `docker push` it replaces, and
+      # `--push` publishes both tags in one step.
+      - name: Set up buildx
+        run: docker buildx create --use --driver docker-container
+
+      - name: Build and push backend image
         run: |
-          docker build \
+          docker buildx build --push --provenance=false \
             -f backend/Dockerfile \
             --target production \
             -t ghcr.io/kaleem-lms/backend:${{ env.SHORT_SHA }} \
             -t ghcr.io/kaleem-lms/backend:latest \
+            --cache-from type=registry,ref=ghcr.io/kaleem-lms/backend:buildcache \
+            --cache-to type=registry,ref=ghcr.io/kaleem-lms/backend:buildcache,mode=max \
             backend/
 
-      - name: Push backend image
-        run: |
-          docker push ghcr.io/kaleem-lms/backend:${{ env.SHORT_SHA }}
-          docker push ghcr.io/kaleem-lms/backend:latest
-
-      - name: Build dashboard image
+      - name: Build and push dashboard image
         env:
-          DOCKER_BUILDKIT: "1"
           TOKENS_REPO_TOKEN: ${{ secrets.TOKENS_REPO_TOKEN }}
         run: |
-          docker build \
+          docker buildx build --push --provenance=false \
             -f dashboard/Dockerfile \
             --target production \
             --secret id=tokens_token,env=TOKENS_REPO_TOKEN \
             --build-arg VITE_API_URL=https://api-staging.kaleem.academy/api/v1/ \
             -t ghcr.io/kaleem-lms/dashboard:${{ env.SHORT_SHA }} \
             -t ghcr.io/kaleem-lms/dashboard:latest \
+            --cache-from type=registry,ref=ghcr.io/kaleem-lms/dashboard:buildcache \
+            --cache-to type=registry,ref=ghcr.io/kaleem-lms/dashboard:buildcache,mode=max \
             dashboard/
 
-      - name: Push dashboard image
-        run: |
-          docker push ghcr.io/kaleem-lms/dashboard:${{ env.SHORT_SHA }}
-          docker push ghcr.io/kaleem-lms/dashboard:latest
-
-      - name: Build marketing image
+      - name: Build and push marketing image
         env:
-          DOCKER_BUILDKIT: "1"
           TOKENS_REPO_TOKEN: ${{ secrets.TOKENS_REPO_TOKEN }}
         run: |
-          docker build \
+          docker buildx build --push --provenance=false \
             -f marketing/Dockerfile \
             --target production \
             --secret id=tokens_token,env=TOKENS_REPO_TOKEN \
             -t ghcr.io/kaleem-lms/marketing:${{ env.SHORT_SHA }} \
             -t ghcr.io/kaleem-lms/marketing:latest \
+            --cache-from type=registry,ref=ghcr.io/kaleem-lms/marketing:buildcache \
+            --cache-to type=registry,ref=ghcr.io/kaleem-lms/marketing:buildcache,mode=max \
             marketing/
-
-      - name: Push marketing image
-        run: |
-          docker push ghcr.io/kaleem-lms/marketing:${{ env.SHORT_SHA }}
-          docker push ghcr.io/kaleem-lms/marketing:latest
 
       # Push the current infra config to the VPS BEFORE running ship.sh.
       # Without this, compose-topology / ship.sh changes (e.g. new services)
-      # never reach /opt/kaleem — only the rebuilt image is delivered.
+      # never reach /opt/kaleem -- only the rebuilt image is delivered.
       # .env.production is intentionally NOT synced: it holds secrets and is
       # managed on the VPS.
-      # scp-action v1 is a composite action, not the Docker action v0.1.x was:
-      # it curl-downloads the drone-scp binary onto the runner at deploy time,
-      # unpinned by checksum (ISSUES.md). Every input below survived the switch
-      # unchanged, and its entrypoint is `set -euo pipefail` with `curl -f`, so a
-      # missing source file still fails the deploy loudly.
-      - name: Sync infra config to staging
-        uses: appleboy/scp-action@v1.0.0
-        with:
-          host: ${{ secrets.STAGING_HOST }}
-          username: ${{ secrets.STAGING_USER }}
-          key: ${{ secrets.STAGING_SSH_KEY }}
-          # coturn/turnserver.conf is NOT optional here. The compose file bind-mounts
-          # it; if the file is absent on the VPS, Docker silently creates an empty
-          # DIRECTORY at that path and mounts it, so coturn starts with none of its
-          # hardening — no deny-list, no quotas — which is an unfenced relay reachable
-          # on raw UDP: an SSRF pivot into the private network and a DDoS amplifier.
-          source: "infra/docker-compose.production.yml,infra/scripts/ship.sh,infra/traefik/traefik.yml,infra/coturn/turnserver.conf"
-          target: /opt/kaleem
-          strip_components: 1
-          # /opt/kaleem already holds hand-provisioned copies; replace them with
-          # the repo version (default is false, which makes tar refuse to extract
-          # over existing files: "Cannot open: File exists").
-          overwrite: true
+      #
+      # The runner's own OpenSSH does the work (`tar | ssh`, then `ssh`): nothing is
+      # downloaded at deploy time on a runner whose environment holds the staging key and the
+      # registry token. The host key is PINNED: `.github/deploy/staging_known_hosts` holds the
+      # staging host's public key under the alias `kaleem-staging` (no address in the
+      # repository), checked with StrictHostKeyChecking=yes. A mismatch fails the first
+      # connection, before anything is synced. To rotate it, see docs/runbook/deploy.md.
+      #
+      # The file set: coturn/turnserver.conf is NOT optional. The compose file bind-mounts
+      # it; if the file is absent on the VPS, Docker silently creates an empty DIRECTORY at
+      # that path and mounts it, so coturn starts with none of its hardening -- no deny-list,
+      # no quotas -- which is an unfenced relay reachable on raw UDP: an SSRF pivot into the
+      # private network and a DDoS amplifier. scripts/deploy-lib.sh is sourced by ship.sh and
+      # must arrive in the same sync. Extraction replaces the hand-provisioned copies already
+      # in /opt/kaleem (GNU tar's default) and `--no-same-owner` keeps them owned by the
+      # deploy user rather than the runner's uid.
+      - name: Sync infra config and deploy to staging
+        env:
+          STAGING_HOST: ${{ secrets.STAGING_HOST }}
+          STAGING_USER: ${{ secrets.STAGING_USER }}
+          STAGING_SSH_KEY: ${{ secrets.STAGING_SSH_KEY }}
+          GHCR_PAT: ${{ secrets.GHCR_PAT }}
+          GHCR_USER: ${{ github.actor }}
+        run: |
+          set -euo pipefail
+          known_hosts="${GITHUB_WORKSPACE}/.github/deploy/staging_known_hosts"
+          .github/scripts/check-staging-host-key.sh "${known_hosts}"
+          umask 077
+          key="${RUNNER_TEMP}/staging_key"
+          trap 'rm -f "${key}"' EXIT
+          printf '%s\n' "${STAGING_SSH_KEY}" >"${key}"
+          ssh_opts=(
+            -i "${key}"
+            -o IdentitiesOnly=yes
+            -o BatchMode=yes
+            -o StrictHostKeyChecking=yes
+            -o UserKnownHostsFile="${known_hosts}"
+            -o GlobalKnownHostsFile=/dev/null
+            -o HostKeyAlias=kaleem-staging
+            -o HostKeyAlgorithms=ssh-ed25519
+            -o ConnectTimeout=20
+            -o ServerAliveInterval=30
+          )
+          target="${STAGING_USER}@${STAGING_HOST}"
+          tar -C infra -cf - \
+            docker-compose.production.yml \
+            scripts/ship.sh \
+            scripts/deploy-lib.sh \
+            traefik/traefik.yml \
+            coturn/turnserver.conf \
+            | ssh "${ssh_opts[@]}" "${target}" 'tar -C /opt/kaleem --no-same-owner -xf -'
+          # The two remote command strings below expand on the client on purpose: a short commit
+          # SHA and a GitHub login (letters, digits, hyphens), neither of which can carry a quote.
+          # shellcheck disable=SC2029
+          printf '%s' "${GHCR_PAT}" \
+            | ssh "${ssh_opts[@]}" "${target}" "docker login ghcr.io -u '${GHCR_USER}' --password-stdin"
+          # shellcheck disable=SC2029
+          ssh "${ssh_opts[@]}" "${target}" "cd /opt/kaleem && bash scripts/ship.sh ${SHORT_SHA}"
 
-      - name: Deploy to staging via SSH
-        uses: appleboy/ssh-action@v1.2.5
-        with:
-          host: ${{ secrets.STAGING_HOST }}
-          username: ${{ secrets.STAGING_USER }}
-          key: ${{ secrets.STAGING_SSH_KEY }}
-          envs: SHORT_SHA
-          script: |
-            echo "${{ secrets.GHCR_PAT }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-            cd /opt/kaleem
-            export DEPLOY_SHA=$SHORT_SHA
-            bash scripts/ship.sh $SHORT_SHA
+  # Makes a deploy that did not happen visible. `deploy-staging` skips, silently, whenever a
+  # gate is red (ISSUES.md #88): a grey job among green ones, and master quietly stops being
+  # what staging runs. This runs after it on every master push, whatever happened, and fails
+  # with "master is not on staging" unless staging has the commit or the push was
+  # documentation-only. A Dependabot push is red on purpose: its gates skip, and staging
+  # lagging master is exactly what should be seen. All the logic is in
+  # .github/scripts/deploy-outcome.sh, which has its own tests (the `security` job).
+  deploy-outcome:
+    needs:
+      [
+        triage,
+        backend-lint,
+        backend-test,
+        dashboard-lint,
+        dashboard-build,
+        e2e,
+        marketing-build,
+        security,
+        image-scan,
+        sast,
+        deploy-staging,
+      ]
+    # `always()` is the point: without it this job is skipped, like deploy-staging, exactly
+    # when something went wrong.
+    if: >-
+      always()
+      && github.event_name == 'push'
+      && github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Check that master is on staging
+        env:
+          NEEDS_JSON: ${{ toJSON(needs) }}
+          CODE: ${{ needs.triage.outputs.code }}
+          ACTOR: ${{ github.actor }}
+        run: .github/scripts/deploy-outcome.sh

@@ -5,8 +5,18 @@
 Deploys are triggered automatically when code is merged to `master`:
 
 1. CI runs (lint, test, build)
-2. If all pass, `deploy-staging` job builds a Docker image, pushes to GHCR, and SSHs into the staging VPS
+2. If all pass, the `deploy-staging` job builds the three images with `docker buildx` (a registry
+   build cache at `ghcr.io/kaleem-lms/<image>:buildcache`, written only by this master-only job),
+   pushes them to GHCR, syncs the infra config to the VPS and runs `scripts/ship.sh` there. The
+   sync and the remote run use the runner's own OpenSSH (`tar | ssh`, then `ssh`) against a
+   **pinned host key**; nothing is downloaded at deploy time.
 3. On the VPS, `scripts/ship.sh` runs a blue-green swap
+4. The `deploy-outcome` job runs after it on every master push, whatever happened, and goes red
+   with "master is not on staging" unless staging has the commit (see below)
+
+The synced files are `docker-compose.production.yml`, `scripts/ship.sh`, `scripts/deploy-lib.sh`
+(sourced by `ship.sh`, so the two always travel together), `traefik/traefik.yml` and
+`coturn/turnserver.conf`. `.env.production` is never synced.
 
 ## Manual deploy (if CI is down or you need to deploy a specific SHA)
 
@@ -20,15 +30,79 @@ bash scripts/ship.sh $DEPLOY_SHA
 
 ## Rollback
 
-Re-deploy the previous image SHA:
+The host keeps the images of the last `KEEP_DEPLOYS` (default 5) deploys, and `ship.sh` records
+each successful deploy's SHA in `/opt/kaleem/.deploy-history` (newest last). A rollback is a
+deploy of an older SHA, and it needs no re-pull:
 
 ```bash
 ssh deploy@<staging-ip>
 cd /opt/kaleem
+tail -5 .deploy-history          # newest last; the last line is what is live
 bash scripts/ship.sh <previous-sha>
 ```
 
-The previous SHA can be found in the GitHub Actions deploy log or in GHCR tags.
+A rolled-back SHA moves to the end of the history. A SHA older than the last five may have been
+removed from the host; `ship.sh` then pulls it from GHCR, which keeps every SHA tag.
+
+## Image retention (what keeps the disk bounded)
+
+`ship.sh` removes every `ghcr.io/kaleem-lms/*` image whose tag is a commit SHA unless that SHA is
+one of the last `KEEP_DEPLOYS` recorded deploys, the SHA being deployed, or an image any container
+(running or stopped) uses. It never touches another repository's image (traefik, postgres, redis,
+coturn), an untagged image, or the `latest` and `buildcache` tags beyond dangling layers
+(`docker image prune -f`, never `-a`). It runs at the **start** of every deploy as well as the end,
+so a run of failed deploys cannot fill the disk. A removal that fails (an image in use, a race) is
+logged and skipped, never fatal.
+
+The log shows `Keeping: <shas>`, `Removed <n> superseded images` and, unchanged, the
+`Disk now: <free> free (<n>% used)` line. Disk use is bounded by `KEEP_DEPLOYS`, not by how often
+you merge. To keep more or fewer for one run: `KEEP_DEPLOYS=3 bash scripts/ship.sh <sha>`.
+
+On a host with no `.deploy-history`, the first deploy records the image the live colour runs
+before it prunes, so a rollback target survives.
+
+## Which deploys did not happen: `deploy-outcome`
+
+`deploy-staging` skips, without a signal, when any gate is red (a grey job among green ones). The
+`deploy-outcome` job runs after it on every master push (`.github/scripts/deploy-outcome.sh`):
+
+- staging deployed: green;
+- a documentation-only push (`triage` reports `code=false`): green, with a notice that no deploy
+  was expected;
+- otherwise (a red gate, a failed deploy, a cancelled one, a failed `triage`, or a Dependabot push
+  whose gates skip): **red, "master is not on staging"**, with each gate's result in the log and in
+  the step summary.
+
+A red `deploy-outcome` is not noise: master is not what staging runs. Fix the gate, or re-run the
+workflow once it is green.
+
+## The staging host key
+
+The deploy trusts exactly one host key, committed in `.github/deploy/staging_known_hosts` as
+`kaleem-staging ssh-ed25519 <key>` (the alias, never the address) and used with
+`StrictHostKeyChecking=yes`. `.github/scripts/check-staging-host-key.sh` verifies the file's shape
+on every PR. A mismatch fails the deploy at its first connection, before anything is synced.
+
+If the VPS is rebuilt (or its host key regenerated) every deploy fails there until the file is
+updated:
+
+```bash
+# On the VPS: the public key, and its fingerprint.
+cat /etc/ssh/ssh_host_ed25519_key.pub
+ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub
+# Locally: confirm the fingerprint against one you already trust (your own known_hosts entry
+# for the host from before the rebuild is NOT it; use the provider console or the rebuild log).
+# Then replace the file's one line with:  kaleem-staging <type> <base64>   and open a PR.
+```
+
+## The deploy script's service lists
+
+`ship.sh` names its shared services (step 4) and static frontends (step 10) once, as arrays at the
+top; `bash scripts/ship.sh --list-services` prints them and touches nothing. Every compose service
+outside a colour profile must be in that union, or it is never started and nothing says so (coturn
+once went unstarted with every health check green). Checked twice: the `security` job fails a PR
+that adds a service without adding it (`.github/scripts/check-shipsh-services.sh`), and `ship.sh`
+refuses to start, before pulling, if the host's compose file disagrees.
 
 ## First-time VPS setup
 
@@ -92,5 +166,5 @@ curl http://localhost:8000/health/ready/
 | --- | --- |
 | `GHCR_PAT` | Push/pull Docker images |
 | `STAGING_HOST` | VPS IP address |
-| `STAGING_SSH_KEY` | SSH private key |
+| `STAGING_SSH_KEY` | SSH private key (written to a mode-600 file in `$RUNNER_TEMP` for the deploy step only) |
 | `STAGING_USER` | SSH username |
