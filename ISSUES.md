@@ -1089,6 +1089,12 @@ proves; all are robustness of an unattended job.
   teacher with several hundred students is polled for it. Fine at launch size; when it
   isn't, page the member chats in the database (newest first) and compute access only for the
   page. Not worth doing before a real teacher has that many.
+- **The `subject name` catalog lookup is repeated in `assessment`
+  (`asm-report-api`).** `assessment/api/serializers.py` translates a subject's name with
+  `pgettext("subject name", ...)` because assessment may not import `curriculum`; the
+  context string is now written in two places. If curriculum renames it, the Arabic
+  `subject_name` test in `assessment/tests/test_api.py` goes red. When a third module needs
+  it, move the lookup behind one `scheduling.services` helper.
 
 ## Known-good gotchas (not bugs — read before panicking)
 
