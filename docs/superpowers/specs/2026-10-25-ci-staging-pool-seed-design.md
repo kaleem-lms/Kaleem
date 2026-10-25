@@ -53,6 +53,8 @@ No end-user behaviour changes. The operator flow:
 Error cases (each stops with a `CommandError` and a non-zero exit before anything is written
 for the failing unit; earlier units in the same run stay committed):
 
+- **Terminal on stdin.** Standard input is a TTY: refused, because the password is taken only
+  from a redirected file (run the container exec without a TTY, e.g. `docker exec -i`).
 - **Not staging.** The host of `settings.FRONTEND_URL` has no `staging` label
   (`app-staging.kaleem.academy` passes; `app.kaleem.academy` and `app.kaleem.localhost` do
   not). Production and local development are refused without a new setting or env var.
