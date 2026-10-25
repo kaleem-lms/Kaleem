@@ -13,7 +13,7 @@ graph TD
     curriculum[curriculum<br/>courses, lessons]
     content[content<br/>resources, files]
     messaging[messaging<br/>chat, messages]
-    notifications[notifications<br/>email, in-app, reminders]
+    notifications[notifications<br/>in-app, email, push, reminders]
     engagement[engagement<br/>points, badges, streaks]
     analytics[analytics<br/>dashboards, aggregation]
 
@@ -22,6 +22,10 @@ graph TD
     scheduling --> curriculum
     scheduling --> notifications
     billing --> identity
+    billing --> notifications
+    assessment --> notifications
+    curriculum --> notifications
+    content --> notifications
     assessment --> identity
     assessment --> scheduling
     curriculum --> identity
