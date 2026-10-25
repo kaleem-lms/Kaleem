@@ -56,3 +56,44 @@ frontend/backend", which is no longer accurate.
 - Production `www` handling and a production environment are deferred; this ADR covers
   staging first.
 - `CLAUDE.md`'s auth bullet is updated to reflect this decision.
+
+## Amendment 2026-10-26: per-environment cookie names, runtime dashboard config
+
+Part of the production-parametrization unit (`lb-prod-env-parametrization`). Nothing above
+is reversed; three things it left implicit are now decided.
+
+1. **Cookie names are per environment.** Staging and production both scope cookies to
+   `Domain=.kaleem.academy`, so a `sessionid` or `csrftoken` set by one environment would
+   overwrite the other's in a browser that visited both. `DJANGO_SESSION_COOKIE_NAME` and
+   `DJANGO_CSRF_COOKIE_NAME` set the names. Base settings default to Django's own
+   (`sessionid` / `csrftoken`: local, test and e2e). **Production settings require both and
+   refuse to start without them.** Staging keeps `sessionid` / `csrftoken` and production
+   uses `kaleem_sessionid` / `kaleem_csrftoken`, so no environment that has sessions today
+   renames a cookie, nobody is logged out, and an open tab's older bundle (which reads
+   `csrftoken`) keeps working through the deploy. Renaming staging instead was rejected: it
+   needs a two-name transition for old bundles and logs every staging user out, for no
+   isolation gain. This also supersedes the hardcoded `xsrfCookieName="csrftoken"` in ADR-0009.
+2. **Production host values are required.** `CORS_ALLOWED_ORIGINS`, `CSRF_TRUSTED_ORIGINS`
+   and `DJANGO_COOKIE_DOMAIN` have no default in production settings: an empty value
+   started an API the dashboard could not use and reported nothing. `ship.sh` step 6c runs
+   `manage.py check --deploy` in the new colour against the real environment and rolls it
+   back on a finding; the only silenced check is `security.W021` (HSTS preload), which
+   cannot apply to an API host.
+3. **One dashboard image for every environment.** The image no longer takes a `VITE_API_URL`
+   build argument. `index.html` loads `/env.js` before the bundle; the container's start-up
+   hook (`dashboard/docker/40-kaleem-runtime-config.sh`) writes it from `KALEEM_API_URL` and
+   `KALEEM_CSRF_COOKIE_NAME`, and refuses to start when either is missing or malformed.
+   Compose derives both from the variables the API and the gateway already use, so the
+   dashboard and the API cannot disagree. `api.ts` resolves the base as the runtime value,
+   then `VITE_API_URL` (dev, preview, tests), and a production build with neither refuses to
+   load. The same image can now be promoted from staging to production unchanged.
+
+Traefik's static configuration also moved from a mounted `traefik.yml` into the `traefik`
+service's `command:` flags: Traefik reads exactly one static source and a file wins over
+flags and environment variables, so the ACME contact (`ACME_EMAIL`, an operator value) could
+not come from the environment while a file was mounted. CI starts a real Traefik on the
+resolved flags and checks the configuration it ends up with.
+
+**Costs.** One extra same-origin, no-cache request before the bundle on the first page load
+(`/env.js`). Recreating Traefik for this change is a few seconds without routing, and a
+changed ACME address registers a new ACME account (certificates are kept).

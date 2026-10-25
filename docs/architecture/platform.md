@@ -112,6 +112,18 @@ header or client address, and it redacts the error log's request URI. The produc
 and both compose colours start gunicorn with `-c gunicorn.conf.py`. The nginx images log the
 path only through their own `log_format`.
 
+## Per-environment settings
+
+Decision: the 2026-10-26 amendment to `docs/adr/0019-frontend-delivery-and-same-site-auth.md`.
+
+Everything that differs between staging and production comes from the environment, so the
+same images run in both. `config/settings/production.py` has no default for the cookie names,
+`DJANGO_COOKIE_DOMAIN`, `CORS_ALLOWED_ORIGINS` or `CSRF_TRUSTED_ORIGINS`, and the process
+refuses to import without them (the error names the variable, never its value).
+`tests/settings/test_check_deploy.py` pins `manage.py check --deploy` clean under production
+settings (only `security.W021`, HSTS preload, is silenced, because an API host cannot be
+preloaded), and `ship.sh` step 6c runs the same command against the real environment.
+
 ## The API text contract
 
 Spec: `docs/superpowers/specs/2026-10-18-rch-i18n-server-strings-design.md`.

@@ -58,7 +58,10 @@ Errors are typed (`platform.exceptions.ValidationError` / `NotFoundError`) — n
 
 ## Auth & HTTP (`identity/api/`)
 
-- Session cookies + real CSRF, same-origin. No JWT. allauth handles email verification
+- Session cookies + real CSRF, same-site across `app-`/`api-` (ADR-0019). The cookie names are
+  per environment (`DJANGO_SESSION_COOKIE_NAME` / `DJANGO_CSRF_COOKIE_NAME`: Django's defaults
+  off production, required in production), and the dashboard reads the CSRF name at runtime from
+  `/env.js` (ADR-0019 amendment). No JWT. allauth handles email verification
   (mandatory) and password reset; landing pages live under `/accounts/`.
 - URL-path versioned under `/api/v1/` (ADR-0017). Endpoints: `register/`,
   `resend-verification/`, `verify-email/`, `login/`, `logout/`, `me/` (GET+PATCH),
