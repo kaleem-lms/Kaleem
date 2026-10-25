@@ -82,9 +82,8 @@ None. No route, component or string changes.
 
 Edited only after both checks are green:
 
-- `ISSUES.md`: the entry is struck through and marked **FIXED 2026-10-25** (rotated by the
-  owner, verified by both checks), following the file's existing closed-entry style. The literal
-  leaked values are removed from the entry's text; it keeps the two lasting facts: the strings
+- `ISSUES.md`: the entry is deleted, per the file's own rule that resolved entries are deleted
+  rather than struck through (git keeps it). The two lasting facts move to `STATE.md`: the strings
   stay in history for good, and new staging credentials never enter the repo.
 - `STATE.md`: the standing warning about world-readable staging passwords is replaced by the
   closed state; the C3d fixture warning keeps its "reset rather than assume a regression"
