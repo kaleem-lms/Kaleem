@@ -88,7 +88,7 @@ will keep. The two goals meet when the form is simple enough to hold as a shape 
 enough to read as a word.
 
 **The Latin wordmark** is lowercase "kaleem". In the LTR lockup it sits with the Arabic; in the
-RTL lockup the composition mirrors. Neither lockup is the other with the order flipped by
+RTL lockup the order follows the reading direction. Neither lockup is the other with the order flipped by
 default; each is judged on its own.
 
 **The outlines** of the Arabic come from an OFL face chosen under `dec-brand-typeface`. Faces
@@ -102,7 +102,7 @@ needs an Arabic companion for the display role, and `dec-brand-typeface` must se
 ## Accessibility
 
 - The baseline is **WCAG 2.2 AA** plus **EN 301 549** (ADR-0020, ADR-0040).
-- The mark has an **accessible name** in each locale: `kaleem` in English and كليم in Arabic.
+- The mark has an **accessible name** in each locale: `kaleem` in English, and in Arabic the reading the owner settles (For the owner's review, item 1), matching the visible mark.
   Where it is decorative next to the product name, it is hidden from assistive technology.
 - Every mark-on-surface pair is **declared in `contrast-pairs.json`** and passes in **both
   themes**, light and dark. The mark's colours are token aliases (`brand.json`:
