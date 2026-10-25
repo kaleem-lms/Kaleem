@@ -1,6 +1,6 @@
 ---
 spec: docs/superpowers/specs/2026-10-25-ci-staging-pool-seed-design.md
-status: draft
+status: approved
 ---
 
 Backend only, one worktree: `/home/abdulkhalek/Projects/kaleem-worktrees/backend-ci-staging-pool-seed`

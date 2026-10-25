@@ -2,7 +2,7 @@
 name: ci-staging-pool-seed
 phase: v1 programme (wave 1, platform stream)
 modules: [platform, identity, scheduling, billing]
-status: draft
+status: approved
 created: 2026-10-25
 closed: null
 ---
@@ -159,4 +159,6 @@ is unaffected during the blue-green window. No beat task, no env var, no `ship.s
 
 ## Open questions
 
-None. Owner approval is requested for the billing guard change (dec-spec-approval: money).
+None. The owner approved this spec on 2026-10-25, including the billing guard change
+(dec-spec-approval: money): staging refuses every non-pool address and production refuses
+every address, and both refusals are tested and mutation-checked.
