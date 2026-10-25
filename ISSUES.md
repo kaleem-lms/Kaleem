@@ -344,6 +344,10 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
   A "Seen" receipt needs a backend field first, then a mark in `MessageItem`. Owner confirmed
   the narrower reading of "receipts" with the spec (2026-10-25).
 
+- **The root `brand/` package is stale.** It dates from June 2026 (9448fe3, made for Stitch) and
+  carries the pre-ADR-0040 v0.1.1 palette, which contradicts the shipped one. The new brand brief
+  says it is not an input. Wants deleting or marking historical by the brand stream. Found
+  2026-10-25 by inf-brand-brief-rewrite.
 - **The /account time-zone sync is one-way.** Changing the zone in the new Language and time
   zone card refetches the availability panel, but saving a zone in the availability panel on the
   same page does not refresh the card. Found 2026-10-19 by ntf-recipient-locale-tz.

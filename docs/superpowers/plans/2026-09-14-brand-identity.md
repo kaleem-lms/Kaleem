@@ -49,8 +49,9 @@ list (`docs/superpowers/specs/2026-09-14-brand-identity-design.md`, Errata).
 - **E10 email header.** The backend sends text-only email, so there is no HTML header to
   modify. `ntf-email-foundation` builds the header slot; Task 12 (`inf-brand-email-header`)
   swaps the hosted raster into it.
-- **E11 brief.** `docs/brand/brief.md` is being rewritten by owner decision
-  (`inf-brand-brief-rewrite`). Task 1's output is marked accordingly.
+- **E11 brief.** `docs/brand/brief.md` was rewritten on 2026-10-25 by
+  `inf-brand-brief-rewrite`, drafted by the conductor, owner to review. Task 1's embedded brief
+  text below is kept as the record of what rounds 1-4 were judged against.
 - **E12 drift mutation check.** Task 8a Step 7 ran a bare `node brand.mjs --check`, which
   checks the shipped manifest. That is empty in 8a (E7), so it emits nothing and exits 0
   after the fixture byte is changed: it could not go red. `brand.mjs` now takes an optional
@@ -127,7 +128,7 @@ list (`docs/superpowers/specs/2026-09-14-brand-identity-design.md`, Errata).
 **Files:**
 - Create: `docs/brand/brief.md`
 
-**Status (E11):** the brief this task produced is being rewritten by owner decision (2026-10-17) under `inf-brand-brief-rewrite`. `docs/brand/brief.md` carries a status line saying so; no direction work is judged against the original.
+**Status (E11):** the brief this task produced was rewritten on 2026-10-25 by `inf-brand-brief-rewrite` (drafted by the conductor, owner to review). `docs/brand/brief.md` is the new version; the brief text embedded below is kept unedited as the record of what rounds 1-4 were judged against.
 
 **Interfaces:**
 - Consumes: the spec's decisions table.
