@@ -172,7 +172,7 @@ deliverable, so the address can register again), blanks the name, birthdate, lan
 `last_login`, sets `timezone` to UTC, makes the password unusable (which ends every other
 session) and sets `is_active=False`, clears groups and permissions; resets the profiles'
 notes and preferences (a teacher leaves the pool); rewrites admin `LogEntry.object_repr`
-values that name one of the person's addresses to `erased user <id>`. Erasing a parent
+values that name one of the person's addresses as a whole address (never as a part of a longer one) to `erased user <id>`. Erasing a parent
 unlinks their children, who keep their accounts; no one but the erased person is told.
 
 A later sender that mails an inactive user hits an undeliverable `.invalid` address:
