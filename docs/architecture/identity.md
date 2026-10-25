@@ -111,6 +111,16 @@ Personal data (ADR-0023): a language code and a zone name per account, children 
 the user (`/account`, `GET /me/`, the data export) and to staff (Django admin); neither is
 logged.
 
+## Client-side validation messages (lb-zod-i18n)
+
+The dashboard's identity forms (login, register, password reset, account, family, invite)
+validate with zod through `zodResolver`. Their messages are not written in the schema:
+`schemas.ts` imports `z` from `@/lib/zod`, whose global error map resolves each issue to a
+key in the lazily loaded `validation` catalogue, in the page's language when validation runs.
+The one refine here (`registerSchema.birthdate`) names its key with `params: { key }`. Server
+field errors are separate and already localized by the backend (ADR-0058). The developer
+guide (`docs/developer-guide/i18n.md`, "Validation messages") has the rules.
+
 ## Email addresses (ADR-0022)
 
 A user may hold multiple `EmailAddress` rows (allauth's table — no new model). `User.email`
