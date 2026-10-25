@@ -350,11 +350,10 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
   nothing references it (seen in `rch-pwa-manifest-head`). It ships in every build. Delete it
   in a unit that already touches `public/`.
 
-- **Five Arabic plural families have no `_zero` form**, so at count 0 an Arabic page falls back
-  to English: `availability.copyConfirmBody`, `availability.weeklyTotal`,
-  `billing.planFamilyDesc`, `billing.planIndividualDesc`, `booking.showPast`. Held on the parity
-  gate's `ZERO_FORM_ALLOWLIST` (ceiling 5). Needs native-reviewed Arabic copy; owned by
-  rch-i18n-rtl-leak-fixes. Found 2026-10-18.
+- ~~**Five Arabic plural families have no `_zero` form**~~ **FIXED 2026-10-25**
+  (rch-i18n-rtl-leak-fixes). The five Arabic `_zero` strings are in the catalogue and the parity
+  gate's `ZERO_FORM_ALLOWLIST` is empty at ceiling 0. The wording is a DRAFT until the Arabic
+  review (`hg-arabic-review`) signs it off.
 - **The call room is not in the Arabic sweep.** It needs a session in progress and live media;
   it is swept in English by `session-ui.spec.ts` only. Found 2026-10-18.
 - **`dashboard/e2e/` is neither type-checked (tsconfig `include`: `src`) nor linted (biome
@@ -366,12 +365,10 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
   but nothing runs it on a PR, so a seed or journey can rot unnoticed. Found 2026-10-18
   by rch-load-test-harness.
 
-- **`RadioCardGroup` arrow keys are mirrored the wrong way under Arabic.** Radix roving
-  focus treats every group as LTR unless a `DirectionProvider` is mounted, and the app
-  mounts none, so in RTL ArrowRight moves to the card on the left. The fix is to mount
-  Radix's `DirectionProvider` once in `main.tsx`, driven by the active locale.
-  `RatingInput` works around it locally by passing `dir` itself. Found 2026-10-18
-  (`asm-ui-primitives`).
+- ~~**`RadioCardGroup` arrow keys are mirrored the wrong way under Arabic.**~~ **FIXED
+  2026-10-25** (rch-i18n-rtl-leak-fixes). The app's `DirectionProvider` now also mounts Radix's
+  `Direction.Provider` with the same direction, so every Radix group's roving focus follows the
+  reading direction. `RatingInput`'s explicit `dir` stays as the element-level override.
 
 - **Two leftovers from the lesson-to-session wording change (`cur-session-wording`).**
   `src/routes/design-preview.tsx` still shows "lesson" in its hard-coded sample copy (a
@@ -758,8 +755,8 @@ phase; each was reviewed and consciously deferred rather than missed.
   toward the start edge) stuck out past the page edge in a right-to-left document, which
   counts as scrollable overflow. `RadioCardGroup` now takes them out of layout
   (`[&>input]:hidden`); they still submit. The Arabic-sweep allowlist is empty and its
-  ceiling is 0. `rch-i18n-rtl-leak-fixes` keeps the rest of its list (raw times,
-  `TimezoneBar` locale, icon flips).
+  ceiling is 0. The rest of that list (raw times, `TimezoneBar` locale, icon flips) was fixed
+  2026-10-25 by rch-i18n-rtl-leak-fixes.
 - **The time zone picker does not offer `UTC`.** `Intl.supportedValuesOf("timeZone")` omits
   the `UTC` alias in Chromium, so `TimezoneBar` (availability editor and the `/account`
   card) cannot choose it. A user whose device is not in UTC cannot go back to the default
