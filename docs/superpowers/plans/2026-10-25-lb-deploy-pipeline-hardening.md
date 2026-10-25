@@ -159,3 +159,17 @@ Conductor prerequisite for step 9: the staging host's ed25519 public key line (V
 Steps 1-8 by their tests (red first, mutation-checked). Step 9 by the meta PR's `security` job and
 then the first master run: `deploy-staging` green, `deploy-outcome` green, VPS steps V3-V4. The
 skip path is proven by step 8's fixtures; it is not provoked on master.
+
+## Build notes (2026-10-25)
+
+- Steps 1-5 landed in infra as one commit (`scripts/deploy-lib.sh`, `scripts/test-deploy-lib.sh`,
+  `scripts/ship.sh`). Steps 7-10 landed in meta. Step 11 (pointer bump) and the host-key file are
+  the conductor's: the bump is pinned from the pushed infra SHA, and
+  `.github/deploy/staging_known_hosts` is committed once V1 has produced the key line.
+- Added in scope, because the pin is the control that replaces the downloaded binaries:
+  `.github/scripts/check-staging-host-key.sh` (+ test) validates the file's shape on every PR
+  (missing, a second entry, an address instead of the alias, a non-ed25519 key, an unparseable
+  key all fail), and the deploy step runs it before connecting. Until the file is committed the
+  meta PR's `security` job is red on that step by design.
+- The test harness runs each case with errexit on inside the case: a first draft ran cases in a
+  `||` list, which silently disables `set -e` inside them and let failing assertions pass.
