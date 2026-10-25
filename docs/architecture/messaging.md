@@ -117,11 +117,43 @@ person's own chats (id, kind, created) and the messages they wrote. Erase blanks
 the person's messages and sets `erased_at` (once; a second erase keeps the first time),
 resets their read pointers, and leaves the thread for the other member.
 
+## Frontend (`dashboard/src/features/messaging`, `msg-dashboard-ui`)
+
+The dashboard consumes the API above and adds no endpoint. Transport is **polling**
+(ADR-0050); nothing is pushed.
+
+- **Routes.** `/messages` is a layout (list column, plus the open thread beside it from `md`
+  up); `/messages/$chatId` is a thread. The layout's loader brings in the lazily loaded
+  `messaging` catalogue. A chat id the caller cannot read answers 404 like an unknown one, and
+  the thread shows "This chat isn't available"; a non-numeric id shows the same without a
+  request.
+- **Polling.** The nav badge sums `unread_count` over `chats/?page_size=100` every 30 s. The
+  open list refetches every 30 s. An open thread asks `messages/?after=<newest id held>` every
+  10 s, and again at once while `has_more`. Results are folded into the history cache by id,
+  so a message is never shown twice. React Query pauses every interval in a hidden tab.
+- **Read state is the caller's own.** Unread counts, a "New messages" divider (decided once
+  per opening, from the first fresh summary) and the read pointer moving to the newest message
+  held, only for a member (`unread_count !== null`), only while the tab is visible, never twice
+  for one id. A "Seen" mark for the other side needs a backend field and is not built
+  (`ISSUES.md`).
+- **A parent reading a child's chat** has `access: read` and `unread_count: null`: no
+  composer, no pointer, titled "{teacher} · {child}".
+- **Send errors** are chosen by `error_code` (`throttled`, `permission_denied`, `not_found`,
+  `validation_error`), never by message text; the draft is kept on failure.
+- **Stored nowhere.** Bodies, names and read state live only in the React Query cache for the
+  life of the tab; no draft or message reaches `localStorage`.
+- **Bundle.** Only `features/messaging/unread.ts` (and `api.ts`) is in the entry chunk, for
+  the badge, imported by path from the shell.
+
 ## Tests
 
 - `test_access_matrix.py`: every caller by every chat by list, read, post and mark-read, plus
-  open, through the real endpoints on real rows around the 18th birthday. This is the
-  end-to-end substitute until the Messages UI exists; there is no e2e flow.
+  open, through the real endpoints on real rows around the 18th birthday.
+- `dashboard/e2e/messaging.spec.ts` drives it through the UI across the real cookie and CSRF
+  boundary: send, badge, reply and reload; a parent who can read and cannot post; a stranger
+  refused; a student with no parent disabled for the teacher; the thread in Arabic at 320px
+  in both themes. Not covered: the polling interval itself (a unit test with fake timers), a
+  second tab, Safari.
 - `test_policy.py`, `test_services.py`, `test_api.py`, `test_personal_data.py`,
   `platform/tests/test_pagination.py`, and a settings test for the throttle override.
 - Every regression test was mutation-checked against the code it guards.
@@ -129,4 +161,4 @@ resets their read pointers, and leaves the thread for the other member.
 ## Not here
 
 Attachments, push, notifications, reports, staff reads, unsend, the purge, group chats,
-editing, and the privacy notice. The Messages UI is `msg-dashboard-ui`.
+editing, and the privacy notice.
