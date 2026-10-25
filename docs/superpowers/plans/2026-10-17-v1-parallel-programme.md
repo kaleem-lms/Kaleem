@@ -298,7 +298,7 @@ record (base-03c). What is already public, in `ISSUES.md` or the roadmap, is des
 - **`rch-owasp-walkthrough-b`** (wave 5) and **`rch-owasp-walkthrough-launch`** (wave 6): the
   OWASP Top 10 passes. The Phase B exit needs the first and launch needs the second. Each is
   committed only after its fixes deploy, and its findings go to the private channel.
-- **`lb-staging-credential-rotation`** (wave 1): the rotation `ISSUES.md` records as deferred.
+- **`lb-staging-credential-rotation`** (wave 1): the staging credential rotation; done and verified 2026-10-25.
   It gates preview and launch.
 
 ## 6. Waves
@@ -812,7 +812,7 @@ hosts; *owner-device* needs a real device; *external* waits on someone outside t
 | `hg-stripe-activation` | external | Stripe live activation and KYC. | `lb-prod-stripe-config` |
 | `hg-stripe-config` | owner-access | Stripe live prices, webhook, portal and tax. | `lb-prod-stripe-config` |
 | `hg-monitoring-host` | owner-access | Room for the self-hosted monitoring stack (lb-dec-monitoring-services): RAM and disk on each host it runs on, sized by the ADR-0006 amendment against measured free memory, and a place off the monitored box for the uptime checks so a dead host is still reported; admin credentials out of band. | `lb-error-tracking`, `lb-uptime-host-alerts`, `lb-prod-ops-apply` |
-| `hg-staging-rotation` | owner-access | Staging credential rotation. Deferral accepted and not re-escalated; due before real users (preview) per its own record. | `lb-staging-credential-rotation` |
+| `hg-staging-rotation` | owner-access | Staging credential rotation. Done and verified 2026-10-25. | `lb-staging-credential-rotation` |
 | `hg-first-deploy` | owner | Go for the empty-DB production infrastructure deploy (no real users or money). | `lb-prod-first-deploy` |
 | `hg-prod-parity` | owner-access | Production carries every env var, bucket and service added after the production env was cut. | `launch-go-no-go` |
 | `hg-go-no-go` | owner | Launch go/no-go plus a live purchase and refund. | `launch-go-no-go` |
@@ -831,7 +831,7 @@ Recorded, not silent. The details are in the records named.
 | ADR-0026: the PR that lifts coverage raises the floor | The conductor sets the CI-measured floor on the unit's branch at freshness. | ADR-0045 |
 | `/new-feature`: spec approved before code | The conductor approves routine specs; the owner approves children's data, money, legal text and new product behaviour. | ADR-0045 |
 | Landing: merge the submodule, then prove it | The tested feature SHA is proven in a meta PR first and pinned (tokens releases excepted). | ADR-0045; `docs/runbook/ci.md` |
-| ADR-0032: leaked credentials are rotated | The staging rotation stays deferred, unchanged in severity; it precedes preview and launch. | Journal 2026-W42; `ISSUES.md` |
+| ADR-0032: leaked credentials are rotated | The staging rotation, once deferred, was done and verified 2026-10-25 (login check and database-wide check: none of the leaked values accepted). | Journal 2026-W42; `ISSUES.md` |
 | D11: sustainable pace | Owner time batched into kickoff, review and device sessions; energy and backlog triggers pause new waves. | ADR-0045; the weekly journal |
 | Roadmap v1 scope: trial sessions (line 48; C4, lines 532–536; exit criterion, line 542) | Cut; the trial units are parked. | ADR-0046 (proposed) |
 | Roadmap v1 scope: group sessions | Stay deferred; group chats parked; cohort boards instead of per-class ones. | ADR-0034; ADR-0046; the scope decision record |
