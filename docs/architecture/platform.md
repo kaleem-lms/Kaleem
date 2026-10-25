@@ -3,10 +3,13 @@
 The cross-cutting module. Every business module may import `kaleem.platform`; platform
 imports none of them (the forbidden contract in `pyproject.toml`, which
 `tests/test_import_contracts_cover_every_module.py` keeps in step with the installed
-modules). It has no models and no migrations.
+modules). Its only tables are the event bus's (`DomainEvent`, `HandledEvent`, below).
 
 Spec for the personal-data registry: `docs/superpowers/specs/2026-10-18-plat-dsar-registry-design.md`.
 Decision: `docs/adr/0048-export-erase-hook-contract.md`.
+
+Spec for the event bus: `docs/superpowers/specs/2026-10-25-eng-event-bus-design.md`.
+Decision: `docs/adr/0063-domain-event-bus.md`.
 
 ## What platform owns
 
@@ -25,6 +28,76 @@ Decision: `docs/adr/0048-export-erase-hook-contract.md`.
 | Seed command | `management/commands/seed.py` | `manage.py seed basic|rich` |
 | Personal-data registry | `personal_data.py`, `personal_data_contract.py` | below |
 | Teaching-link port | `teaching.py` | below |
+| Domain event bus | `events.py`, `models.py`, `tasks.py`, `event_probe.py`, `events_personal_data.py`, `management/commands/replay_events.py`, `event_bus_probe.py` | below |
+
+## The domain event bus
+
+Typed events, written in the producer's transaction and delivered after it commits, so a
+module can react to another's facts without importing it (ADR-0063). The engagement and
+analytics modules subscribe through platform; scheduling is the first producer.
+
+### Publishing
+
+1. Declare a frozen dataclass of `int`, `str`, `bool` and aware `datetime` fields (nothing
+   else is accepted) and register it from your `AppConfig.ready()`:
+   `events.register_type("scheduling.session_completed", SessionCompleted, version=1,
+   user_fields=("student_id", "teacher_id"))`. `user_fields` names the `int` fields that
+   hold user ids; they fill `DomainEvent.user_ids`, which export, erase and purge read.
+2. Call `events.publish(SessionCompleted(...), occurred_at=now)` inside your own
+   `transaction.atomic()` block, next to the writes it describes. It returns the row id. It
+   raises `InvalidEventError` (a `ValueError`: a programming error, never an API response)
+   outside an atomic block, for an unregistered class, for a value that does not match its
+   annotation (`bool` is not an `int`, a naive datetime is refused) and for a conflicting
+   re-registration.
+3. Delivery is enqueued with `transaction.on_commit(robust=True)`. A rolled-back
+   transaction leaves no row and no task. A broker failure after the commit is logged and
+   the producer still succeeds; the sweep re-enqueues the row.
+
+A payload change is a new `version`. Never edit a registered class in place.
+
+### Subscribing
+
+`events.subscribe("scheduling.session_completed", "engagement.points", fn)` from your own
+`ready()`. The handler name is `<app_label>.<topic>`, unique per type. `fn(event)` receives
+an `Event(id, type, version, occurred_at, payload)` whose `payload` is a read-only mapping
+of JSON values (datetimes as ISO UTC strings), so the subscriber never imports the
+producer's dataclass. Ignore a `version` you do not know.
+
+- **Idempotency.** For each handler, `deliver()` opens its own `atomic()`, inserts the
+  `HandledEvent` pair (unique on `(event, handler)`) and then calls `fn`. The pair and the
+  handler's writes commit together, so the handler runs once in effect however many times
+  the event is delivered (a retry, a double beat dispatch, two workers racing).
+- **A raising handler** rolls back only its own writes and leaves its pair pending. The
+  other handlers still run, an ERROR is logged with the event id, the handler name and the
+  exception class, and `deliver_event` retries up to three times with backoff.
+- **Keep handlers short.** The task has `CELERY_TASK_SOFT_TIME_LIMIT=60`; a heavy handler
+  enqueues its own task.
+- **No ordering** between events.
+
+### Replay, retention and the two-release rule
+
+| Job | What it does |
+| --- | --- |
+| `deliver_event(id)` | Runs the unhandled pairs of one event. An unknown type, no subscriber or a purged event is a no-op |
+| `sweep_pending_events` | Every 10 minutes: re-enqueues events with an unhandled subscribed pair aged 5 minutes to 24 hours. Covers a lost enqueue, a crashed worker, an old-colour worker that did not know a handler, and a handler deployed in the last day |
+| `purge_old_events` | Daily: deletes events older than `events.RETENTION` (90 days) in batches of 1000; `HandledEvent` rows cascade |
+| `manage.py replay_events [--handler H] [--type T] [--since ISO] [--dry-run]` | Runs the missing pairs in-process, for anything the sweep's window no longer covers (a handler added later backfills this way). `--dry-run` only lists them |
+| `manage.py event_bus_probe [--timeout N]` | Publishes `platform.bus_probe` and waits until a real worker records its handler. Runs in the CI e2e job after "Prove the worker executes a task", and works on any host |
+
+All jobs are idempotent, so both blue-green colours' beats can dispatch them. **New task
+names deploy one release before anything enqueues them**: the bus ships first with no
+producer and no beat entry, and the first producer and the beat entries ship in the next
+release.
+
+### What the log holds
+
+A student's and a teacher's user ids, linked to a lesson id, its start time and its outcome
+or cancellation facts, for 90 days (`dec-retention-new-domains`, confirmed by the owner for
+the event log on 2026-10-25). It is a delivery buffer, not a source of truth. No API and no
+admin: server code reads it, and the user sees their own rows through the export. The
+`platform.events` hooks (ADR-0048) export every event whose `user_ids` contains the user
+(`{type, version, occurred_at, payload}`, any counterpart as an id only) and erase them,
+cascading the `HandledEvent` rows.
 
 ## Access-log policy
 

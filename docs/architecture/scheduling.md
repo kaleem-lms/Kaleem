@@ -19,11 +19,12 @@ Specs: `2026-06-25-scheduling-availability-design.md` (availability) ·
 `2026-09-07-phase-c3e-b-browser-hardening-design.md` (C3e-b) ·
 `2026-09-07-shared-signaling-service-design.md` · `2026-09-12-call-fixes-design.md` (C5) ·
 `2026-09-12-schedule-call-audit-fixes-design.md` (C6) · `2026-10-18-ana-scheduling-read-api-design.md` ·
-`2026-10-18-ana-session-outcomes-design.md` (lesson close-out).
+`2026-10-18-ana-session-outcomes-design.md` (lesson close-out) · `2026-10-25-eng-event-bus-design.md`
+(domain events).
 ADRs: 0033 (depends on curriculum and billing) · 0034 (custom WebRTC, group lessons deferred) ·
 0035 (signaling as a separate service) · 0036 (feature components split hook and presentation) ·
-0037 (signaling is shared, not blue-green) · 0039 (pre-negotiated transceivers) · 0046 (v1
-roadmap reconciliation, which drops trials) · 0054 (live-lesson captions: the stated gap). Operations live in `docs/runbook/signaling.md`,
+0037 (signaling is shared, not blue-green) · 0064 (a deploy no longer ends a call) · 0039 (pre-negotiated transceivers) · 0046 (v1
+roadmap reconciliation, which drops trials) · 0054 (live-lesson captions: the stated gap) · 0063 (domain event bus). Operations live in `docs/runbook/signaling.md`,
 `turn.md` and `video-call.md`, not here.
 
 ## The four fixed fields
@@ -375,8 +376,8 @@ dec-lesson-outcomes. `completed` means "closed out", and `Session.outcome` says 
   (1) lock the row, (2) the actor is the lesson's teacher (403), (3) the lesson is `scheduled`
   (409), (4) the window (409, a message per side), (5) write status, outcome and
   `outcome_recorded_at`, (6) *reserved: the earning line, `pay-earnings-ledger`*, (7) end the
-  lesson's rooms, (8) *reserved: the `on_commit` publish and notices, `eng-event-bus` and the
-  notification units*. The refusal order is the order of steps 2 to 4, so a non-party learns
+  lesson's rooms, (8) publish `scheduling.session_completed` (the domain event bus, below;
+  *notices are still reserved for the notification units*). The refusal order is the order of steps 2 to 4, so a non-party learns
   nothing about another person's lesson. Each later unit adds its step in its slot and extends
   `tests/test_close_out_matrix.py`, the one table of action x actor x prior status x clock.
 - **Closing ends the call.** The window opens at the start, so a teacher can close a lesson
@@ -386,6 +387,35 @@ dec-lesson-outcomes. `completed` means "closed out", and `Session.outcome` says 
 - **Blue-green.** Both columns are nullable with no default, so the previous release keeps
   working beside this one. A lesson it completes during a deploy keeps a NULL outcome.
   Migration `0013_session_outcome` backfilled existing `completed` rows as `held`.
+
+## Domain events
+
+Files: `events.py`, `booking.py`. Spec `2026-10-25-eng-event-bus-design.md`, ADR-0063. The bus
+itself is described in `platform.md`. Scheduling is a producer: it registers two event types
+from `SchedulingConfig.ready()` and publishes them inside the same `atomic()` block as the
+change they describe, so a refused close-out or cancellation publishes nothing. Subscribers
+(engagement, analytics) never import this module; they read the payload as a mapping.
+Published from the release after the bus itself shipped (the blue-green rule for new task
+names).
+
+| Type (version 1) | Published by | Payload |
+| --- | --- | --- |
+| `scheduling.session_completed` | `booking._close_out`, step 8, so `complete_session` and `mark_student_absent` | `session_id`, `student_id`, `teacher_id`, `starts_at`, `outcome` (`held` or `student_absent`) |
+| `scheduling.session_cancelled` | `booking._apply_cancellation`, so `cancel_session` and one event per future session `end_slot` cancels | `session_id`, `student_id`, `teacher_id`, `starts_at`, `cancelled_by_teacher`, `in_time` |
+
+- `occurred_at` is the close-out's or the cancellation's `now`. Datetimes are ISO UTC strings.
+- `cancelled_by_teacher` and `in_time` are independent facts. `in_time` is "at least
+  `CANCELLATION_NOTICE` (24 hours) before the start", exactly 24 hours counting as in time. A
+  teacher cancelling an hour before is refunded, yet `in_time` is false. `in_time` is not derived
+  from `consumes_quota`, which a teacher's cancellation always clears. These two are what a
+  streak rule needs ("teacher cancellations and timely cancellations freeze it"). Who cancelled
+  beyond teacher or not is left out on purpose.
+- `teacher_absent` is not published: staff adjudication (`sched-teacher-no-show`) will add it.
+- `user_fields` are `student_id` and `teacher_id`, so the platform export and erase hooks find
+  both people's events. The log is kept 90 days.
+- Pinned by `tests/test_events.py` (payloads) and the `events` column of
+  `tests/test_close_out_matrix.py` (which type each of the 216 cells publishes, `()` for every
+  refusal).
 
 ## Rooms
 
@@ -580,12 +610,30 @@ this module is a gettext call, with its Arabic in `kaleem/scheduling/locale/`.
 | --- | --- | --- |
 | `scheduling-generate-sessions` | `tasks.generate_sessions` -> `booking.generate_sessions` | Beat, `crontab(hour="2", minute="43")`. Retries only on `OperationalError`, for lock contention with an interactive `claim_slot` |
 | `scheduling-purge-call-diagnostics` | `tasks.purge_call_diagnostics` -> `diagnostics.purge_expired` | Beat, `crontab(hour="4", minute="11")`, after the other nightly jobs |
+| `platform-sweep-pending-events`, `platform-purge-old-events` | `kaleem.platform.tasks` (the bus, `platform.md`) | Beat, `crontab(minute="*/10")` and `crontab(hour="4", minute="41")`. Listed here because the events they deliver are scheduling's |
 | `sync_match_requests` | management command | By hand, for staff. Production never strictly needs it: the same reconcile runs on read |
 | `seed_e2e_matching` | management command | Fixture for the e2e suite; separate from identity's `seed_e2e` because identity may not import curriculum or billing |
+| `seed_e2e_assessment_lessons` | management command | Fixture for the assessment flows; see "E2E fixtures" below |
 
 Beat times are crontab hours in the Celery timezone, which `config/settings/base.py` sets from
 `TIME_ZONE` (UTC). The task bodies stay thin wrappers so the logic is testable without a broker
 and callable by hand from a shell.
+
+## E2E fixtures
+
+`seed_e2e_assessment_lessons` gives the assessment teacher (`e2e.asm.teacher`) one student
+(`e2e.asm.student`, Quran) and four 60-minute lessons, repositioned onto offsets from the seed's
+run and closed out through `booking.complete_session` / `mark_student_absent`, so the close-out
+window guard is exercised rather than bypassed: `heldReported` (now - 3 days, held),
+`heldUnreported` (now - 2 days, held), `studentAbsent` (now - 1 day) and `toClose` (now - 3
+hours, still scheduled). It resets only that student's scheduling rows, so the call flows'
+lesson (the booked student's) is never touched. Both parties are available Thursday 15:00-18:00
+UTC, a window no other seeded account uses: `sync_match_requests` is global, and an overlap
+with another entitled student's open request would offer it to this teacher. The dev
+subscription allows four lessons a cycle and all four are used, so a fifth state needs a second
+student. Rules for flows that use these: write only to your own lesson, and assert on your own
+row rather than a list's length. `seed_e2e_assessment` (assessment) then files the fixture
+report; the accounts come from identity's `seed_e2e`.
 
 ## Personal data held
 
@@ -638,11 +686,24 @@ detached, closed) and takes the same path as an unexpected close, so the backoff
 and never answers the upgrade fires neither `open` nor `close`, so before this the room read
 "Connecting…" for ever. The failure it reports depends on whether this hook instance ever
 opened: `unreachable` ("Couldn't reach the session server") if never, `lost` ("Connection to the
-session server was lost") after the first open. Both are retryable terminal screens; 4401, 4409
-and 4410 are unchanged. **Try again** remounts the room, re-acquiring the microphone and
+session server was lost") once it had opened and the reconnects are spent. Both are retryable
+terminal screens; 4401, 4409 and 4410 are unchanged. **Try again** remounts the room, re-acquiring the microphone and
 the chosen devices, and the camera only if the person's latest choice (the Lobby's, then any
 in-room toggle, reported up through `onMediaChoiceChange`) had it on. No diagnostic row is
 written for a connect timeout (it would need a new `CallDiagnostic` code).
+
+**A drop after an open is not the end of a call** (`lb-signaling-deploy-continuity`, ADR-0064).
+After the hook has opened, a close the server gave no reason for (a relay restart is 1012 or
+1006, as is a network blip) sets no failure while reconnect attempts remain: `connected` goes
+`false`, `failure` stays `null`, and the peer connection and local media are kept. Media is peer
+to peer and never passes through the relay, so the call carries on. `lost` is set only on the
+last failed attempt, because `useCallRoom` treats it as terminal and stops the camera. A drop
+before the first open, and the codes the server names (4400, 4401, 4409, 4410), report at once.
+When both peers rejoin, the relay sends `peer-joined` and the teacher re-offers on the same
+`RTCPeerConnection`. On the server side, `signaling/fingerprint.py` (standard library only; the
+"signaling imports neither kaleem nor django" contract stays) prints a SHA-256 of what the relay
+runs, which `ship.sh` uses to leave the container alone when nothing it runs changed. It is a CLI
+(`python -m signaling.fingerprint`) and adds no route, wire change or stored data.
 
 ## Deliberately not here
 
