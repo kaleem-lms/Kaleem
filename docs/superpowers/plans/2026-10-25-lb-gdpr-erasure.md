@@ -13,18 +13,18 @@ right before hand-back.
 
 ### Backend (`kaleem-worktrees/backend-lb-gdpr-erasure`)
 
-1. [ ] **`erased_at` field.** Test first in `kaleem/identity/tests/test_models.py`: a new
+1. [x] **`erased_at` field.** Test first in `kaleem/identity/tests/test_models.py`: a new
    user has `erased_at is None`. Then add the field to `kaleem/identity/models.py` and
    generate `0010_user_erased_at` (AddField, nullable, no default). The full gate's
    `makemigrations --check` must be clean.
-2. [ ] **curriculum.subjects erase.** In `kaleem/curriculum/tests/test_personal_data.py`,
+2. [x] **curriculum.subjects erase.** In `kaleem/curriculum/tests/test_personal_data.py`,
    switch the subjects test from `assert_export_honours_contract` to
    `assert_hooks_honour_contract`, with an `assert_erased` that checks no `TeacherSubject`
    or `StudentSubjectInterest` row remains for the user. Red first: the helper fails on
    `registered`. Then add `erase_subjects` and its `register_erase` in
    `kaleem/curriculum/personal_data.py`, and drop the "erase hook belongs to
    lb-gdpr-erasure" line from the docstring.
-3. [ ] **billing.subscriptions erase and refusal.** Tests first in
+3. [x] **billing.subscriptions erase and refusal.** Tests first in
    `kaleem/billing/tests/test_personal_data.py`:
    - The pair helper runs with a seed of a customer, one `canceled` subscription and one
      incident with a non-empty `detail`. `assert_erased` checks that `detail == {}` and
@@ -37,7 +37,7 @@ right before hand-back.
    Then add `SubscriptionStillActive(ConflictError)` (setting `self.code`) and
    `erase_billing` in `kaleem/billing/personal_data.py`. The message goes through
    gettext, with an `ar` entry in `kaleem/billing/locale/ar/LC_MESSAGES/django.po`.
-4. [ ] **scheduling.lessons erase.** Tests first in
+4. [x] **scheduling.lessons erase.** Tests first in
    `kaleem/scheduling/tests/test_personal_data.py`, reusing the module's conftest
    factories. A seed puts the user on both sides of an assignment and creates:
    availability, an open request, a decline, a diagnostic, a slot, one past session, one
@@ -55,7 +55,7 @@ right before hand-back.
 
    Then add `erase_lessons` in `kaleem/scheduling/personal_data.py` and register it. The
    hook calls `rooms.end_rooms_for_session` from `transaction.on_commit` only.
-5. [ ] **identity.account erase.** Tests first in `kaleem/identity/tests/test_personal_data.py`.
+5. [x] **identity.account erase.** Tests first in `kaleem/identity/tests/test_personal_data.py`.
    The seed builds all three profiles with notes, a child link, a parent link, an invite,
    two addresses, a `LogEntry` whose `object_repr` holds one address, and a staff note.
    Then assert:
@@ -69,11 +69,11 @@ right before hand-back.
    Then add `erase_account` in `kaleem/identity/personal_data.py`. It reads allauth's
    `mfa`/`socialaccount` models through `apps.get_model` so that a missing app is a
    no-op.
-6. [ ] **Coverage guard.** In `tests/test_personal_data_hooks_cover_every_model.py`, set
+6. [x] **Coverage guard.** In `tests/test_personal_data_hooks_cover_every_model.py`, set
    `PENDING_ERASE = {}`. `test_a_pending_app_with_no_models_is_stale` must still pass
    (it spreads the live map). Red first: empty the map before steps 2-5 and see each
    uncovered model named.
-7. [ ] **Service.** Tests first in a new `kaleem/identity/tests/test_account_delete.py`:
+7. [x] **Service.** Tests first in a new `kaleem/identity/tests/test_account_delete.py`:
    - `delete_account` erases, and the user is inactive with `erased_at` set.
    - A wrong password raises `ValidationError(field="current_password")`, changes nothing
      and enqueues no email.
@@ -84,7 +84,7 @@ right before hand-back.
 
    Then write `delete_account` and add the `account_deleted` branch in
    `kaleem/identity/services.py`. The unknown-action test still raises.
-8. [ ] **Endpoint.** Tests first in the same file, through the API client:
+8. [x] **Endpoint.** Tests first in the same file, through the API client:
    - 204, and then a `GET identity/me/` with the same client is 401/403.
    - A second client logged in beforehand is refused on its next request.
    - `POST identity/login/` with the old credentials is 400 "Invalid credentials.".
@@ -99,7 +99,7 @@ right before hand-back.
    `extend_schema`, `logout(request)` after the service), the `me/delete/` URL, and
    `"account-delete": "5/hour"` in `config/settings/base.py`. The staff-refusal string
    gets an Arabic entry in `kaleem/identity/locale`.
-9. [ ] **e2e seed.** Test first in `kaleem/identity/tests/test_seed_e2e.py`. `seed_e2e`
+9. [x] **e2e seed.** Test first in `kaleem/identity/tests/test_seed_e2e.py`. `seed_e2e`
    creates `e2e.erase@kaleem.test`: a verified student with the shared password and
    nothing else. Running `seed_e2e` again after that account is erased creates a fresh
    active account under the same address. Then add the constant and the account to
@@ -108,18 +108,18 @@ right before hand-back.
 
 ### Dashboard (`kaleem-worktrees/dashboard-lb-gdpr-erasure`)
 
-10. [ ] **Catalogue.** Tests first: `src/lib/i18n-namespaces.test.ts` has the `account`
+10. [x] **Catalogue.** Tests first: `src/lib/i18n-namespaces.test.ts` has the `account`
     namespace registered and never imported statically, and `src/locales/parity.test.ts`
     picks up the new pair. Then add `src/locales/en/account.json`,
     `src/locales/ar/account.json` and one line in `FEATURE_CATALOGUES`, and update
     `src/routes/_authed/account.test.tsx` and `account.tsx` with
     `loader: () => loadNamespace("account")`.
-11. [ ] **API, schema, mutation.** Tests first in `src/features/identity/api.test.ts`,
+11. [x] **API, schema, mutation.** Tests first in `src/features/identity/api.test.ts`,
     `schemas.test.ts` and `queries.test.tsx`: `identityApi.deleteAccount` posts to
     `identity/me/delete/`; the schema requires `current_password`; `useDeleteAccount`
     clears the query cache on success. Then update `api.ts`, `schemas.ts` and
     `queries.ts`.
-12. [ ] **DeleteAccountCard.** Test first
+12. [x] **DeleteAccountCard.** Test first
     `src/features/identity/components/DeleteAccountCard.test.tsx`:
     - The dialog opens with the role line for a teacher and for a parent.
     - On 204 it navigates to `/login` and shows the toast.
@@ -131,10 +131,10 @@ right before hand-back.
 
     Then build the component with the `@/ui` dialog, field, alert and destructive button,
     tokens only, using logical properties.
-13. [ ] **Account page.** Test first in `src/routes/_authed/account.test.tsx`: the card
+13. [x] **Account page.** Test first in `src/routes/_authed/account.test.tsx`: the card
     renders for a student, a teacher and a parent, and not when `me.is_staff`. Then put it
     last in the grid in `src/routes/_authed/-pages/Account.tsx`.
-14. [ ] **e2e.** Write `e2e/account-delete.spec.ts` and add `ACCOUNTS.erase` in
+14. [x] **e2e.** Write `e2e/account-delete.spec.ts` and add `ACCOUNTS.erase` in
     `e2e/accounts/identity.ts`. One serial test, `retries: 0`, budget 15 s. Sign in,
     then:
     1. Open the dialog and enter a wrong password. The field error shows, and a reload
@@ -148,7 +148,7 @@ right before hand-back.
 
 ### Close-out (handed to the conductor)
 
-15. [ ] Docs and close-out items:
+15. [x] Docs and close-out items:
     - `docs/architecture/platform.md`: the registry now has its caller, a hook may refuse
       by raising, `PENDING_ERASE` is empty, and the "Not covered" list is trimmed to logs
       and backups.
@@ -158,6 +158,23 @@ right before hand-back.
     - The CLAUDE.md D3 row `identity — account deletion: 1 flow`, saying what is not
       covered (alert delivery, the 409 path, teacher and parent consequences).
     - The spec status and a journal line.
+
+## Implementation notes (deviations from the steps above, all small)
+
+- The billing exception is `SubscriptionStillActiveError` (ruff N818 wants the suffix); its
+  `code` is still `subscription_active`.
+- The refusal and rollback tests that touch billing and curriculum together live in
+  `backend/tests/test_account_deletion_refusal.py`, not under `kaleem/identity/tests`:
+  identity may import neither module, tests included.
+- Identity's hook imports allauth's `mfa` and `socialaccount` models directly instead of
+  through `apps.get_model`: both apps are installed, and a missing one should fail loudly
+  rather than leave a credential behind.
+- The alert is registered with `transaction.on_commit(..., robust=True)`: the erasure has
+  committed when it runs, so a broker that is down is logged, not turned into a 500.
+- `config/settings/local.py` raises the `account-delete` rate for the e2e run, as every
+  other new throttle scope does.
+- Step 15 is done for the docs and the D3 row; the spec closure, plan done-marking and the
+  journal entry stay with the conductor (hg-arabic-review holds spec closure).
 
 ## Gates
 

@@ -158,11 +158,11 @@ touch.
 ## Personal-data registry and e2e seed
 
 `kaleem/curriculum/personal_data.py` registers two hook sets from `CurriculumConfig.ready()`
-(ADR-0048): `curriculum.courses` (export and erase) and the export-only
-`curriculum.subjects` (below). The courses export is the teacher's course trees in the order
-they built them, with ISO dates; its erase deletes the teacher's courses. The subject tables
-have no erase hook yet, so curriculum stays in the coverage guard's `PENDING_ERASE`
-(lb-gdpr-erasure removes the entry).
+(ADR-0048): `curriculum.courses` and `curriculum.subjects`, each with an export and an erase
+hook. The courses export is the teacher's course trees in the order they built them, with
+ISO dates; its erase deletes the teacher's courses. The subjects erase (lb-gdpr-erasure)
+deletes the person's `TeacherSubject` and `StudentSubjectInterest` rows and leaves the
+`Subject` catalogue alone.
 cur-lesson-assignment must revisit the erase hook once students hold lessons.
 
 `seed_e2e_curriculum` (listed in `config/e2e_seeds.txt` after `seed_e2e_matching`) deletes
@@ -223,5 +223,4 @@ pattern and its guards are in `docs/developer-guide/i18n.md`.
 
 `curriculum.subjects` (`personal_data.py`, registered from `CurriculumConfig.ready()`)
 exports the subjects a person teaches and the subjects they want to study, as
-`{subject (slug), since}`. `Subject` itself is a `NOT_PERSONAL` catalogue row. The erase hook
-is lb-gdpr-erasure.
+`{subject (slug), since}`. `Subject` itself is a `NOT_PERSONAL` catalogue row.

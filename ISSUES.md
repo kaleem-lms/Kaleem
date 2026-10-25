@@ -311,6 +311,12 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
 
 ## Someday
 
+- **Senders should skip `is_active=False` recipients.** An erased account (lb-gdpr-erasure)
+  keeps its row with the placeholder address `erased-<id>@erased.invalid`, which is never
+  deliverable. Any later notification or email sender that does not filter inactive users
+  will try to mail it and bounce. Wants one filter in the notification layer's recipient
+  resolution, not one per producer.
+
 - **The root `brand/` package is stale.** It dates from June 2026 (9448fe3, made for Stitch) and
   carries the pre-ADR-0040 v0.1.1 palette, which contradicts the shipped one. The new brand brief
   says it is not an input. Wants deleting or marking historical by the brand stream. Found

@@ -610,10 +610,9 @@ nothing.
 **Retention.** The one period in code is 90 days for call diagnostics (`diagnostics.RETENTION`).
 Nothing else in the module is purged.
 
-**Registry.** Scheduling has **not joined the personal-data registry** (`docs/architecture/platform.md`).
-It sits on the pending lists in `tests/test_personal_data_hooks_cover_every_model.py`, which
-`lb-gdpr-data-export` and `lb-gdpr-erasure` clear. A new scheduling model fails that guard until
-the module has hooks.
+**Registry.** Scheduling has joined the personal-data registry with an export hook and an erase
+hook (`docs/architecture/platform.md`); a new scheduling model fails the coverage guard in
+`tests/test_personal_data_hooks_cover_every_model.py` until a hook names it.
 
 ## Clients
 
@@ -667,4 +666,16 @@ the person's availability, match requests, assignments, declines, weekly slots, 
 each room's open and close times) and their own call diagnostics. The other person in an
 assignment or a lesson appears as `role` plus `counterpart_user_id`, never a name or email.
 Withheld: the room's provider, handle and signaling address, a diagnostic's free-form
-`stats`, and quota bookkeeping. The erase hook is lb-gdpr-erasure.
+`stats`, and quota bookkeeping.
+
+## Personal-data erasure
+
+The erase hook (`scheduling.lessons`) deletes the person's availability, declines and call
+diagnostics; cancels their open match requests; ends every active assignment they are in, on
+either side, and its active weekly slots; and cancels their upcoming `scheduled` sessions
+with `cancelled_by` set to them and `consumes_quota=False` (an erasure is not a 24-hour-rule
+cancellation, so it does not go through `booking`). Past and in-progress sessions, rooms and
+ended assignments stay: they are the other person's record too. Active rooms of the
+cancelled sessions end through `rooms.end_rooms_for_session` after commit. When a teacher is
+erased the reconciler (`matching.sync_match_requests`) opens a fresh request for each
+still-entitled student, so matching resumes with no new code.
