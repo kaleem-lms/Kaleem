@@ -86,8 +86,8 @@ run; Step 8 is NOT run.
    - (a) `/availability` in Arabic: open the add form on one day, add `09:00`–`10:00` by value,
      the pill's text matches `/ص/` and not `/09:00/`; the time-zone line contains `غرينتش`. Leave
      without saving (close the context; the navigation guard is not exercised here).
-   - (b) Open the user menu in Arabic: `getComputedStyle` of the sign-out `svg` has a transform
-     starting `matrix(-1`; reload in English: `none` or `matrix(1`.
+   - (b) Open the user menu in Arabic: `getComputedStyle(svg).scale` of the sign-out icon is `"-1 1"`
+     (Tailwind v4 uses the individual `scale` property, not `transform`); reload in English: `"none"`.
    Update `availability.spec.ts` lines 91, 104, 138, 187, 188, 209, 255, 298: build the expected
    pill text with a local `range("09:00","10:00")` helper that calls the same `Intl` options in
    the test process, or a `\s`-tolerant regex. Keep `selectOption("09:00")` (it matches values).

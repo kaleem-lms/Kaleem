@@ -138,8 +138,8 @@ e2e (D3, `scheduling` and `identity` areas have shipped):
 - New `e2e/rtl-leaks.spec.ts`, teacher account, locale switched by `localStorage` only (never
   saved on the server, so no later serial spec inherits Arabic): **(a)** `/availability` in Arabic:
   a range added in the editor shows an Arabic-formatted pill and the zone line shows `غرينتش`;
-  **(b)** the user menu's sign-out icon computes to a mirrored transform (`matrix(-1, 0, 0, 1, …)`)
-  in Arabic and an identity transform in English. Real Chromium ICU, which jsdom's Node ICU is not.
+  **(b)** the user menu's sign-out icon computes to a mirrored `scale` (`-1 1`) in Arabic and `none` in
+  English (Tailwind v4 emits the mirror as the individual `scale` property, so `transform` stays `none`). Real Chromium ICU, which jsdom's Node ICU is not.
   Budget: under 30 s for both.
 - `availability.spec.ts`: its pill-text assertions move from `"09:00 – 10:00"` to the formatted
   English text; `selectOption("09:00")` keeps working by value.
