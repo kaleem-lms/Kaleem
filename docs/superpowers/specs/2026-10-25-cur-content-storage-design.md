@@ -2,7 +2,8 @@
 name: cur-content-storage
 phase: v1 (wave 2, content stream)
 modules: [content]
-status: draft
+status: approved
+approved: 2026-10-25
 created: 2026-10-25
 closed: null
 ---
@@ -29,8 +30,11 @@ Production and staging use a private AWS S3 bucket in the EU (`dec-cur-storage-p
 owner's choice 2026-10-25). Local development and CI use the filesystem. `content` joins
 the personal-data registry (ADR-0048).
 
-**Done** means a file written before a real staging colour flip can still be read after
-it.
+**Done** means the code is merged and tested in both modes (configured and not
+configured), and that a file written before a real staging colour flip can still be read
+after it. The second half waits for the setup-and-deployment step: the owner decided on
+2026-10-25 that every credential is deferred to that final step, so this unit ships
+**not configured** and works the moment the four variables arrive (see decision 10).
 
 Base at writing: backend `origin/main` `a7b7c97`, infra `ab91adc`, meta `master`
 `7d77ded`. Its dependencies have merged: `plat-module-scaffolds` (the empty `content`
@@ -106,6 +110,18 @@ The ADR for this unit ("storage and file serving") records items 1 to 4.
      a `ValueError`, because that is a programming error, not a user error.
    - Adding a kind is one line of code and needs no migration, so parallel consumer
      units never collide on `content`'s migrations.
+10. **Two modes, and never the local disk in production.** (Owner decision 2026-10-25:
+    credentials are deferred to the setup-and-deployment step, so production must start
+    without them.)
+    - With all four `DJANGO_UPLOADS_*` variables set, the `uploads` alias is S3, exactly
+      as decisions 1 to 8 say.
+    - With none of them set, the alias is `NotConfiguredStorage`. Every operation on it
+      raises `StorageNotConfigured`. The service layer raises the same error before it
+      touches the database, so no row is written for a file that has nowhere to go.
+    - Production never falls back to the container's disk: a file there is lost at the
+      next colour flip, which is the exact failure this unit exists to remove.
+    - Some but not all of the four set is a typing mistake, not a deferral, and fails at
+      import with `ImproperlyConfigured` naming the missing variables (never a value).
 
 ## User flow
 
@@ -128,9 +144,18 @@ Failure cases inside the services:
   `NotFoundError(pgettext_lazy("error resource", "File"), id)`. Its code is `not_found`
   and it has an Arabic catalog entry. `delete_upload` of an id that was already deleted
   is the same not-found, never a silent success.
-- Production settings with any of the four variables missing fail at import
-  (`ImproperlyConfigured`). The new colour never becomes healthy, and `ship.sh` rolls
-  the deploy back. That is why `hg-vps-env` must come before the merge.
+- **Not configured** (none of the four variables set):
+  - `upload_user_file`, `download_url`, `delete_upload` and the erase hook (when the user
+    has any upload row) raise `StorageNotConfigured`. A consumer's endpoint lets it
+    propagate, and the API answers **503** with `error_code` `storage_not_configured` and
+    a translated message ("File storage is not set up yet. Please try again later.").
+    `get_upload` and the export hook read only the database and keep working.
+  - The process logs one `WARNING` at startup (`content.apps.ready`), naming the variable
+    names and no values.
+  - `check_upload_storage` exits non-zero and says "not configured".
+  - The deploy is healthy: nothing in the readiness probe touches storage.
+- Some of the four variables set, not all: `ImproperlyConfigured` at import, listing the
+  missing names. The new colour never becomes healthy and `ship.sh` rolls back.
 
 ## Data model delta
 
@@ -186,20 +211,22 @@ ADR-0049).
   - `staticfiles`: `StaticFilesStorage`, unchanged.
   - `uploads`: `kaleem.content.storage.LocalUploadsStorage`, a `FileSystemStorage` at
     `MEDIA_ROOT` whose `url()` accepts and ignores the signing parameters.
-- `production.py` replaces `uploads` with `storages.backends.s3.S3Storage` and these
-  options:
-  - `bucket_name`, `region_name`, `access_key` and `secret_key`, read from the
-    environment as below;
-  - `signature_version="s3v4"` and `addressing_style="virtual"`;
-  - `querystring_auth=True` and `querystring_expire=300`;
-  - `default_acl=None` and `file_overwrite=True`.
+- `production.py` replaces `uploads`:
+  - with none of the four variables set, by `kaleem.content.storage.NotConfiguredStorage`
+    (decision 10);
+  - with all four set, by `storages.backends.s3.S3Storage` and these options:
+    - `bucket_name`, `region_name`, `access_key` and `secret_key`, read from the
+      environment as below;
+    - `signature_version="s3v4"` and `addressing_style="virtual"`;
+    - `querystring_auth=True` and `querystring_expire=300`;
+    - `default_acl=None` and `file_overwrite=True`.
 
   A probe on 2026-10-25 with django-storages 1.14.6 and boto3 1.43 signed such a URL
   offline. The URL used the regional virtual host and carried `X-Amz-Expires=300` and
   both `response-*` parameters.
 
-**Environment variable names**, read by `production.py` only. Each environment's
-`.env.production` holds its own values. Values never appear in the repo, in a chat or in
+**Environment variable names**, read by `production.py` only, **all optional until the
+setup-and-deployment step**. Each environment's `.env.production` holds its own values. Values never appear in the repo, in a chat or in
 a PR.
 
 | Name | Meaning |
@@ -214,15 +241,17 @@ credential chain therefore never picks the key up in code that did not ask for i
 the SES SMTP credentials stay separate. Every backend container (both colours' Django
 and Celery, `flower` and `signaling`) already reads `.env.production`, so
 `docker-compose.production.yml` does not change. `infra/.env.production.example` gains
-the four names with placeholder values.
+the four names, commented out, with placeholder values.
 
 **Dependency**: `django-storages[s3]>=1.14,<2.0` in `requirements/base.txt` (boto3 comes
-with it). It has an upper bound, for the same reason as `stripe`. The `Dockerfile`'s
-build-only `collectstatic` env gains build-only values for the four names.
+with it). It has an upper bound, for the same reason as `stripe`. The `Dockerfile` does not change:
+`collectstatic` runs with the variables absent, which is now a valid configuration, so the
+image build needs no placeholder for them.
 
 ## Owner setup (hg-cur-storage-credentials): exact bucket and IAM settings
 
-Do this once per environment (staging, then production), in the AWS account that already
+**Deferred (owner decision 2026-10-25) to the final setup-and-deployment step.** Nothing
+in this unit waits for it. Do this once per environment (staging, then production), in the AWS account that already
 has the SES setup.
 
 **Bucket** (region `eu-central-1` or another EU region; the name is the owner's choice):
@@ -282,8 +311,9 @@ has one inline policy and nothing else:
 The policy has no `s3:ListBucket`, no `*Version*` action and no bucket-level action
 (decision 7).
 
-Then the conductor sets the four variables in that environment's `.env.production` over
-`ssh kaleem` (`hg-vps-env`) before the merge that reads them.
+Then the conductor sets the four variables in that environment's `.env.production`
+(`hg-vps-env`) and redeploys. Until then the module runs not configured (decision 10).
+Setting them is not a code change.
 
 **Vendor DPA (hg-vendor-dpa):** recorded as resolved. AWS's GDPR Data Processing Addendum
 is incorporated in the AWS Service Terms, so no separate signature is needed. The
@@ -337,12 +367,10 @@ decision 1 relies on.
 
 - Additive only: one new table and one new setting alias.
 - The previous release ignores both the table and the variables.
-- **Order:**
-  1. The owner creates the bucket and IAM user (`hg-cur-storage-credentials`).
-  2. The conductor sets the variables on staging (`hg-vps-env`).
-  3. The merge, and the deploy that follows it.
-
-  A merge without the variables rolls back by design.
+- **Order:** the merge needs nothing first. It deploys healthy, not configured. At the
+  setup-and-deployment step: the owner creates the bucket and IAM user
+  (`hg-cur-storage-credentials`), the conductor sets the variables (`hg-vps-env`),
+  redeploys, and runs the colour-flip check below.
 - **Rollback:** the older image ignores the variables and the table. Objects already
   written stay in the bucket.
 
@@ -368,7 +396,10 @@ Backend unit tests (pytest; `content` tests point `STORAGES["uploads"]` at `tmp_
     `default` and `staticfiles` unchanged.
   - Production with the four variables builds `S3Storage` with exactly the options
     above.
-  - Each missing variable raises `ImproperlyConfigured`.
+  - Production with none of them builds `NotConfiguredStorage`, and `default` and
+    `staticfiles` are unchanged. It never builds the filesystem backend.
+  - Production with some but not all of them raises `ImproperlyConfigured`, naming each
+    missing variable and no value.
   - A URL signed offline is on `<bucket>.s3.<region>.amazonaws.com`, has
     `X-Amz-Expires=300`, and carries `response-content-disposition` and
     `response-content-type`.
@@ -388,6 +419,16 @@ Backend unit tests (pytest; `content` tests point `STORAGES["uploads"]` at `tmp_
   - The erase hook's order is 900.
   - `tests/test_personal_data_hooks_cover_every_model.py` stays green with no pending
     entry for `content`.
+- Not configured:
+  - every `NotConfiguredStorage` operation raises `StorageNotConfigured`;
+  - `upload_user_file` raises it and writes no row; `download_url` and `delete_upload`
+    raise it; the erase hook raises it only when the user has rows, and deletes none;
+  - `get_upload` and the export hook keep working;
+  - the API maps it to 503 with `error_code` `storage_not_configured`, and the message
+    is translated;
+  - one `WARNING` is logged by `ready()` in this mode and none in the others, and it
+    names no value;
+  - `check_upload_storage` exits non-zero and says "not configured".
 - Command: `check_upload_storage`'s default, `--keep` and `--existing` modes each pass
   on the filesystem backend. A stubbed failure at each step exits non-zero and names
   the step. The HTTPS fetch is tested with a stubbed opener.
@@ -397,8 +438,9 @@ Backend unit tests (pytest; `content` tests point `STORAGES["uploads"]` at `tmp_
 row reads "`content` — storage: ❌ by design, no user-facing flow; verified by a staging
 colour flip".
 
-**Staging colour-flip check** (the unit's definition of done; the conductor runs it
-under the staging lock):
+**Staging colour-flip check** (the unit's definition of done; moved by the owner's
+2026-10-25 decision to the setup-and-deployment step, after the four variables are set;
+the conductor runs it under the staging lock):
 
 1. After the deploy that ships this unit, run
    `docker exec <live django colour> python manage.py check_upload_storage`. It must exit
@@ -410,5 +452,6 @@ under the staging lock):
 
 ## Open questions
 
-None. The provider, DPA, credentials and VPS env were answered by the owner on
-2026-10-25. The ADR number is allocated by the conductor (0061 or later).
+None. The provider, DPA and VPS env were answered by the owner on 2026-10-25, and all
+credentials are deferred to the setup-and-deployment step the same day. The ADR is
+0062.
