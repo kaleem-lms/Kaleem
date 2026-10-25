@@ -2,7 +2,8 @@
 name: eng-event-bus
 phase: v1 (wave 3, eng stream)
 modules: [platform, scheduling]
-status: draft
+status: approved
+approved: 2026-10-25
 created: 2026-10-25
 closed: null
 ---
@@ -202,5 +203,5 @@ never fails on an unknown type, and the sweep later delivers the pairs it missed
 
 ## Open questions
 
-- **Owner:** confirm the 90-day retention for the event log (see Personal data). The unit
-  needs no other decision.
+- None. The owner approved the spec on 2026-10-25 and confirmed the 90-day retention of
+  the event log (see Personal data).

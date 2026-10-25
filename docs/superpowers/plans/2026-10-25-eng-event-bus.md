@@ -1,6 +1,6 @@
 ---
 spec: docs/superpowers/specs/2026-10-25-eng-event-bus-design.md
-status: draft
+status: in-progress
 ---
 
 Worktrees (runbook section 1):
