@@ -2,7 +2,7 @@
 name: pay-earnings-ledger
 phase: v1 (wave 3, billing stream)
 modules: [billing, scheduling]
-status: draft
+status: approved
 created: 2026-10-26
 closed: null
 ---
@@ -21,11 +21,11 @@ written **in the same transaction** as the fact that earns it. Payout runs, the 
 earnings page and the statement build on it later (`pay-payout-runs`, `pay-earnings-dashboard`,
 `pay-statement-pdf`).
 
-It implements `dec-lesson-outcomes` (answered: pay excludes `teacher_absent`) and
-`dec-retention-new-domains` (earnings: the statutory period). **`dec-pay-rate-currency` is still
-open.** This spec is written on its recommended option (a per-teacher rate over time, in one
-currency); see Open questions. No real rate, currency choice or amount appears in this spec,
-the plan, the code or the tests (fake amounts only).
+It implements `dec-lesson-outcomes` (answered: pay excludes `teacher_absent`),
+`dec-retention-new-domains` (earnings: the statutory period) and `dec-pay-rate-currency`
+(answered 2026-10-26: a per-teacher rate over time, one currency for everyone, and that
+currency is USD). The owner approved this spec on 2026-10-26; see Decisions. No real rate
+amount appears in this spec, the plan, the code or the tests (fake amounts only).
 
 Read for this spec: backend `origin/main` ef9984e (`sched-reschedule` merged, #97), and the
 `eng-event-bus-publish` branch (7aae610), which is still landing.
@@ -56,7 +56,7 @@ behind.
    lowercase letters, a currency that differs from the existing rates, and a second rate for
    the same teacher at the same instant. Rates are append-only too: a correction is a new rate
    from a later instant. ADR-0057 rules out Django admin for this, and the staff screen
-   belongs to `pay-payout-runs` (Open question 6).
+   belongs to `pay-payout-runs` (Decision 6).
 
 Errors: a failure while writing the earning line rolls back the whole close-out or
 cancellation. The teacher sees the request fail and can retry. The lesson is never left closed
@@ -207,34 +207,31 @@ atomic block, it goes red.
 - The export is exactly the user's own rows.
 - Erasure keeps the rows and is idempotent.
 
-## Open questions
+## Decisions
 
-These are for the owner (the spec touches money, `dec-spec-approval`). A recommended answer is
-given for each, and the build follows the answers.
+The owner approved this spec on 2026-10-26 and accepted all six recommendations below as
+written. The build follows them. (This section was "Open questions" before approval.) The
+currency, USD, may appear in code, settings and docs. Real rate **amounts** never do.
 
-1. **`dec-pay-rate-currency`:** how is a rate shaped, and in what currency is a teacher paid?
-   *Recommended:* one rate per teacher that changes over time (effective-from), all in one
-   currency (option 1). The currency and figures go on the server, never in this repo.
-2. **What is the rate a rate for?** *Recommended:* a fixed amount per lesson, since every
-   lesson is 60 minutes (BR-01), not an hourly rate.
-3. **Which rate applies?** *Recommended:* the rate in effect when the lesson starts, not when
-   it is closed out. Which month's payout a line falls in is `dec-pay-schedule`, decided in
+1. **`dec-pay-rate-currency`:** a per-teacher rate with dated changes (effective-from), one
+   currency for everyone, and that currency is USD.
+2. **What the rate is for:** a fixed amount per 60-minute lesson (BR-01), not an hourly rate.
+3. **Which rate applies:** the rate in effect when the lesson starts, not when it is closed
+   out. Which month's payout a line falls in is `dec-pay-schedule`, decided in
    `pay-payout-runs`. The ledger stores both instants.
-4. **What earns, and how much?** *Recommended:*
+4. **What earns, and how much:**
    - `held`: the full rate.
    - `student_absent`: the full rate.
    - A late family cancellation (under 24 hours, unit spent): the full rate.
    - A teacher's cancellation, a cancellation 24 hours or more ahead, and `teacher_absent`:
      nothing.
-
-   This follows the recommended text of `dec-lesson-outcomes`, which the owner accepted. Its
-   public record states only the `teacher_absent` exclusion, so please confirm the full rate
-   for the absent and late-cancellation cases, or name a fraction.
-5. **No rate is set when a lesson earns.** *Recommended:* write an unpriced line and log a
-   warning, and do not refuse the close-out. `pay-payout-runs` blocks approval until the line
-   is priced. *Alternative:* refuse the close-out (409) until staff set a rate.
-6. **Who enters rates before a staff screen exists?** *Recommended:* the owner or conductor,
-   through the `set_teacher_rate` management command, with the screen added in
-   `pay-payout-runs`. *Alternative:* add a staff API now (new endpoint and scope).
+5. **No rate is set when a lesson earns:** write an unpriced line and log a warning; never
+   refuse the close-out. `pay-payout-runs` blocks approval until the line is priced.
+6. **Who enters rates before a staff screen exists:** the owner or conductor, through the
+   `set_teacher_rate` management command, with the screen added in `pay-payout-runs`.
 7. **Retention figure.** "Statutory period" is decided. The number of years waits for the
-   accountant. Nothing in this unit purges data, so this does not block the build.
+   accountant. Nothing in this unit purges data, so this does not block the build. Erasure
+   keeps the rows (`dec-retention-new-domains`).
+
+Conductor allocations: migration `billing/0008`; ADR-0066 ("earnings are written
+synchronously in close-out, not through the event bus").

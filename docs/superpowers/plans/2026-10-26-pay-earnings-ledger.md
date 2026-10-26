@@ -1,11 +1,10 @@
 ---
 spec: docs/superpowers/specs/2026-10-26-pay-earnings-ledger-design.md
-status: draft
+status: approved
 ---
 
-**Blocked until the owner approves the spec and answers its Open questions 1–6.** If the answers
-differ from the recommendations, the affected steps change before any code: Q4 changes step 5's
-`late_cancellation`, Q5 changes step 3's unpriced branch, and Q6 changes step 7.
+The owner approved the spec on 2026-10-26 and accepted all six recommendations, so the steps
+below stand as written (currency USD; ADR-0066; migration `billing/0008`).
 
 ## Before starting (conductor)
 
