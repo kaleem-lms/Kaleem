@@ -3,11 +3,13 @@
 What kaleem teaches, and who teaches or wants to study it. Two halves: a `Subject`
 catalogue with the teacher and student links to it (`curriculum` exists this early because
 Phase C's matcher needs subject as an input), and the course builder, where a teacher makes
-a `Course` of ordered `Unit`s and `Lesson`s.
+a `Course` of ordered `Unit`s and `Lesson`s, and gives lessons to the students they teach
+(`LessonAssignment`).
 
 Specs: `docs/superpowers/specs/2026-09-04-phase-c0-matching-inputs-design.md` (subjects,
 ADR-0031, shipped Phase C0) · `docs/superpowers/specs/2026-10-18-cur-course-structure-design.md`
-(the course builder, v1 wave 2).
+(the course builder, v1 wave 2) · `docs/superpowers/specs/2026-10-25-cur-lesson-assignment-design.md`
+(assigning lessons and the student's view, v1 wave 3).
 
 ## Data model
 
@@ -60,6 +62,37 @@ erDiagram
   per course, 100 lessons per unit. A limit is reported as a 400 on the `title` field.
 - **Deletes are hard deletes.** Deleting a course takes its units and lessons with it.
 
+### Lesson assignment
+
+```mermaid
+erDiagram
+    Lesson ||--o{ LessonAssignment : "is assigned as"
+    User ||--o{ LessonAssignment : holds
+```
+
+- **LessonAssignment** — `lesson` → `Lesson` (CASCADE, `related_name="assignments"`),
+  `student` → user (by string, CASCADE, `related_name="lesson_assignments"`), `created_at`,
+  unique on `(lesson, student)`. The assigner is always the course's owner, so there is no
+  `assigned_by`. **Withdrawal is a hard delete**; assigning again later makes a new row. Many
+  rows over time, never a `OneToOneField` (rule #7).
+- **What removes a row.** The teacher withdrawing it; deleting the lesson, its unit or its
+  course (the cascade, so a deleted course disappears from every student who held it); erasing
+  the student; erasing the teacher (their courses go, and the cascade takes the assignments).
+  A lesson added to a unit later is **not** assigned automatically.
+- **A student keeps their lessons after a teacher change** (dec-cur-ownership, option 1).
+  `get_student_curriculum` makes no teaching-link check. The teacher's side is the opposite:
+  every teacher service checks the link *now*, so a former teacher cannot list, assign to or
+  withdraw from that student.
+- **Parents** see their linked children's lessons read-only (dec-cur-parent-visibility,
+  option 1). Completion by a parent is not part of this unit.
+
+ADR-0023 for assignments: the table holds which lessons a student holds and since when,
+linked to the student's user id (for a child account, children's data). It is what the
+student studies and what completion builds on. Kept until the teacher withdraws it, the
+lesson, unit or course is deleted, or the student's account is erased. Seen by the student,
+their linked parents (read-only) and the owning teacher while they teach that student; not in
+the Django admin (dec-admin-surface).
+
 ADR-0023: the tables hold text a teacher writes (titles, descriptions, lesson bodies),
 linked to the teacher's user id; nothing about students. Kept until the teacher deletes it
 or the account is erased. Seen by the owning teacher only, through the API; not registered
@@ -96,6 +129,10 @@ a course nobody owns and a course somebody else owns are the same `NotFoundError
 | `update_course(...)` / `delete_course(...)` | Change only the fields given / hard delete |
 | `add_unit` / `rename_unit` / `delete_unit` / `reorder_units` | By course id, then unit id |
 | `add_lesson` / `update_lesson` / `delete_lesson` / `reorder_lessons` | By unit id, then lesson id |
+| `list_course_assignments(teacher_id, course_id)` | The roster: `{students: [{id, name}], assignments: [{lesson, student}]}`. `students` is who the teacher teaches now (the teaching port, names from `identity.services.get_users`); `assignments` covers this course's lessons and only those students |
+| `assign_lessons(teacher_id, course_id, *, lesson_ids, student_ids)` | Gives every lesson to every student; pairs that exist are skipped. Returns the roster |
+| `withdraw_lessons(...)` | Same signature; deletes the pairs, ignores absent ones. Returns the roster |
+| `get_student_curriculum(student_id)` | `{courses: [{id, title, subject, units: [{id, title, lessons: [{id, title, body}]}]}]}`: only what the student holds, courses oldest first, units and lessons in the teacher's order, in one query. Takes no actor: the caller has decided the viewer is the student or their parent. The subject name is in the language of the request |
 
 Every service except `list_courses` and `delete_course` returns the whole course tree, so
 the dashboard replaces its cache in one step. A course keeps a subject that is retired
@@ -110,6 +147,13 @@ row to lock for "the next course" and locking the user row would reach into iden
 table. A reorder must name **exactly** the current set of ids: a missing, extra,
 duplicated or foreign id is a `ConflictError` (409, "reload"), never a partial write,
 because it means the caller is working from a stale view.
+
+**Assignment writes** run in one transaction that locks the course row first (so they
+serialize with edits and deletes), then refuse, writing nothing, unless every lesson id is in
+that course (`ConflictError`, 409: the caller's view is stale) and every student id is
+taught by the teacher right now (`NotFoundError` "Student", the same 404 for a student the
+teacher does not teach and for an id that is no account). Empty lists, more than 100 lessons
+or more than 50 students are a `ValidationError`.
 
 A symmetric quartet on purpose: the dashboard hooks mirror these names exactly, so a reader
 can move between the two repos without translating.
@@ -140,6 +184,9 @@ All under `/api/v1/curriculum/`, mounted through `config.api_router` (ADR-0029).
 | `POST` | `units/<id>/lessons/` | the owning teacher |
 | `PUT` | `units/<id>/lesson-order/` | the owning teacher |
 | `PATCH` `DELETE` | `lessons/<id>/` | the owning teacher |
+| `GET` `POST` | `courses/<id>/assignments/` | the owning teacher; `POST {lessons, students}` assigns, both answer with the roster |
+| `POST` | `courses/<id>/assignments/withdraw/` | the owning teacher; `{lessons, students}`, answers with the roster |
+| `GET` | `students/<user id>/lessons/` | that student, or a parent linked to them (`identity.services.is_parent_of`); anyone else, and an unknown id, get the same 404 "Student not found." No write verbs |
 
 Every mutation except a course delete (204) answers with the whole course tree; order is
 the array order and positions are not exposed. "Teacher" means a teacher *profile*, so an
@@ -157,18 +204,23 @@ touch.
 
 ## Personal-data registry and e2e seed
 
-`kaleem/curriculum/personal_data.py` registers two hook sets from `CurriculumConfig.ready()`
-(ADR-0048): `curriculum.courses` (export and erase) and the export-only
-`curriculum.subjects` (below). The courses export is the teacher's course trees in the order
-they built them, with ISO dates; its erase deletes the teacher's courses. The subject tables
-have no erase hook yet, so curriculum stays in the coverage guard's `PENDING_ERASE`
-(lb-gdpr-erasure removes the entry).
-cur-lesson-assignment must revisit the erase hook once students hold lessons.
+`kaleem/curriculum/personal_data.py` registers three hook sets from `CurriculumConfig.ready()`
+(ADR-0048), each with an export and an erase hook: `curriculum.courses`,
+`curriculum.lesson_assignments` and `curriculum.subjects`. The courses export is the teacher's
+course trees in the order they built them, with ISO dates; its erase deletes the teacher's
+courses, and keeps its cascade on purpose: erasing a teacher removes their students' lessons too
+(decided with cur-lesson-assignment). The assignments export is a student's lessons as course,
+unit and lesson titles with the date assigned (the lesson text is the teacher's, so it is not in
+it); its erase deletes the student's rows. The subjects erase (lb-gdpr-erasure) deletes the
+person's `TeacherSubject` and `StudentSubjectInterest` rows and leaves the `Subject` catalogue
+alone, so curriculum is no longer in the coverage guard's `PENDING_ERASE`.
 
 `seed_e2e_curriculum` (listed in `config/e2e_seeds.txt` after `seed_e2e_matching`) deletes
 `e2e.teacher@kaleem.test`'s courses and rebuilds "E2E Course" through the services: Unit 1
 with Lesson A, B and C, and an empty Unit 2. It adds no `TeacherSubject` row, so matching
-state is unaffected, and it refuses `DEBUG=False`.
+state is unaffected, and it refuses `DEBUG=False`. Deleting the courses cascades to any
+assignment, so a re-run leaves `e2e.booked` holding no lessons, which is what the assignment
+e2e flows start from.
 
 ## Boundaries
 
@@ -190,7 +242,10 @@ so the transitive rule does not turn it red.
 the reverse would be a cycle). "Does this teacher teach this student?" is answered by the
 platform port `kaleem.platform.teaching` (`teaches`, `student_ids_taught_by`), which
 scheduling fills from its `ready()`. Both raise `ImproperlyConfigured` when nothing is
-registered rather than answering False. Nothing in curriculum calls it yet.
+registered rather than answering False. Lesson assignment is its first consumer
+(`student_ids_taught_by`, once per call). curriculum's own tests register a fake provider;
+`tests/test_curriculum_assignment_wiring.py` drives the real one over HTTP, because a
+curriculum test may not import scheduling.
 
 The identity mirror was written **before** any code and verified by breaking it. That is the
 lesson from `scheduling`, which shipped without the mirror and where a direct
@@ -202,7 +257,7 @@ a teacher's subjects — the e2e specs converge their own fixture instead.
 
 ## Dashboard text
 
-The course builder's English and Arabic copy is a feature catalogue
+The course builder's and the lessons view's English and Arabic copy is a feature catalogue
 (`dashboard/src/locales/{en,ar}/curriculum.json`, namespace `curriculum`), not part of the
 global `common.json`. The `/curriculum` layout route's `loader` registers it before either
 child route renders, so it stays out of the entry chunk and the initial-JS budget. The
@@ -212,10 +267,11 @@ pattern and its guards are in `docs/developer-guide/i18n.md`.
 
 - **Matching.** No `TeacherAssignment`, no ranking. Phase C1.
 - **Booking, sessions, quota, video.** Phases C2 and C3.
-- **Assigning lessons, the student and parent views, completion, lesson resources,**
-  moving a lesson to another unit, and sharing, duplicating or publishing a course.
-  Later units (cur-lesson-assignment, cur-lesson-completion, cur-lesson-resources) build on
+- **Completion and progress, lesson resources,** moving a lesson to another unit, assigning
+  a whole course in one action, due dates, assigning to a group, and sharing, duplicating or
+  publishing a course. Later units (cur-lesson-completion, cur-lesson-resources) build on
   these tables.
+- **Notifications about an assignment.** cur-assignment-notifications.
 - **Subject proficiency or level** (beginner vs advanced Arabic). A matching refinement; C1
   adds it if the ranking needs it.
 
@@ -223,5 +279,4 @@ pattern and its guards are in `docs/developer-guide/i18n.md`.
 
 `curriculum.subjects` (`personal_data.py`, registered from `CurriculumConfig.ready()`)
 exports the subjects a person teaches and the subjects they want to study, as
-`{subject (slug), since}`. `Subject` itself is a `NOT_PERSONAL` catalogue row. The erase hook
-is lb-gdpr-erasure.
+`{subject (slug), since}`. `Subject` itself is a `NOT_PERSONAL` catalogue row.

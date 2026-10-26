@@ -19,11 +19,12 @@ Specs: `2026-06-25-scheduling-availability-design.md` (availability) ·
 `2026-09-07-phase-c3e-b-browser-hardening-design.md` (C3e-b) ·
 `2026-09-07-shared-signaling-service-design.md` · `2026-09-12-call-fixes-design.md` (C5) ·
 `2026-09-12-schedule-call-audit-fixes-design.md` (C6) · `2026-10-18-ana-scheduling-read-api-design.md` ·
-`2026-10-18-ana-session-outcomes-design.md` (lesson close-out).
+`2026-10-18-ana-session-outcomes-design.md` (lesson close-out) · `2026-10-25-eng-event-bus-design.md`
+(domain events).
 ADRs: 0033 (depends on curriculum and billing) · 0034 (custom WebRTC, group lessons deferred) ·
 0035 (signaling as a separate service) · 0036 (feature components split hook and presentation) ·
 0037 (signaling is shared, not blue-green) · 0064 (a deploy no longer ends a call) · 0039 (pre-negotiated transceivers) · 0046 (v1
-roadmap reconciliation, which drops trials) · 0054 (live-lesson captions: the stated gap). Operations live in `docs/runbook/signaling.md`,
+roadmap reconciliation, which drops trials) · 0054 (live-lesson captions: the stated gap) · 0063 (domain event bus). Operations live in `docs/runbook/signaling.md`,
 `turn.md` and `video-call.md`, not here.
 
 ## The four fixed fields
@@ -383,8 +384,8 @@ dec-lesson-outcomes. `completed` means "closed out", and `Session.outcome` says 
   (1) lock the row, (2) the actor is the lesson's teacher (403), (3) the lesson is `scheduled`
   (409), (4) the window (409, a message per side), (5) write status, outcome and
   `outcome_recorded_at`, (6) *reserved: the earning line, `pay-earnings-ledger`*, (7) end the
-  lesson's rooms, (8) *reserved: the `on_commit` publish and notices, `eng-event-bus` and the
-  notification units*. The refusal order is the order of steps 2 to 4, so a non-party learns
+  lesson's rooms, (8) publish `scheduling.session_completed` (the domain event bus, below;
+  *notices are still reserved for the notification units*). The refusal order is the order of steps 2 to 4, so a non-party learns
   nothing about another person's lesson. Each later unit adds its step in its slot and extends
   `tests/test_close_out_matrix.py`, the one table of action x actor x prior status x clock.
 - **Closing ends the call.** The window opens at the start, so a teacher can close a lesson
@@ -434,6 +435,35 @@ Moving one occurrence in place (OQ-C2-1) is not built.
   included, under the 24-hour rule.
 - **Blue-green.** `rescheduled_from` is a nullable column: the previous release ignores it and
   never writes it, and the previous dashboard ignores the new payload field.
+
+## Domain events
+
+Files: `events.py`, `booking.py`. Spec `2026-10-25-eng-event-bus-design.md`, ADR-0063. The bus
+itself is described in `platform.md`. Scheduling is a producer: it registers two event types
+from `SchedulingConfig.ready()` and publishes them inside the same `atomic()` block as the
+change they describe, so a refused close-out or cancellation publishes nothing. Subscribers
+(engagement, analytics) never import this module; they read the payload as a mapping.
+Published from the release after the bus itself shipped (the blue-green rule for new task
+names).
+
+| Type (version 1) | Published by | Payload |
+| --- | --- | --- |
+| `scheduling.session_completed` | `booking._close_out`, step 8, so `complete_session` and `mark_student_absent` | `session_id`, `student_id`, `teacher_id`, `starts_at`, `outcome` (`held` or `student_absent`) |
+| `scheduling.session_cancelled` | `booking._apply_cancellation`, so `cancel_session` and one event per future session `end_slot` cancels | `session_id`, `student_id`, `teacher_id`, `starts_at`, `cancelled_by_teacher`, `in_time` |
+
+- `occurred_at` is the close-out's or the cancellation's `now`. Datetimes are ISO UTC strings.
+- `cancelled_by_teacher` and `in_time` are independent facts. `in_time` is "at least
+  `CANCELLATION_NOTICE` (24 hours) before the start", exactly 24 hours counting as in time. A
+  teacher cancelling an hour before is refunded, yet `in_time` is false. `in_time` is not derived
+  from `consumes_quota`, which a teacher's cancellation always clears. These two are what a
+  streak rule needs ("teacher cancellations and timely cancellations freeze it"). Who cancelled
+  beyond teacher or not is left out on purpose.
+- `teacher_absent` is not published: staff adjudication (`sched-teacher-no-show`) will add it.
+- `user_fields` are `student_id` and `teacher_id`, so the platform export and erase hooks find
+  both people's events. The log is kept 90 days.
+- Pinned by `tests/test_events.py` (payloads) and the `events` column of
+  `tests/test_close_out_matrix.py` (which type each of the 216 cells publishes, `()` for every
+  refusal).
 
 ## Rooms
 
@@ -631,6 +661,7 @@ this module is a gettext call, with its Arabic in `kaleem/scheduling/locale/`.
 | --- | --- | --- |
 | `scheduling-generate-sessions` | `tasks.generate_sessions` -> `booking.generate_sessions` | Beat, `crontab(hour="2", minute="43")`. Retries only on `OperationalError`, for lock contention with an interactive `claim_slot` |
 | `scheduling-purge-call-diagnostics` | `tasks.purge_call_diagnostics` -> `diagnostics.purge_expired` | Beat, `crontab(hour="4", minute="11")`, after the other nightly jobs |
+| `platform-sweep-pending-events`, `platform-purge-old-events` | `kaleem.platform.tasks` (the bus, `platform.md`) | Beat, `crontab(minute="*/10")` and `crontab(hour="4", minute="41")`. Listed here because the events they deliver are scheduling's |
 | `sync_match_requests` | management command | By hand, for staff. Production never strictly needs it: the same reconcile runs on read |
 | `seed_e2e_matching` | management command | Fixture for the e2e suite; separate from identity's `seed_e2e` because identity may not import curriculum or billing |
 | `seed_e2e_assessment_lessons` | management command | Fixture for the assessment flows; see "E2E fixtures" below |
@@ -681,10 +712,9 @@ nothing.
 **Retention.** The one period in code is 90 days for call diagnostics (`diagnostics.RETENTION`).
 Nothing else in the module is purged.
 
-**Registry.** Scheduling has **not joined the personal-data registry** (`docs/architecture/platform.md`).
-It sits on the pending lists in `tests/test_personal_data_hooks_cover_every_model.py`, which
-`lb-gdpr-data-export` and `lb-gdpr-erasure` clear. A new scheduling model fails that guard until
-the module has hooks.
+**Registry.** Scheduling has joined the personal-data registry with an export hook and an erase
+hook (`docs/architecture/platform.md`); a new scheduling model fails the coverage guard in
+`tests/test_personal_data_hooks_cover_every_model.py` until a hook names it.
 
 ## Clients
 
@@ -756,4 +786,16 @@ each room's open and close times, and, for a rebook, the id of the session it re
 their own call diagnostics. The other person in an
 assignment or a lesson appears as `role` plus `counterpart_user_id`, never a name or email.
 Withheld: the room's provider, handle and signaling address, a diagnostic's free-form
-`stats`, and quota bookkeeping. The erase hook is lb-gdpr-erasure.
+`stats`, and quota bookkeeping.
+
+## Personal-data erasure
+
+The erase hook (`scheduling.lessons`) deletes the person's availability, declines and call
+diagnostics; cancels their open match requests; ends every active assignment they are in, on
+either side, and its active weekly slots; and cancels their upcoming `scheduled` sessions
+with `cancelled_by` set to them and `consumes_quota=False` (an erasure is not a 24-hour-rule
+cancellation, so it does not go through `booking`). Past and in-progress sessions, rooms and
+ended assignments stay: they are the other person's record too. Active rooms of the
+cancelled sessions end through `rooms.end_rooms_for_session` after commit. When a teacher is
+erased the reconciler (`matching.sync_match_requests`) opens a fresh request for each
+still-entitled student, so matching resumes with no new code.
