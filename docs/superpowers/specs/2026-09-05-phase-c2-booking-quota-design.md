@@ -234,3 +234,6 @@ None blocking. Three to answer while building, none of which changes the data mo
 - **OQ-C2-4.** Should a refunded unit with no remaining occurrence be spendable on a one-off
   session at another time? That is the rebook flow C2 leaves out; whether it is worth building
   depends on how often people cancel early, which the `consumes_quota` audit trail will show.
+  **Answered** by `2026-10-25-sched-reschedule-design.md` (dec-reschedule, option 1): a refunded
+  unit can be spent on a one-off session in the same cycle. OQ-C2-1 (moving an occurrence in
+  place) was not chosen and stays open.
