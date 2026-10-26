@@ -141,6 +141,62 @@ subscription on a **Family** plan (`_has_paid_through(parent_id,
 plan_type=SubscriptionPlan.PlanType.FAMILY)`). An Individual plan held by someone else
 never chains.
 
+## Teacher rates and the earnings ledger (`billing/earnings.py`)
+
+What kaleem owes each teacher, lesson by lesson (ADR-0066). Re-exported from
+`billing/services.py`.
+
+```mermaid
+erDiagram
+    User ||--o{ TeacherRate : "is paid at"
+    User ||--o{ TeacherEarning : "earns"
+    TeacherRate ||--o{ TeacherEarning : "priced"
+```
+
+- **TeacherRate** — `teacher`, `amount_minor` (a fixed amount per 60-minute lesson, not
+  hourly), `currency` (three lowercase letters; one currency for everyone), `effective_from`.
+  Unique on `(teacher, effective_from)`, `amount_minor >= 1` at the database. Append-only: a
+  correction is a new rate from a later instant. `PROTECT` on the teacher.
+- **TeacherEarning** — one line per lesson that earns. `session_id` is a **plain integer, not
+  a foreign key** (billing may not import scheduling; the ledger must outlive the session
+  row), unique. `basis` is `held`, `student_absent` or `late_cancellation`;
+  `lesson_starts_at` and `recorded_at` hold both instants. `rate`, `amount_minor` and
+  `currency` are copied from the rate that priced the line and are **all null or all set**
+  (a database `CHECK`): a null set is an *unpriced* line. No column names the student.
+
+| Function | Signature | Purpose |
+| --- | --- | --- |
+| `record_lesson_earning` | `(*, teacher_id, session_id, lesson_starts_at, basis, recorded_at) -> None` | Writes the line in the caller's transaction, at the rate in effect when the lesson **started**. `teacher_absent` writes nothing; an unknown basis raises `ValueError`; a second line for a session raises `IntegrityError` (inside a savepoint, so the caller's transaction stays usable if it catches). With no rate in effect the line is unpriced and `billing.earning_unpriced` is logged at WARNING. |
+| `set_teacher_rate` | `(teacher, *, amount_minor, currency, effective_from) -> TeacherRate` | Refuses (`ValidationError` naming its field) an amount outside `1..2147483647`, a currency that is not three lowercase letters, a naive datetime, a currency different from the rates already set, and a second rate at the same instant. A user without a teacher profile is a `NotFoundError`. |
+
+The owner enters rates with `manage.py set_teacher_rate --teacher <id> --amount-minor <n>
+--currency <iso> --effective-from <ISO-8601 with offset>` until `pay-payout-runs` adds a staff
+screen (ADR-0057 rules out the Django admin). Real amounts are entered on the server and never
+committed.
+
+**What earns** (`dec-lesson-outcomes`, the owner's answers of 2026-10-26): `held`,
+`student_absent` and a family cancellation inside the 24-hour notice (the unit is spent) earn
+the full rate; a teacher's cancellation, a cancellation 24 hours or more ahead and
+`teacher_absent` earn nothing. A rebooked lesson earns once, when it is closed out: its source
+was refunded.
+
+**Where it is called from.** Scheduling calls `record_lesson_earning` from `booking._close_out`
+step 6 and from `booking._apply_cancellation` when `consumes_quota` is set (which includes
+`end_slot` inside the notice period). Both are inside the caller's `atomic()`, so a failure
+rolls the close-out or cancellation back. The close-out matrix
+(`scheduling/tests/test_close_out_matrix.py`) carries the `earning` column.
+
+**For the next author.** `sched-teacher-no-show` reverses pay for a lesson already paid as
+`held`. The one-line-per-session unique key forbids a second line, so that unit must replace it
+with a **conditional unique key** (unique per session where the line is not a reversal) in its
+own migration. Corrections are always new lines, never updates or deletes.
+
+**Personal data.** `billing.earnings` covers both models. The export is the teacher's own
+rates and lines (amounts, currency, basis, the two instants; no ids, no session reference).
+The erase hook is a deliberate no-op: the rows hold no name or free text and are kept for the
+statutory accounting period (`dec-retention-new-domains`). Refusing erasure while a line is
+unpaid needs a "paid" state, which `pay-payout-runs` adds.
+
 ## Provider abstraction (`billing/providers/`)
 
 `PaymentProvider` (`providers/__init__.py`) is a `Protocol`:
@@ -282,7 +338,8 @@ the models package is listed. The second contract needs `allow_indirect_imports`
 its own contract) because `billing` legitimately imports `kaleem.identity.services`,
 which of course imports its own models; `kaleem.billing.tests.*` is exempted, since test
 fixtures build identity rows directly. `scheduling` (and later modules) call `billing.services.
-is_entitled_to` directly for gating — `billing` never imports `scheduling`.
+is_entitled_to` directly for gating — `billing` never imports `scheduling`. Scheduling also
+calls `billing.services.record_lesson_earning` (ADR-0066); the arrow is the same.
 
 `identity.services.get_parent_user_ids(student_user_id: int) -> list[int]` was added for
 this module: resolves every parent linked to a student, empty list if none, used for

@@ -22,7 +22,7 @@ below stand as written (currency USD; ADR-0066; migration `billing/0008`).
 Each step starts with a failing test, run with
 `_tools/backend-gate.sh "${WT}" <test file>`.
 
-1. [ ] **Models and migration.** First write `billing/tests/test_earnings_models.py`, then add
+1. [x] **Models and migration.** First write `billing/tests/test_earnings_models.py`, then add
    `TeacherRate` and `TeacherEarning` to `billing/models.py` and generate `0008`. The tests:
    - `test_rate_is_unique_per_teacher_and_instant`
    - `test_earning_is_unique_per_session`
@@ -30,7 +30,7 @@ Each step starts with a failing test, run with
      `IntegrityError`)
    - `test_deleting_a_teacher_with_earnings_is_protected`
    - `test_a_deleted_session_leaves_its_earning` (the earning's `session_id` is not a FK)
-2. [ ] **`set_teacher_rate`.** First write `billing/tests/test_teacher_rate.py`, then add
+2. [x] **`set_teacher_rate`.** First write `billing/tests/test_teacher_rate.py`, then add
    `billing/earnings.py` and re-export it from `billing/services.py`. The tests:
    - `test_sets_a_rate`
    - `test_refuses_a_user_without_a_teacher_profile`, via
@@ -40,7 +40,7 @@ Each step starts with a failing test, run with
    - `test_refuses_a_second_currency`
    - `test_refuses_the_same_instant_twice`
    - `test_refusals_report_their_field`
-3. [ ] **`record_lesson_earning`.** First write `billing/tests/test_earnings.py`. The tests:
+3. [x] **`record_lesson_earning`.** First write `billing/tests/test_earnings.py`. The tests:
    - `test_each_paying_basis_writes_one_line` (parametrised over `held`, `student_absent` and
      `late_cancellation`)
    - `test_teacher_absent_writes_nothing`
@@ -53,7 +53,7 @@ Each step starts with a failing test, run with
    - `test_second_line_for_a_session_raises`
    - `test_amount_and_currency_are_copied_not_referenced` (a later rate leaves the line
      unchanged)
-4. [ ] **Close-out step 6.** Extend `scheduling/tests/test_close_out_matrix.py`, and do not
+4. [x] **Close-out step 6.** Extend `scheduling/tests/test_close_out_matrix.py`, and do not
    write a second matrix:
    - Seed a rate for `teacher` effective before `START` through `billing.services`.
    - Add an `earning` column to `_observed()`, read through a billing service or the test-only
@@ -65,13 +65,13 @@ Each step starts with a failing test, run with
    recorded_at=now)` in `booking._close_out` at step 6, and replace the "RESERVED" note with
    that call. Also add `test_a_failing_earning_rolls_the_close_out_back`: monkeypatch the
    service to raise, then assert that status, outcome and the room are unchanged.
-5. [ ] **Late cancellation.** Add the matrix expectation `("late_cancellation", AMOUNT)` when
+5. [x] **Late cancellation.** Add the matrix expectation `("late_cancellation", AMOUNT)` when
    the actor is the student or parent and `START - now < NOTICE`, and `None` for teacher and
    in-time cancellations. Then, in `_apply_cancellation`, after the save, add
    `if session.consumes_quota: record_lesson_earning(..., basis="late_cancellation")`. Also
    add `test_ending_a_weekly_time_inside_24h_earns_the_late_lesson` in
    `test_booking_cancel.py`.
-6. [ ] **Personal data.** First extend `billing/tests/test_personal_data.py`. The tests:
+6. [x] **Personal data.** First extend `billing/tests/test_personal_data.py`. The tests:
    - `test_earnings_hooks_honour_the_registry_contract`, using the `personal_data_contract`
      helpers
    - `test_earnings_export_is_exactly_the_teachers_own_rows`
@@ -80,21 +80,21 @@ Each step starts with a failing test, run with
 
    Then register `billing.earnings` (both models) from `billing/personal_data.py`. Add both
    model labels to the coverage guard wherever it lives at build time.
-7. [ ] **Management command.** First write `billing/tests/test_set_teacher_rate_command.py`:
+7. [x] **Management command.** First write `billing/tests/test_set_teacher_rate_command.py`:
    - `test_prints_the_created_rate`
    - `test_each_refusal_exits_non_zero_with_the_message`
    - `test_effective_from_must_be_timezone_aware`
 
    Then add `billing/management/commands/set_teacher_rate.py`.
-8. [ ] **Strings.** Run `makemessages` for billing and add the Arabic entries for every new
+8. [x] **Strings.** Run `makemessages` for billing and add the Arabic entries for every new
    message to `billing/locale/ar/LC_MESSAGES/django.po`. Then `compilemessages`.
-9. [ ] **Docs** (meta worktree):
+9. [x] **Docs** (meta worktree):
    - Write the ADR "Lesson earnings are written in the close-out transaction through
      billing.services": the context, the bus and pull alternatives, and the consequences from
      the spec.
    - Add a ledger section to `docs/architecture/billing.md`. It must say that
      `sched-teacher-no-show`'s reversal line needs a conditional unique key.
-10. [ ] **Gates and hand-back** (runbook §2–3):
+10. [x] **Gates and hand-back** (runbook §2–3):
     - Run the full `backend-gate.sh "${WT}"`: migrate, `makemigrations --check`, pytest with
       the floor enforced, ruff, format, `lint-imports` and `mypy`.
     - Merge `origin/main`; never rebase.
@@ -141,7 +141,7 @@ covers every action × actor × state × clock. At close-out, the conductor adds
   Seed that test without an earning; do not weaken `PROTECT`.
 - **Unpriced lines pile up on staging,** because there are no rates there. This is expected.
   The staging check sets one rate first.
-- **mypy on the new module.** Type every service signature, and keep `basis` as a `Literal`.
+- **mypy on the new module.** Type every service signature, and keep `basis` as a `str` (callers pass `Session.Outcome` members, which a `Literal` would reject; the service validates it at runtime).
 - **Real figures leak into the public repo.** Tests use obviously fake amounts. Real rates are
   set on the server by command and are never committed.
 

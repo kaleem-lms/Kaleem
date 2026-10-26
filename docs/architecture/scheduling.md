@@ -128,7 +128,7 @@ router, the app list, the beat schedule, the `VIDEO_PROVIDER` setting). The road
 - **Trials.** Dropped in ADR-0046. The roadmap's old `TrialRequest` / `TrialSession` entry is stale.
 - **Group lessons.** A room holds exactly two participants (ADR-0034).
 - **Session reports and ratings.** `assessment`.
-- **Teacher earnings.** `billing` (`pay-earnings-ledger`).
+- **Teacher earnings.** `billing` owns the ledger (`docs/architecture/billing.md`, ADR-0066). Scheduling only passes facts to `billing.services.record_lesson_earning`, from `_close_out` step 6 and from `_apply_cancellation` when the unit is spent.
 - **Media beyond a relay, and recording.** The module mints TURN credentials; it never sees,
   mixes or stores media.
 
@@ -383,7 +383,7 @@ dec-lesson-outcomes. `completed` means "closed out", and `Session.outcome` says 
 - **The ordered sequence.** Both writers call `booking._close_out`, inside one transaction:
   (1) lock the row, (2) the actor is the lesson's teacher (403), (3) the lesson is `scheduled`
   (409), (4) the window (409, a message per side), (5) write status, outcome and
-  `outcome_recorded_at`, (6) *reserved: the earning line, `pay-earnings-ledger`*, (7) end the
+  `outcome_recorded_at`, (6) the earning line, written through `billing.services.record_lesson_earning` in this same transaction (ADR-0066; billing decides what the outcome earns), (7) end the
   lesson's rooms, (8) publish `scheduling.session_completed` (the domain event bus, below;
   *notices are still reserved for the notification units*). The refusal order is the order of steps 2 to 4, so a non-party learns
   nothing about another person's lesson. Each later unit adds its step in its slot and extends
