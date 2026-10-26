@@ -132,7 +132,7 @@ interceptor, the mutation default and one dynamic import. Measured against `main
   cache name is pinned to `sw/policy.ts` by a test, because `api.ts` must stay importable under plain
   Node and may not import it.
 - `RouteError` recognises the offline error by name rather than `instanceof` for the same reason.
-- Initial JS grew by 1,909 bytes (577,455 on `main` at 9cf5e20, 579,364 here), against a 1,000 byte
+- Initial JS grew by 1,908 bytes (577,615 on `main` at 902abba, 579,523 here), against a 1,000 byte
   target and a 580,000 byte budget. About 700 bytes are the unit's own code; the rest is the
   bundler splitting the new shared modules into extra chunks. The budget was not raised.
 - Playwright cannot intercept a browser's service-worker update check, so the e2e "new build" is a
