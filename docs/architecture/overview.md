@@ -55,3 +55,13 @@ graph TD
 ## Current state
 
 **Phase 0** — only `platform` module exists. All other modules are planned for later phases.
+
+## Dashboard: the service worker and the offline copy
+
+The dashboard registers a service worker (ADR-0065). It caches only the build's own files and never
+answers an API request; updates wait for a tap and never happen in a call. The page keeps a small,
+named-field copy of the signed-in person's upcoming lessons in Cache Storage, shown only on the
+offline screen and wiped on sign-out, deletion, a lost session, an account switch, age and the kill
+switch. `requireAuth` throws `OfflineError` instead of redirecting when there is no connection. Code:
+`dashboard/src/sw/` (the worker), `src/lib/offline/` (projection and store), `src/lib/sw/service-worker.ts`
+(lazy registration), `src/features/shell/OfflineScreen.tsx`. Operating it: `docs/runbook/service-worker.md`.
