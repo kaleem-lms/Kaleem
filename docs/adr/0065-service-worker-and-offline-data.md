@@ -51,7 +51,8 @@ no API path, URL or host.
 
 No `skipWaiting` on install. A waiting worker produces a polite, non-dismissing toast with
 **Reload**; only the tab that tapped it reloads. While a `/_call` route is on screen the prompt is
-held, and offered when the router leaves it. The page also checks for an update when a tab becomes
+held, one already showing is taken down on entering the call, and a tap that still reaches it
+posts nothing; it is offered again when the router leaves the call. The page also checks for an update when a tab becomes
 visible, at most hourly. Registration uses `updateViaCache: "none"`, and `nginx.conf` serves
 `/sw.js` with `Cache-Control: no-cache` and the ADR-0056 header block.
 

@@ -81,7 +81,9 @@ WCAG 2.2 AA and full RTL. Push is out of scope (VAPID deferred).
 - **Updates wait for the user.** No `skipWaiting` on install. A waiting worker produces a
   polite toast, "A new version of kaleem is ready", with **Reload** and no auto-dismiss (a new
   optional `duration` on `toast()`). Only the tab that tapped reloads. On any `/_call` route
-  the prompt is held until the user leaves the call. The page also checks for an update when
+  the prompt is held until the user leaves the call; a prompt already up when the user joins
+  one is taken down (`toast()` returns an id, `dismissToast(id)` removes it), and a tap that
+  still reaches it does nothing. The page also checks for an update when
   the tab becomes visible, at most hourly.
 - **Kill switch.** `src/sw/mode.ts` exports `SW_MODE: "on" | "off"`. `"off"` builds a worker
   that skips waiting, deletes **every** `kaleem-*` cache (the schedule copy included),
