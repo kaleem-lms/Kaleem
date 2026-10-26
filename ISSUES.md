@@ -1140,8 +1140,8 @@ proves; all are robustness of an unattended job.
 - **Safari and iOS are unverified for the service worker and the offline copy.** No Apple device
   in the project. `rch-pwa-device-verification` owns the check.
 
-- **The dashboard's initial JS has about 790 bytes of headroom left (579,209 of 580,000).** The
-  service worker unit measured +1,903 bytes against `main`, of which the bundler's extra shared
+- **The dashboard's initial JS has about 780 bytes of headroom left (579,220 of 580,000).** The
+  service worker unit measured +1,914 bytes against `main`, of which the bundler's extra shared
   chunks were about two thirds. The next unit that adds to the entry graph should expect to pay for
   it by moving something out, not by raising the budget.
 
