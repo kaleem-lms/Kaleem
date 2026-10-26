@@ -133,7 +133,7 @@ WCAG 2.2 AA and full RTL. Push is out of scope (VAPID deferred).
   6. on **age**: a copy whose `saved_at` is more than 14 days old (the session lifetime) is
      deleted when read, and never shown.
 - **How a stale copy is shown.** Only on the offline screen, never mixed into a live page.
-  Heading "Your upcoming lessons", a line "Saved <date, time in the browser zone>. Changes
+  Heading "Your upcoming sessions", a line "Saved <date, time in the browser zone>. Changes
   since then are not shown." and the zone, as the schedule page shows it. Lessons that have
   ended (the same `hasEnded` rule as `SessionList`) are filtered out at read. Rows show day,
   time, length, subject, the names the live page shows for that `view`, and "Cancelled" where
@@ -284,6 +284,14 @@ e2e (`e2e/pwa.spec.ts`, Chromium, workers allowed, a seeded student with lessons
 Also: `security-headers.spec.ts` covers `/sw.js`; the rest of the suite passes with
 `serviceWorkers: "block"`. Not in e2e: the deletion wipe (unit only; an e2e deletion would
 consume a seeded account) and the kill switch (a build-time mode; unit tests and the runbook).
+
+## Build notes (2026-10-26)
+
+- The user-facing copy says "session", not "lesson": `cur-session-wording` reserves "lesson" for
+  curriculum, and `src/locales/terminology.test.ts` enforces it on every feature catalogue.
+- A cancelled session that has not happened yet stays on the offline list marked "Cancelled"; the
+  live page files it under history, but the offline list has none.
+- The PWA bundle cost and the build approach are in ADR-0065.
 
 ## Owner's answers (2026-10-26)
 
