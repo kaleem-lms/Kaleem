@@ -26,6 +26,7 @@ Decision: `docs/adr/0063-domain-event-bus.md`.
 | Health | `views.py` | `/health/live/` and `/health/ready/` (outside `/api/v1/`, on the closed allowlist) |
 | Email task | `tasks.py` | `send_email_message`, the Celery send of one already-rendered email |
 | Seed command | `management/commands/seed.py` | `manage.py seed basic|rich` |
+| Staging pool | `staging_pool.py`, `management/commands/seed_staging_pool.py` | the pool address scheme, the staging check and the seed orchestrator; below |
 | Personal-data registry | `personal_data.py`, `personal_data_contract.py` | below |
 | Teaching-link port | `teaching.py` | below |
 | Domain event bus | `events.py`, `models.py`, `tasks.py`, `event_probe.py`, `events_personal_data.py`, `management/commands/replay_events.py`, `event_bus_probe.py` | below |
@@ -163,7 +164,10 @@ Every module that stores personal data joins it, in that module's own PR. Contra
 - `register_erase(name, fn, *, models, order=500)`: `fn(user) -> None`. Removes or
   anonymizes this one user's data, following lb-dec-erasure-semantics ("anonymize in
   place"). Idempotent. Whether erasing a parent touches a child account is caller policy
-  (lb-gdpr-erasure), not hook policy.
+  (lb-gdpr-erasure): the caller leaves a child's account alone and unlinks it, and no hook
+  touches another person's account. A hook may also **refuse** an erasure by raising a
+  `KaleemError`: the transaction rolls back and the error reaches the client through the
+  usual handler (billing refuses while a subscription is live).
 - `name` is `"<app_label>.<topic>"`. `models` lists model labels as strings
   (`"curriculum.TeacherSubject"`), so platform imports no model.
 - `export_user(user)` runs the export hooks in name order and returns a dict keyed by hook
@@ -171,7 +175,8 @@ Every module that stores personal data joins it, in that module's own PR. Contra
   one `transaction.atomic()`: if any hook raises, every database change rolls back. Work
   on outside systems (storage, Stripe) is deferred with `transaction.on_commit`.
 - Identity's hooks use `order=900`, so they run last and other modules can still resolve
-  relationships through identity's services while they erase.
+  relationships through identity's services while they erase. Billing's uses `order=100`,
+  so a refusal happens before any other hook has changed anything.
 - Retention periods are not part of the interface.
 
 ### Joining a module: four steps
@@ -201,9 +206,10 @@ installed `kaleem.*` app. Each must be named by at least one export hook and one
 hook, be listed in `NOT_PERSONAL`, or sit in an app on a pending list. It also checks that
 a hook declares only models of the app its name starts with, that every `NOT_PERSONAL`
 label names a real model, and that no pending entry is stale: a pending app whose models
-are all covered fails until its entry is removed, so the lists only shrink. Today
-`PENDING_EXPORT` is empty (every module has an export hook) and `PENDING_ERASE` holds
-identity, billing, scheduling and curriculum, which join in lb-gdpr-erasure.
+are all covered fails until its entry is removed, so the lists only shrink. Today both
+`PENDING_EXPORT` and `PENDING_ERASE` are empty: every module that stores personal data has
+an export hook and an erase hook (identity, billing, scheduling and curriculum joined the
+erase side in lb-gdpr-erasure). A new module's models fail the guard until it joins.
 `NOT_PERSONAL` holds the reference models: `billing.SubscriptionPlan`,
 `billing.StripeEventLog` and `curriculum.Subject`.
 
@@ -214,10 +220,29 @@ guard only walks `kaleem.*`. **Identity's hooks own them.**
 
 ### Not covered
 
-`erase_user` has no caller yet (lb-gdpr-erasure). Not part of the registry: the endpoints,
-re-authentication, the dashboard, retention periods and purge jobs, erasure of linked
-accounts, admin `LogEntry` rows, sessions, logs and backups. The export file's envelope
-belongs to identity's endpoint, below.
+`erase_user`'s one caller is identity's `delete_account` (`POST /api/v1/identity/me/delete/`,
+below). Not part of the registry: the endpoints, re-authentication, the dashboard, retention
+periods and purge jobs (lb-gdpr-retention-jobs), a parent or staff erasing someone else,
+sessions, logs and backups. Admin `LogEntry` rows are scrubbed by identity's erase hook.
+The export file's envelope belongs to identity's endpoint, below.
+
+### What the erase hooks do (lb-gdpr-erasure)
+
+Anonymize in place (lb-dec-erasure-semantics): the `User` row and its profiles stay as empty
+anchors for records other people keep, and everything that identifies the person goes.
+
+- `billing.subscriptions` (order 100): refuses with `subscription_active` (409) while a
+  subscription is `active`, `past_due`, `unpaid` or `incomplete`; otherwise blanks incident
+  `detail`. Subscription and customer rows stay for 12 months (lb-dec-retention).
+- `curriculum.subjects`: deletes the person's taught subjects and subject interests.
+- `scheduling.lessons`: deletes availability, declines and call diagnostics, cancels open
+  requests, ends every active assignment the person is in (either side) with its weekly
+  times, and cancels their upcoming sessions with the quota unit returned. Past sessions
+  stay. Video rooms of cancelled sessions end after commit.
+- `identity.account` (order 900): see `identity.md`.
+
+Records the other person also holds are kept: sessions, chats (messaging blanks the
+messages) and ended assignments.
 
 ### What the export hooks hold, and the file built from them
 
@@ -238,3 +263,35 @@ follows:
 `sections` is `export_user(user)` verbatim. A module that joins later appears with no change
 there; `version` changes only if the envelope does. Nothing is stored: the file is built per
 request and returned `Cache-Control: no-store`.
+
+## The staging account pool
+
+Spec: `docs/superpowers/specs/2026-10-25-ci-staging-pool-seed-design.md`. Runbook:
+`docs/runbook/staging-pool.md`.
+
+Programme step 11 verifies each unit on staging with that unit's own accounts, and the
+lessons those accounts need are time-bound, so one idempotent command keeps them fresh:
+`manage.py seed_staging_pool --unit <slug> [--unit ...]`, with the pool password on
+**standard input** only (never argv, environment, output or repo).
+
+`staging_pool.py` is pure and imports no business module:
+
+- `is_staging()` reads the host of `FRONTEND_URL` and is true only when a whole `staging`
+  label is present (`app-staging.kaleem.academy`). No new setting or env var; production and
+  local development are refused. `require_staging(name)` is the `CommandError` form.
+- `pool_email(unit, role)`, `is_pool_email(email)` and `validate_unit(slug)` define the one
+  address scheme, `pool.<unit>.<role>@pool.kaleem.test`; the match is exact and case-sensitive.
+- `MIN_PASSWORD_LENGTH = 16`.
+
+The work splits by owner, because platform may not import a business module. The
+orchestrator checks staging, the password and the slugs, hashes the password once, then calls
+by command name, one `transaction.atomic()` per unit: `seed_staging_pool_accounts` (identity:
+three verified accounts, profiles, the parent link; never staff) then
+`seed_staging_pool_lessons` (scheduling: subjects, availability, the fixture subscription,
+the match, the slot and four lessons in time-bound states). Module commands re-check
+staging, take the password only as a Django hash through a stealth option with no flag, and
+touch only the named units' pool addresses. Billing carries the one widened guard
+(`grant_dev_subscription`, see `billing.md`).
+
+Not covered: scheduled runs (a `ship.sh` flag is deferred), staff accounts, pruning a
+finished unit's accounts, and mail suppression for `.test` recipients (`ISSUES.md`).
