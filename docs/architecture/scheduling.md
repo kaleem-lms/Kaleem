@@ -53,6 +53,7 @@ into a model or `save()` one. The DTOs carry ids, times, status, subject and peo
 | Availability | `get_availability`, `set_availability`, `merge_ranges`, `to_utc_intervals`, `to_utc_intervals_for` |
 | Quota | `get_quota` |
 | User-scoped reads | `upcoming_sessions`, `sessions_between`, `session_history`, `next_sessions`, `next_session_per_child`, `active_assignments`, `sessions_to_close` |
+| Rebooking | `sessions_to_rebook` (id-scoped: the caller authorizes) |
 | Close-out window | `CLOSE_OUT_WINDOW`, `close_out_window`, `may_close` |
 | Id-scoped reads | `get_session`, `is_session_party`, `is_assignment_party`, `is_active_teacher_of` |
 
@@ -181,7 +182,9 @@ erDiagram
   (the billing period it counts against, identified by its end) and `consumes_quota`. A
   closed-out lesson also carries `outcome` (`held` / `student_absent` / `teacher_absent`) and
   `outcome_recorded_at`, both nullable. The check constraint `session_outcome_only_when_completed`
-  refuses an outcome on a lesson that is not `completed`, for every writer.
+  refuses an outcome on a lesson that is not `completed`, for every writer. A rebooked session
+  also carries `rescheduled_from`, the cancelled session it replaces (nullable, `SET_NULL`), and
+  `one_rebook_per_session` makes a cancellation spendable once, for every writer.
 - **Room** — a video room for one session, a row over time rather than a field on `Session`
   (rule #7): a provider failure or a rescheduled lesson can mean a second room. `provider`
   records which adapter minted it; `signaling_url` records where it lives. At most one is
@@ -356,6 +359,11 @@ would have spent:
   computed server-side against the server's clock, so the interface states the consequence
   before the click and the rule lives in one place.
 
+**A session can be cancelled only before it starts.** From `starts_at` onwards it is closed out
+(`held` or `student_absent`), not cancelled, for every party and every path that cancels
+(`booking.may_cancel`, shared by `cancel_session` and the session payload's `may_cancel`). The
+refusal order is: not a party (403), not `scheduled` (409), already started (409).
+
 Cancelling also ends the lesson's room (see Rooms).
 
 **Ending a slot.** `end_slot` (a party to the assignment only) cancels the future `scheduled`
@@ -382,11 +390,51 @@ dec-lesson-outcomes. `completed` means "closed out", and `Session.outcome` says 
   `tests/test_close_out_matrix.py`, the one table of action x actor x prior status x clock.
 - **Closing ends the call.** The window opens at the start, so a teacher can close a lesson
   while its call is running, and that ends the room.
-- **Cancelling is unchanged.** How cancelling relates to the close-out window is a later
-  unit's decision; the matrix pins today's cancel rows so that change is deliberate.
+- **Cancelling stops at the start.** A session can be cancelled only before it starts, so the
+  close-out window and cancelling never overlap; the matrix pins both, cell by cell, including
+  the `may_cancel` flag and a `rebooked_count` that no close-out or cancellation may move.
 - **Blue-green.** Both columns are nullable with no default, so the previous release keeps
   working beside this one. A lesson it completes during a deploy keeps a NULL outcome.
   Migration `0013_session_outcome` backfilled existing `completed` rows as `held`.
+
+**Rebooking a cancelled session.** Spec `2026-10-25-sched-reschedule-design.md`, dec-reschedule
+option 1: *a refunded unit can be spent on a one-off session in the same cycle* (answers OQ-C2-4).
+Moving one occurrence in place (OQ-C2-1) is not built.
+
+- **What is rebookable** (`services.sessions_to_rebook`): a cancelled session whose unit was
+  refunded (`consumes_quota` false: a family cancellation made 24 hours or more ahead, or any
+  teacher cancellation), with nothing rebooked from it yet, its cycle still current, its
+  assignment `active`, and a unit left in the student's one shared quota.
+- **Which times are offered** (`booking.reschedule_options`): at least `CANCELLATION_NOTICE`
+  from now and no later than the current cycle's end; a whole session fits inside both
+  people's availability for that week (`matching.overlap_intervals`, the same source as weekly
+  booking, so a zone's clock change is honoured); nothing of either person's collides, meaning
+  no scheduled session of the teacher or the student and no *active weekly time* of either,
+  even on a week where its session was cancelled, because the nightly generator may yet write
+  that week's session. Any row of the same assignment at that instant also blocks it
+  (`unique_session_instant`), the cancelled source included.
+- **Spending the unit** (`booking.reschedule_session`, `@transaction.atomic`): the student or a
+  linked parent, never the teacher. It takes `claim_slot`'s lock first (the teacher's and the
+  student's active assignments, ordered by id), then the session row, re-checks everything,
+  recomputes the options inside the lock and creates a new row with `consumes_quota=True`,
+  the source's assignment and slot, the quota's current `cycle_end` and `rescheduled_from`.
+  The source row is never modified. Refusals, in order: unknown session or not the family (404,
+  the same body as an unknown id), not cancelled in time (409), already rebooked (409),
+  assignment ended or cycle over (409), no unit left (409), then the time itself: outside the
+  range or the shared availability (400 on `starts_at`, whatever the calendars hold, the rule
+  `claim_slot` uses so a probe learns nothing about the teacher's other bookings), or inside the
+  shared availability but taken (409).
+- **One unit, one spender.** The generator can also spend a refunded unit on the weekly time's
+  next occurrence. Whichever commits first takes it; the second finds `remaining == 0` (the
+  generator writes nothing, the rebook is refused). Both take the same per-student lock.
+- **A rebooked session is an ordinary session.** It can be joined, closed out and cancelled
+  under the same rules; cancelled in time it becomes rebookable in turn, cancelled late it spends
+  the unit. While upcoming it holds its weekly time against new weekly claims
+  (`slot_options` hides it and `claim_slot` refuses it with the existing messages).
+- **Ending a weekly time** cancels its future sessions by `slot`, an upcoming rebooked one
+  included, under the 24-hour rule.
+- **Blue-green.** `rescheduled_from` is a nullable column: the previous release ignores it and
+  never writes it, and the previous dashboard ignores the new payload field.
 
 ## Domain events
 
@@ -571,7 +619,7 @@ mid-lesson. `signaling.app` likewise fails loudly, not silently, without its sec
 
 ## HTTP surface
 
-All under `/api/v1/scheduling/`, mounted through `config.api_router` (ADR-0029). Seventeen routes.
+All under `/api/v1/scheduling/`, mounted through `config.api_router` (ADR-0029). Twenty routes.
 "Profile" means the user holds that profile; a person may hold several.
 
 | Method | Path | Who | Notes |
@@ -585,7 +633,10 @@ All under `/api/v1/scheduling/`, mounted through `config.api_router` (ADR-0029).
 | `GET` | `slot-options/` | student; with `?student=`, a parent | Computed candidates, not rows. `?student=` and `?subject=` (a slug) name the assignment; see "Whose time" |
 | `GET` `POST` | `slots/` | student; with `student`, a parent | `POST` claims (201), body `{weekday, start_time, student?, subject?}`; `GET` is 404 when there is no active slot and carries `next_session_at` (the slot's next scheduled session, or null) |
 | `DELETE` | `slots/<int:slot_id>/` | student or parent | 204; the service requires a party to the assignment, and the view still refuses a teacher |
-| `GET` | `sessions/` | student, teacher or parent profile | Upcoming, every status; payload adds `may_cancel`, `cancellation_refunds`, `can_join_at`, `may_join`, `may_complete`, `outcome` |
+| `GET` | `sessions/` | student, teacher or parent profile | Upcoming, every status; payload adds `may_cancel`, `cancellation_refunds`, `can_join_at`, `may_join`, `may_complete`, `outcome`, `rescheduled_from` |
+| `GET` | `sessions/to-rebook/` | any signed-in user; with `?student=`, the student's parent | The cancelled sessions whose refunded unit can still be spent, oldest first, in the session payload. A teacher or anyone outside the family gets `[]` for themselves and 404 for a named student |
+| `GET` | `sessions/<int:session_id>/reschedule-options/` | the student or a parent of the student | `[{"starts_at"}]`, ascending, UTC. Refuses exactly as the `POST` does, apart from the rows about a time. Anyone else, a teacher included: 404 |
+| `POST` | `sessions/<int:session_id>/reschedule/` | the student or a parent of the student | Body `{starts_at}`; 201 and the new session's payload. 409 for a refusal about the session, the unit or a taken time; 400 on `starts_at` for a time that is not offered |
 | `GET` | `sessions/to-close/` | teacher | The teacher's `scheduled` lessons that have started and are inside the 7-day window, oldest first; 403 without a teacher profile |
 | `POST` | `sessions/<int:session_id>/cancel/` | the student, the teacher or a parent of the student | Refund rule applied; ends the room |
 | `POST` | `sessions/<int:session_id>/complete/` | the session's teacher | Records `held`. 409 before the start, after the window, or when not `scheduled`. Ends the room |
@@ -643,7 +694,10 @@ Described here, not changed by this doc (ADR-0023). Scheduling holds, per person
 - **Match requests and declines**: which student wants which subject, and which teacher declined.
 - **Assignments**: who teaches whom, in what subject, since when.
 - **Slots and sessions**: the standing weekly time and each lesson's instant, status, and, for a
-  cancelled lesson, who cancelled it and when.
+  cancelled lesson, who cancelled it and when. A rebooked lesson also links to the cancelled
+  session it replaces (`rescheduled_from`): it records why a unit was spent twice in one cycle
+  and stops a cancellation being rebooked twice. Kept for the life of the session row, nulled if
+  the source is ever deleted, visible to the session's parties and to staff in Django admin.
 - **Rooms**: provider, an external id and the signaling host. No media.
 - **Attendance**: whether a student attended a lesson (`outcome`: `held` / `student_absent`)
   and when the teacher recorded it (`outcome_recorded_at`). Students may be minors, so this is
@@ -658,10 +712,9 @@ nothing.
 **Retention.** The one period in code is 90 days for call diagnostics (`diagnostics.RETENTION`).
 Nothing else in the module is purged.
 
-**Registry.** Scheduling has **not joined the personal-data registry** (`docs/architecture/platform.md`).
-It sits on the pending lists in `tests/test_personal_data_hooks_cover_every_model.py`, which
-`lb-gdpr-data-export` and `lb-gdpr-erasure` clear. A new scheduling model fails that guard until
-the module has hooks.
+**Registry.** Scheduling has joined the personal-data registry with an export hook and an erase
+hook (`docs/architecture/platform.md`); a new scheduling model fails the coverage guard in
+`tests/test_personal_data_hooks_cover_every_model.py` until a hook names it.
 
 ## Clients
 
@@ -671,7 +724,7 @@ The dashboard uses the module through four routes, each a thin page over a featu
 | --- | --- |
 | `/availability` | `features/scheduling` (weekly editor, timezone bar, unsaved-changes guard) |
 | `/match-requests` | `features/matching` (teacher offer list, student's teacher card, parent's children's teachers) |
-| `/schedule` | `features/booking` (a "Booking for" picker, a booking panel per child or self, one claim card per subject, session list, cancel dialog, quota badge, join button) and a parent's per-child availability editor from `features/identity` |
+| `/schedule` | `features/booking` (a "Booking for" picker, a booking panel per child or self, one claim card per subject, a "Sessions to rebook" card with its reschedule dialog, session list with a "Rebooked" chip, cancel dialog, quota badge, join button) and a parent's per-child availability editor from `features/identity`. The rebook copy is the lazily loaded `reschedule` catalogue, loaded by the route |
 | `/sessions/$sessionId/room` | `features/call` (lobby, call room, controls, diagnostics reporter) |
 
 The folder names diverge from the backend, which keeps booking inside `scheduling`
@@ -710,7 +763,11 @@ runs, which `ship.sh` uses to leave the container alone when nothing it runs cha
 
 - **Notifications** on match, cancel or reminder (`ntf-*`).
 - **Trials** (ADR-0046) and **group lessons** (ADR-0034).
-- **Rescheduling** a single lesson (`sched-reschedule`): today a lesson is cancelled, not moved.
+- **Moving a single occurrence in place.** A cancelled session's refunded unit can be rebooked
+  onto a one-off (see Booking and quota), but an occurrence is never moved: it is cancelled and
+  a new session is made (OQ-C2-1 stays unbuilt).
+- **Carrying a unit into the next cycle** (BR-02), and telling the teacher about a rebooked
+  session (`ntf-booking-notifications`).
 - **Session reports and ratings** (`assessment`). The outcome itself lives here.
 - **Setting `teacher_absent`** and its remedy (`sched-teacher-no-show`).
 - **Teacher earnings** (`billing`).
@@ -725,7 +782,20 @@ runs, which `ship.sh` uses to leave the container alone when nothing it runs cha
 
 `scheduling.lessons` (`personal_data.py`, registered from `SchedulingConfig.ready()`) exports
 the person's availability, match requests, assignments, declines, weekly slots, lessons (with
-each room's open and close times) and their own call diagnostics. The other person in an
+each room's open and close times, and, for a rebook, the id of the session it replaces) and
+their own call diagnostics. The other person in an
 assignment or a lesson appears as `role` plus `counterpart_user_id`, never a name or email.
 Withheld: the room's provider, handle and signaling address, a diagnostic's free-form
-`stats`, and quota bookkeeping. The erase hook is lb-gdpr-erasure.
+`stats`, and quota bookkeeping.
+
+## Personal-data erasure
+
+The erase hook (`scheduling.lessons`) deletes the person's availability, declines and call
+diagnostics; cancels their open match requests; ends every active assignment they are in, on
+either side, and its active weekly slots; and cancels their upcoming `scheduled` sessions
+with `cancelled_by` set to them and `consumes_quota=False` (an erasure is not a 24-hour-rule
+cancellation, so it does not go through `booking`). Past and in-progress sessions, rooms and
+ended assignments stay: they are the other person's record too. Active rooms of the
+cancelled sessions end through `rooms.end_rooms_for_session` after commit. When a teacher is
+erased the reconciler (`matching.sync_match_requests`) opens a fresh request for each
+still-entitled student, so matching resumes with no new code.

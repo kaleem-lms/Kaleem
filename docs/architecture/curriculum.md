@@ -205,14 +205,15 @@ touch.
 ## Personal-data registry and e2e seed
 
 `kaleem/curriculum/personal_data.py` registers three hook sets from `CurriculumConfig.ready()`
-(ADR-0048): `curriculum.courses` (export and erase), `curriculum.lesson_assignments` (export
-and erase) and the export-only `curriculum.subjects` (below). The assignments export is a
-student's lessons as course, unit and lesson titles with the date assigned (the lesson text is
-the teacher's, so it is not in it); its erase deletes the student's rows. The courses export is the teacher's course trees in the order
-they built them, with ISO dates; its erase deletes the teacher's courses. The subject tables
-have no erase hook yet, so curriculum stays in the coverage guard's `PENDING_ERASE`
-(lb-gdpr-erasure removes the entry). `erase_courses` keeps its cascade on purpose: erasing a
-teacher removes their students' lessons too (decided with cur-lesson-assignment).
+(ADR-0048), each with an export and an erase hook: `curriculum.courses`,
+`curriculum.lesson_assignments` and `curriculum.subjects`. The courses export is the teacher's
+course trees in the order they built them, with ISO dates; its erase deletes the teacher's
+courses, and keeps its cascade on purpose: erasing a teacher removes their students' lessons too
+(decided with cur-lesson-assignment). The assignments export is a student's lessons as course,
+unit and lesson titles with the date assigned (the lesson text is the teacher's, so it is not in
+it); its erase deletes the student's rows. The subjects erase (lb-gdpr-erasure) deletes the
+person's `TeacherSubject` and `StudentSubjectInterest` rows and leaves the `Subject` catalogue
+alone, so curriculum is no longer in the coverage guard's `PENDING_ERASE`.
 
 `seed_e2e_curriculum` (listed in `config/e2e_seeds.txt` after `seed_e2e_matching`) deletes
 `e2e.teacher@kaleem.test`'s courses and rebuilds "E2E Course" through the services: Unit 1
@@ -278,5 +279,4 @@ pattern and its guards are in `docs/developer-guide/i18n.md`.
 
 `curriculum.subjects` (`personal_data.py`, registered from `CurriculumConfig.ready()`)
 exports the subjects a person teaches and the subjects they want to study, as
-`{subject (slug), since}`. `Subject` itself is a `NOT_PERSONAL` catalogue row. The erase hook
-is lb-gdpr-erasure.
+`{subject (slug), since}`. `Subject` itself is a `NOT_PERSONAL` catalogue row.
