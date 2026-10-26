@@ -288,10 +288,9 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
   migration and one default assertion — so every row held `[]` and the drop lost nothing. The
   migration's docstring records that, since the next reader of a `RemoveField` on a JSON
   column will want to know whether data went with it.
-- **Dashboard zod validation messages are not i18n'd** — they render English regardless of
-  locale (`registerSchema`'s birthdate refine, plus zod's defaults on every form). zod runs
-  outside React so `t()` cannot be called in the schema. Breaks ar parity for validation copy
-  (ADR-0020). Fix repo-wide via a locale-aware resolver wrapper or per-field `setError`.
+- A validation error already on screen does not re-translate when the language is switched; it
+  updates on the next validation (typing or submitting). Same for the curriculum
+  `validate: () => t(...)` forms. Rare (the language toggle sits away from the form), so not fixed.
 - ~~`test_checkout_completed_..._unknown_user_is_ignored` would still pass if the `get_user`
   check were deleted.~~ **FIXED 2026-09-13** (backend #56) — the `caplog` assertion on
   `reason=unknown_user` is in, and **mutation-checked both ways**: green with the guard removed
