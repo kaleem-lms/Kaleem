@@ -1127,6 +1127,24 @@ proves; all are robustness of an unattended job.
   `subject_name` test in `assessment/tests/test_api.py` goes red. When a third module needs
   it, move the lookup behind one `scheduling.services` helper.
 
+- **The privacy notice does not yet say the schedule is kept on the device.** The service worker
+  unit (ADR-0065) keeps the signed-in person's upcoming lessons, names included, in the browser
+  for up to 14 days, wiped on sign-out. The sentence belongs in the privacy notice, which is legal
+  text and part of the deferred legal pass (`hg-counsel-review`); the feature does not depend on it.
+
+- **`rch-security-headers`' CSP must allow `worker-src 'self'`.** `dashboard/nginx.conf` serves
+  `/sw.js` from the app's own origin and the page registers it; a CSP without `worker-src` (falling
+  back to `script-src`/`default-src`) that excludes `'self'` would stop the worker silently. Add an
+  e2e assertion with the CSP.
+
+- **Safari and iOS are unverified for the service worker and the offline copy.** No Apple device
+  in the project. `rch-pwa-device-verification` owns the check.
+
+- **The dashboard's initial JS has about 790 bytes of headroom left (579,209 of 580,000).** The
+  service worker unit measured +1,903 bytes against `main`, of which the bundler's extra shared
+  chunks were about two thirds. The next unit that adds to the entry graph should expect to pay for
+  it by moving something out, not by raising the budget.
+
 ## Known-good gotchas (not bugs — read before panicking)
 
 - **Dashboard tests look catastrophically broken under memory pressure.** During the billing
