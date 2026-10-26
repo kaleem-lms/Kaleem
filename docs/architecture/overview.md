@@ -63,5 +63,5 @@ answers an API request; updates wait for a tap and never happen in a call. The p
 named-field copy of the signed-in person's upcoming lessons in Cache Storage, shown only on the
 offline screen and wiped on sign-out, deletion, a lost session, an account switch, age and the kill
 switch. `requireAuth` throws `OfflineError` instead of redirecting when there is no connection. Code:
-`dashboard/src/sw/` (the worker), `src/lib/offline/` (projection and store), `src/lib/sw/register.ts`
+`dashboard/src/sw/` (the worker), `src/lib/offline/` (projection and store), `src/lib/sw/service-worker.ts`
 (lazy registration), `src/features/shell/OfflineScreen.tsx`. Operating it: `docs/runbook/service-worker.md`.
