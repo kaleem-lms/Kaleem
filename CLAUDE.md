@@ -189,7 +189,7 @@ versioned base.** See ADR-0017 (the scheme) and ADR-0029 (the rule + its enforce
 - New module? Mount it under `config.api_router`, never straight onto `config/urls.py`.
 - Exactly three product exceptions, and the list is closed: health probes, allauth
   (`/accounts/`), the Django admin. **A fourth needs an ADR.**
-- Clients put the version in the configured base (`VITE_API_URL` ends `/api/v1/`) and use
+- Clients put the version in the configured base (`VITE_API_URL` in dev, the runtime `KALEEM_API_URL` in images; both end `/api/v1/`) and use
   relative paths per call, so a version bump is one config change, not a sweep.
 - **CI enforces this** — `backend/tests/test_api_versioning_is_enforced.py` walks the
   resolved URLconf and fails on anything unversioned outside the allowlist.
