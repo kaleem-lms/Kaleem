@@ -310,6 +310,12 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
 
 ## Someday
 
+- **`AvailabilityPage` unmounts the editor when a background refetch fails (found 2026-11-08,
+  fix/availability-load-race).** `dashboard/src/routes/_authed/-pages/AvailabilityPage.tsx` checks
+  `isError` before rendering the editor, and React Query v5 reports `isError` on a failed
+  refetch *while keeping the data*, so a teacher with an unsaved edit on a flaky network loses it
+  once the retries run out. The fix is to gate on `data === undefined` like
+  `StudentAvailabilityCard` now does. Not fixed there (D10).
 - **Seeded staging lessons will mail `.test` addresses once staging sends notification mail.** `seed_staging_pool` (ci-staging-pool-seed) puts four lessons in state for each unit's pool accounts, all on `pool.kaleem.test`, which cannot receive mail. The notification units own the mailer and should suppress or sink mail to that domain (`staging_pool.POOL_DOMAIN`) on staging so the provider does not see bounces.
 - **Senders should skip `is_active=False` recipients.** An erased account (lb-gdpr-erasure)
   keeps its row with the placeholder address `erased-<id>@erased.invalid`, which is never
