@@ -11,7 +11,7 @@ Need CSRF protection to work with a same-origin React SPA making API calls via A
 ## Decision
 - CSRF_COOKIE_HTTPONLY=False (so JavaScript can read the csrftoken cookie)
 - SESSION_COOKIE_HTTPONLY=True (session cookie is not readable by JS)
-- Axios configured with withXSRFToken=true, xsrfCookieName="csrftoken", xsrfHeaderName="X-CSRFToken"
+- Axios configured with withXSRFToken=true, xsrfCookieName="csrftoken", xsrfHeaderName="X-CSRFToken" (the cookie names became per-environment settings on 2026-10-26: see the amendment in ADR-0019; `csrftoken` is the default)
 - CORS_ALLOW_CREDENTIALS=True for localhost origins in local settings
 
 ## Alternatives considered
