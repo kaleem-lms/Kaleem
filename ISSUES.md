@@ -310,6 +310,12 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
 
 ## Someday
 
+- **`AvailabilityPage` unmounts the editor when a background refetch fails (found 2026-11-08,
+  fix/availability-load-race).** `dashboard/src/routes/_authed/-pages/AvailabilityPage.tsx` checks
+  `isError` before rendering the editor, and React Query v5 reports `isError` on a failed
+  refetch *while keeping the data*, so a teacher with an unsaved edit on a flaky network loses it
+  once the retries run out. The fix is to gate on `data === undefined` like
+  `StudentAvailabilityCard` now does. Not fixed there (D10).
 - **Seeded staging lessons will mail `.test` addresses once staging sends notification mail.** `seed_staging_pool` (ci-staging-pool-seed) puts four lessons in state for each unit's pool accounts, all on `pool.kaleem.test`, which cannot receive mail. The notification units own the mailer and should suppress or sink mail to that domain (`staging_pool.POOL_DOMAIN`) on staging so the provider does not see bounces.
 - **Senders should skip `is_active=False` recipients.** An erased account (lb-gdpr-erasure)
   keeps its row with the placeholder address `erased-<id>@erased.invalid`, which is never
@@ -1125,6 +1131,24 @@ proves; all are robustness of an unattended job.
   context string is now written in two places. If curriculum renames it, the Arabic
   `subject_name` test in `assessment/tests/test_api.py` goes red. When a third module needs
   it, move the lookup behind one `scheduling.services` helper.
+
+- **The privacy notice does not yet say the schedule is kept on the device.** The service worker
+  unit (ADR-0065) keeps the signed-in person's upcoming lessons, names included, in the browser
+  for up to 14 days, wiped on sign-out. The sentence belongs in the privacy notice, which is legal
+  text and part of the deferred legal pass (`hg-counsel-review`); the feature does not depend on it.
+
+- **`rch-security-headers`' CSP must allow `worker-src 'self'`.** `dashboard/nginx.conf` serves
+  `/sw.js` from the app's own origin and the page registers it; a CSP without `worker-src` (falling
+  back to `script-src`/`default-src`) that excludes `'self'` would stop the worker silently. Add an
+  e2e assertion with the CSP.
+
+- **Safari and iOS are unverified for the service worker and the offline copy.** No Apple device
+  in the project. `rch-pwa-device-verification` owns the check.
+
+- **The dashboard's initial JS has about 450 bytes of headroom left (579,549 of 580,000).** The
+  service worker unit measured +1,934 bytes against `main`, of which the bundler's extra shared
+  chunks were about two thirds. The next unit that adds to the entry graph should expect to pay for
+  it by moving something out, not by raising the budget.
 
 ## Known-good gotchas (not bugs — read before panicking)
 

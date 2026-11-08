@@ -17,7 +17,7 @@ retention and its own readers, none of which is the person the credential belong
 
 kaleem has three places that write per-request access logs: the API (gunicorn), the dashboard
 image (nginx) and the marketing image (nginx). Traefik, in front of all three, keeps no
-request path at all (`RequestPath` is dropped in `traefik/traefik.yml`), because it cannot
+request path at all (`RequestPath` is dropped in the `traefik` service's `command:` flags), because it cannot
 redact one route. That left the API's own log as the only per-request path record, with the
 caveat already written in `ISSUES.md`: allauth's confirm-email and reset-from-key routes carry
 their credential in the path.
