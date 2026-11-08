@@ -371,6 +371,12 @@ jobs:
         run: ${GITHUB_WORKSPACE}/.github/scripts/test-check-nginx-access-log.sh
       - name: Access log records no credential
         run: ${GITHUB_WORKSPACE}/.github/scripts/check-nginx-access-log.sh nginx.conf dist
+      # The image is environment-neutral: its start-up hook writes /env.js from
+      # KALEEM_API_URL and KALEEM_CSRF_COOKIE_NAME and refuses to start on a missing or
+      # malformed one (ADR-0019 amendment). The test includes a real nginx container
+      # started with the hook and no variables, which must exit non-zero.
+      - name: Runtime config hook
+        run: sh docker/test-runtime-config.sh
 
   # ADR-0021 has required end-to-end tests since 2026-06-17 and no harness existed
   # until 2026-09-03; ADR-0026 recorded the clause as suspended in the meantime. This
@@ -432,6 +438,12 @@ jobs:
       DATABASE_URL: postgres://kaleem:kaleem@localhost:5432/kaleem_e2e
       CELERY_BROKER_URL: redis://localhost:6379/0
       DJANGO_SETTINGS_MODULE: config.settings.local
+      # Production's cookie names, not Django's defaults (ADR-0019 amendment). Staging and
+      # production share a cookie domain, so the dashboard must follow whatever name the API
+      # sets; running the suite under a non-default name proves it does, on every mutation
+      # (CSRF) and every login (session). The Playwright step reads the CSRF name from here.
+      DJANGO_SESSION_COOKIE_NAME: kaleem_sessionid
+      DJANGO_CSRF_COOKIE_NAME: kaleem_csrftoken
       # Mail goes to the job's own mailpit (the service above), which the inbox flows
       # read over HTTP. Nothing leaves the runner.
       DJANGO_EMAIL_BACKEND: django.core.mail.backends.smtp.EmailBackend
@@ -615,10 +627,12 @@ jobs:
       - name: Install dashboard dependencies
         working-directory: dashboard
         run: pnpm install --frozen-lockfile
+      # No VITE_API_URL: the shipped image is environment-neutral, and so is this build. The
+      # API base and the CSRF cookie name reach the page through /env.js, written below by the
+      # image's own start-up hook. A bundle that quietly kept a build-time base would still
+      # pass here only if the hook were skipped, and then every flow would fail on the cookie.
       - name: Build the dashboard
         working-directory: dashboard
-        env:
-          VITE_API_URL: http://api.kaleem.localhost:8000/api/v1/
         run: pnpm build
       # The build is served by the SHIPPED nginx image with the SHIPPED nginx.conf, not by
       # `vite preview`: the security headers (ADR-0056) exist only in that file, so a
@@ -629,9 +643,16 @@ jobs:
         run: |
           image=$(sed -n 's/^FROM \(nginx[^ ]*\) AS production$/\1/p' dashboard/Dockerfile)
           test -n "$image" || { echo "::error::no 'FROM nginx… AS production' in dashboard/Dockerfile"; exit 1; }
+          # dist is mounted writable and the hook is mounted where the Dockerfile copies it,
+          # so the container writes dist/env.js exactly as the shipped image does. If the hook
+          # is not executable nginx skips it with a log line, env.js stays `{}`, and the
+          # build (which has no base) refuses to load: the whole suite goes red.
           docker run -d --name dash -p 4173:80 \
-            -v "$PWD/dashboard/dist:/usr/share/nginx/html:ro" \
+            -v "$PWD/dashboard/dist:/usr/share/nginx/html" \
             -v "$PWD/dashboard/nginx.conf:/etc/nginx/conf.d/default.conf:ro" \
+            -v "$PWD/dashboard/docker/40-kaleem-runtime-config.sh:/docker-entrypoint.d/40-kaleem-runtime-config.sh:ro" \
+            -e KALEEM_API_URL=http://api.kaleem.localhost:8000/api/v1/ \
+            -e KALEEM_CSRF_COOKIE_NAME=kaleem_csrftoken \
             "$image"
       - name: Wait for the dashboard
         run: |
@@ -640,6 +661,8 @@ jobs:
             sleep 2
           done
           echo "::error::Dashboard never became ready"; docker logs dash; exit 1
+      - name: Show the runtime config the dashboard served
+        run: docker exec dash cat /usr/share/nginx/html/env.js
 
       - name: Install Playwright chromium
         working-directory: dashboard
@@ -730,6 +753,8 @@ jobs:
           infra/scripts/test-deploy-lib.sh
           .github/scripts/test-check-shipsh-services.sh
           .github/scripts/check-shipsh-services.sh infra/docker-compose.production.yml infra/scripts/ship.sh
+          .github/scripts/test-check-traefik-static-config.sh
+          .github/scripts/check-traefik-static-config.sh infra/docker-compose.production.yml
           .github/scripts/test-deploy-outcome.sh
           .github/scripts/test-check-staging-host-key.sh
           .github/scripts/check-staging-host-key.sh
@@ -843,7 +868,6 @@ jobs:
             -f dashboard/Dockerfile \
             --target production \
             --secret id=tokens_token,env=TOKENS_REPO_TOKEN \
-            --build-arg VITE_API_URL=https://api-staging.kaleem.academy/api/v1/ \
             -t scan/dashboard:ci \
             dashboard/
 
@@ -1186,7 +1210,6 @@ jobs:
             -f dashboard/Dockerfile \
             --target production \
             --secret id=tokens_token,env=TOKENS_REPO_TOKEN \
-            --build-arg VITE_API_URL=https://api-staging.kaleem.academy/api/v1/ \
             -t ghcr.io/kaleem-lms/dashboard:${{ env.SHORT_SHA }} \
             -t ghcr.io/kaleem-lms/dashboard:latest \
             --cache-from type=registry,ref=ghcr.io/kaleem-lms/dashboard:buildcache \
@@ -1260,7 +1283,6 @@ jobs:
             docker-compose.production.yml \
             scripts/ship.sh \
             scripts/deploy-lib.sh \
-            traefik/traefik.yml \
             coturn/turnserver.conf \
             | ssh "${ssh_opts[@]}" "${target}" 'tar -C /opt/kaleem --no-same-owner -xf -'
           # The two remote command strings below expand on the client on purpose: a short commit

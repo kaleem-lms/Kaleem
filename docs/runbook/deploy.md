@@ -15,8 +15,9 @@ Deploys are triggered automatically when code is merged to `master`:
    with "master is not on staging" unless staging has the commit (see below)
 
 The synced files are `docker-compose.production.yml`, `scripts/ship.sh`, `scripts/deploy-lib.sh`
-(sourced by `ship.sh`, so the two always travel together), `traefik/traefik.yml` and
-`coturn/turnserver.conf`. `.env.production` is never synced.
+(sourced by `ship.sh`, so the two always travel together) and `coturn/turnserver.conf`. Traefik's
+configuration is the `traefik` service's `command:` in the compose file; there is no
+`traefik/traefik.yml` any more (an old copy left on the VPS is unused and harmless). `.env.production` is never synced.
 
 ## Manual deploy (if CI is down or you need to deploy a specific SHA)
 
@@ -120,12 +121,12 @@ refuses to start, before pulling, if the host's compose file disagrees.
 Before the first deploy, the VPS needs:
 
 1. Docker + Docker Compose installed
-2. `/opt/kaleem/` directory with `docker-compose.production.yml`, `traefik/`, `scripts/`, `.env.production`
+2. `/opt/kaleem/` directory with `docker-compose.production.yml`, `scripts/`, `.env.production`
 3. GHCR login credentials
 4. Firewall: ports 80, 443 open; 8080 (Traefik dashboard) restricted
 
 ```bash
-mkdir -p /opt/kaleem/{traefik,scripts}
+mkdir -p /opt/kaleem/scripts
 # Copy files from infra/ submodule to /opt/kaleem/
 # Create .env.production from .env.production.example
 # Start shared services first:
@@ -161,6 +162,36 @@ Variables added in Phase C3b (signaling / WebRTC) — all four are required, see
 | `DJANGO_SIGNALING_SECRET` | both `django-*` and `signaling-*` | signaling's health check 503s; **deploy rolls back** |
 | `DJANGO_SIGNALING_URL` | `django-*` | `SignalingProvider` refuses to construct (`ImproperlyConfigured`) |
 | `DJANGO_VIDEO_PROVIDER` | `django-*` | falls back to `FakeVideoProvider` — deploy succeeds, signaling is healthy, and **no lesson can reach it** |
+
+### Per-environment values (`lb-prod-env-parametrization`)
+
+One set of images runs in every environment; everything that differs is in `.env.production`
+(ADR-0019 amendment). `infra/.env.production.example` shows the staging value of each host
+variable with its production value in a `# production:` comment beside it.
+
+| Variable | Read by | Missing means |
+| --- | --- | --- |
+| `DJANGO_SESSION_COOKIE_NAME`, `DJANGO_CSRF_COOKIE_NAME` | `django-*`; the CSRF name also feeds the `dashboard` container | production settings refuse to import, so the new colour never becomes healthy and the deploy rolls back; a missing CSRF name also fails compose resolution (`:?`). Staging: `sessionid` / `csrftoken`. Production: `kaleem_sessionid` / `kaleem_csrftoken` |
+| `DJANGO_COOKIE_DOMAIN`, `CORS_ALLOWED_ORIGINS`, `CSRF_TRUSTED_ORIGINS` | `django-*` | no default in production: the process refuses to start (the deploy rolls back), instead of serving an API the dashboard cannot use |
+| `DJANGO_FRONTEND_URL` | `django-*` | as above (it was already required) |
+| `ACME_EMAIL` | `traefik` | `${ACME_EMAIL:?}` fails compose resolution **before any container changes**. Changing it makes Traefik register a new ACME account; certificates are kept |
+| `API_DOMAIN` | `django-*` router and the `dashboard` container (`KALEEM_API_URL=https://${API_DOMAIN}/api/v1/`) | compose resolution fails |
+
+**Step 6c of `ship.sh`** runs `manage.py check --deploy --tag security --fail-level WARNING`
+inside the new colour, after the health checks and before migrations, against the real
+environment. A finding rolls the colour back like a failed health check and the log shows
+the check ids (never values). The only silenced check is `security.W021`.
+
+**The dashboard's runtime config.** The container writes `/env.js` at start. After a deploy:
+
+```bash
+curl -s https://<DASHBOARD_DOMAIN>/env.js
+# window.__KALEEM_CONFIG__ = {"apiUrl":"https://<API_DOMAIN>/api/v1/","csrfCookieName":"<name>"};
+```
+
+A missing or malformed value stops the container at start (it logs `kaleem-runtime-config:`
+and the variable name). `ship.sh` does not health-gate the static frontends, so this `curl`
+is the check; a crash-looping `dashboard` container is what a bad value looks like.
 
 ## Checking deploy status
 

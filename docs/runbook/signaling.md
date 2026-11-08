@@ -294,7 +294,8 @@ token at once.
 
 The gateway in front of the service logged the same thing separately: Traefik's
 `RequestPath` access-log field is the full request URI, query string included.
-`RequestPath: drop` in `infra/traefik/traefik.yml` removes it. Traefik has no
+`--accesslog.fields.names.RequestPath=drop` in the `traefik` service's `command:`
+(`infra/docker-compose.production.yml`) removes it. Traefik has no
 per-router access-log configuration and silently ignores `redact` for core
 field names (both verified empirically against v3.6), so this is global and
 **no route's path appears in the Traefik access log any more**; gunicorn's own
