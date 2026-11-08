@@ -51,10 +51,11 @@ behind.
    line is `pay-payout-runs`' job. A payout must not be approved while a line in its period is
    unpriced.
 5. **Setting a rate.** The owner or conductor runs `manage.py set_teacher_rate --teacher <id>
-   --amount-minor <n> --currency <iso> --effective-from <ISO-8601>` on the server. It refuses
-   a non-teacher (shown as not found), an amount below 1, a currency that is not three
-   lowercase letters, a currency that differs from the existing rates, and a second rate for
-   the same teacher at the same instant. Rates are append-only too: a correction is a new rate
+   --amount-minor <n> --effective-from <ISO-8601>` on the server (`--currency` defaults to
+   `usd`, the billing constant `TEACHER_PAY_CURRENCY`). It refuses a non-teacher (shown as not
+   found), an amount below 1, a non-USD rate (anything but `usd`, even when no rate exists
+   yet, so the first rate entered cannot decide the currency), and a second rate for the same
+   teacher at the same instant. Rates are append-only too: a correction is a new rate
    from a later instant. ADR-0057 rules out Django admin for this, and the staff screen
    belongs to `pay-payout-runs` (Decision 6).
 
@@ -121,8 +122,10 @@ No HTTP endpoint. Public service names in `kaleem.billing.services`, implemented
   facts, and billing decides what they earn. A second line for the same session raises
   `IntegrityError`, which rolls the caller back.
 - `set_teacher_rate(teacher, *, amount_minor, currency, effective_from) -> TeacherRate`. It
-  raises `ValidationError` (`error_code` `validation_error`, with `field`). Messages go through
-  gettext and have Arabic catalogue entries.
+  raises `ValidationError` (`error_code` `validation_error`, with `field`); a non-USD rate
+  raises its subclass `UnsupportedPayCurrencyError` (`error_code`
+  `unsupported_pay_currency`, `field` `currency`). Messages go through gettext and have
+  Arabic catalogue entries.
 
 ## Frontend
 
@@ -185,7 +188,7 @@ as the outcome"). This unit does not consume `session_completed` or `session_can
 **Rates** (`billing/tests/test_teacher_rate.py`):
 
 - Each refusal reports its field.
-- A currency mismatch against existing rates is refused.
+- A non-USD rate is refused, the first rate included.
 - Same teacher, same instant is refused.
 - The management command prints the created row and maps each refusal to a non-zero exit.
 
