@@ -21,12 +21,12 @@ restore). Commit per step with explicit paths, `PIP_CONFIG_FILE=/dev/null`, neve
 
 ## Steps
 
-1. [ ] **Freshness.** `git -C <WT> merge --no-edit origin/main` (a merge, never a rebase).
+1. [x] **Freshness.** `git -C <WT> merge --no-edit origin/main` (a merge, never a rebase).
    Expected conflicts in `kaleem/identity/services.py` and its tests: keep `main`'s fragment
    links (`#uid=…&token=…`, `#key=…`, ADR-0053) and its comments, and keep the unit's
    `_send_set_password_link` rename, `send_password_set_link` and the `had_password` check.
    Then the full gate once, to see which of the unit's tests the new `main` broke.
-2. [ ] **Closed surface** (`tests/test_allauth_surface_closed.py`, exists). Must hold on the new
+2. [x] **Closed surface** (`tests/test_allauth_surface_closed.py`, exists). Must hold on the new
    `main`: no resolved route starts with `accounts/`; GET and POST to the nine former paths
    return 404 (`/accounts/` matters: allauth's `AccountMiddleware` turns a 404 there into a
    redirect only while `account_login` reverses); `account_signup`, `account_login`,
@@ -34,16 +34,16 @@ restore). Commit per step with explicit paths, `PIP_CONFIG_FILE=/dev/null`, neve
    `{FRONTEND_URL}/login`. Mutation: restore `path("accounts/", include("allauth.urls"))` in
    `config/urls.py`, see red. Also `tests/settings/test_login_url.py` (production re-derives
    `LOGIN_URL`); mutation: drop the `production.py` line.
-3. [ ] **Allowlist back to `main`** (owner decision: `/accounts/` stays one of ADR-0029's three
+3. [x] **Allowlist back to `main`** (owner decision: `/accounts/` stays one of ADR-0029's three
    closed exceptions). `git -C <WT> checkout origin/main -- tests/test_api_versioning_is_enforced.py`;
    it must be green with `accounts/` allowed and the count at 5. Edit the docstring of
    `test_allauth_surface_closed.py` so it says the prefix stays reserved and mounts nothing,
    and drop the "2026-10-18" amendment date there.
-4. [ ] **Signup closed** (`kaleem/identity/tests/test_adapter.py::test_native_signup_is_closed`,
+4. [x] **Signup closed** (`kaleem/identity/tests/test_adapter.py::test_native_signup_is_closed`,
    exists). `is_open_for_signup` returns `False`; the `ACCOUNT_ALLOW_REGISTRATION` read is
-   gone from `base.py`. Mutation: return `True`. Add the type hints mypy needs
-   (`request: HttpRequest`, `-> bool`).
-5. [ ] **Teacher set-password and alerts** (exist in `test_admin.py`,
+   gone from `base.py`. Mutation: return `True`. No type hints were needed: CI's mypy
+   passed on the adapter as it is.
+5. [x] **Teacher set-password and alerts** (exist in `test_admin.py`,
    `test_password_management.py`, `test_api_auth.py`). Update every link assertion to the
    fragment form and parse uid/token from the fragment: the service mails the teacher's
    primary address one message whose `/reset-password#uid=…&token=…` link passes
@@ -56,14 +56,14 @@ restore). Commit per step with explicit paths, `PIP_CONFIG_FILE=/dev/null`, neve
    login 200). Mutations: drop `had_password` from the alert condition (teacher test red);
    restore allauth's default `get_email_confirmation_url` (API-flow test red with
    `NoReverseMatch`); put `ResetPasswordForm` back in the admin action (no-`/accounts/` test red).
-6. [ ] **Docs (meta worktree, held).** Rewrite the ADR-0010 "Amendment" section: drop the
+6. [x] **Docs (meta worktree, held).** Rewrite the ADR-0010 "Amendment" section: drop the
    "amends ADR-0029 clause 2" bullet and say instead that `/accounts/` stays ADR-0029's
    reserved allauth exception, mounts nothing, and `tests/test_allauth_surface_closed.py`
    fails if anything is served there; date it with the landing day. Restore
    `docs/adr/0029-api-versioning-everywhere.md` to `origin/master` (no amendment note).
    `docs/architecture/identity.md` already says the auth surface is the API only; check it
    names no allowlist change. CLAUDE.md is unchanged.
-7. [ ] **Full gate and hand-back.** `_tools/backend-gate.sh <WT>` (migrate,
+7. [x] **Full gate and hand-back.** `_tools/backend-gate.sh <WT>` (migrate,
    `makemigrations --check`, pytest with coverage at the existing floor, ruff, ruff format,
    lint-imports, mypy), then runbook §3's five checks, including `gitleaks-range.sh <WT>
    origin/main..HEAD` ending CLEAN and no floor line touched (`dec-floor-ownership`). Merge

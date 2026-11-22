@@ -310,6 +310,7 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
 
 ## Someday
 
+- **`kaleem/platform/access_log.py`'s comment says allauth's credential paths are "Mounted at /accounts/"**; since lb-allauth-surface-lockdown nothing is mounted there (the masking stays as defence in depth). Owner: lb-access-log-redaction. Found 2026-11-22.
 - **`AvailabilityPage` unmounts the editor when a background refetch fails (found 2026-11-08,
   fix/availability-load-race).** `dashboard/src/routes/_authed/-pages/AvailabilityPage.tsx` checks
   `isError` before rendering the editor, and React Query v5 reports `isError` on a failed

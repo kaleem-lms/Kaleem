@@ -42,7 +42,7 @@ flow already uses. Recorded as an ADR-0010 amendment.
    change password, email management, child activation and invites keep going through the API
    and the dashboard. Their links already point at the dashboard
    (`CeleryAccountAdapter.get_email_confirmation_url`, `services.request_password_reset`,
-   `services._send_child_set_password_link`).
+   `services._send_set_password_link`).
 3. **`/accounts/…` (removed).** Any request under `/accounts/` returns 404. No client links
    there: dashboard, marketing and infra have no reference to it (checked on each `main`).
 
