@@ -96,6 +96,10 @@ ssh kaleem 'journalctl -u systemd-journald --since -1h | grep -c Suppressed || t
 ssh kaleem 'sudo bash -s -- check' < "${I}/scripts/host-log-retention.sh"                                       # exit 0
 ```
 
+H1 will show rotated copies (`apt`, `dpkg`, `unattended-upgrades` `.N.gz`) 30 days old or more as
+`FAIL: rotated log ...` lines: expected on a long-lived host. H2 `apply` deletes them and lists
+each as `removed /var/log/...`; keep that list in the hand-back. They are not backed up.
+
 H1 output goes in the hand-back. Anything it finds outside the spec goes to
 `_ops/private/lb-server-log-retention.md` and is escalated, never published. That covers a
 non-kaleem container, a log file under `/opt/kaleem`, a running Loki, a non-systemd host and

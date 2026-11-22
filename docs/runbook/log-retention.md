@@ -46,8 +46,10 @@ on stdin), so nothing is copied there.
 It fails on: a journald configuration that is not persistent, unset, or over 29 days
 (`MaxRetentionSec` + `MaxFileSec`); any logrotate stanza over 29 days or unbounded (`minsize`,
 size-only, no period); a running container whose log driver is not `journald`; a log file under
-`/opt/kaleem` 30 days old or more. It also prints (without failing) other files under `/var/log`
-older than 30 days.
+`/opt/kaleem` 30 days old or more; a rotated copy under `/var/log` (`name.N`, `name.N.gz`,
+`name-YYYYMMDD`) 30 days old or more (logrotate never removes the copies above a lowered `rotate`,
+so a long-lived host carries them until `apply` sweeps them). It also prints (without failing)
+other, non-rotated files under `/var/log` older than 30 days, such as `lastlog`.
 
 Run it after every deploy that touches compose, and in the Friday review.
 
@@ -65,12 +67,17 @@ journal that has no age limit. All of these run on the host as root, the script 
 - **H2, apply.** `sudo bash -s -- apply`. It ends with a host-side check and exits 0 even while
   containers are still on `json-file` (it says which). Confirm with
   `systemd-analyze cat-config systemd/journald.conf` (the four keys below) and `journalctl --disk-usage`.
+  Expect a list of `removed /var/log/...` lines on a host that has been up for months (apt, dpkg,
+  unattended-upgrades copies); an empty sweep prints `removed 0 rotated log(s)`. Keep that list
+  for the journal entry. A second `apply` removes nothing.
 
 `apply` writes `/etc/systemd/journald.conf.d/90-kaleem-retention.conf` (`Storage=persistent`,
 `MaxRetentionSec=28d`, `MaxFileSec=1d`, `SystemMaxUse=2G`), caps each logrotate stanza (period to
 weekly, rotate to 3 under weekly or 28 under daily, drops `minsize`, turns a size-only `size X` into
 `maxsize X` plus `weekly`), writes `/etc/rsyslog.d/05-kaleem-container-logs.conf` if rsyslog is
-installed, restarts journald (and rsyslog), and vacuums to 28 days. Originals go to
+installed, deletes every rotated log copy under `/var/log` that is 30 days old or more (it lists
+each as `removed /var/log/...`, ends with a count, and takes no backup of them; the journal's own
+directory is left to journald), restarts journald (and rsyslog), and vacuums to 28 days. Originals go to
 `/var/backups/kaleem-log-retention/<timestamp>/`. It is idempotent: a second run changes nothing and
 takes no backup. If it does not understand a logrotate file (an `include` of another directory, an
 unbalanced brace) it exits 2 and changes nothing; send the file to the private notes and escalate.
@@ -96,7 +103,7 @@ raised `RateLimitBurst` in the same drop-in, by an amendment to ADR-0067.
 ## Rolling back
 
 Revert the compose change and deploy: containers are recreated on `json-file`. The journald drop-in
-can stay (it only shortens retention). To restore the logrotate files, copy them back from
+can stay (it only shortens retention). The swept rotated copies are not restorable, by design: they were logs past the bound. To restore the logrotate files, copy them back from
 `/var/backups/kaleem-log-retention/<timestamp>/` (the backup tree mirrors `/etc`).
 
 ## What this does not cover

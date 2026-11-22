@@ -81,7 +81,13 @@ This unit reduces retained personal data and adds no new data. Nothing is stored
      timer. `apply` sets `weekly`/`monthly`/`yearly` stanzas to `weekly` with `rotate` ≤ 3, and
      `daily` stanzas to `rotate` ≤ 28. It removes `minsize`, which postpones rotation forever on a
      small file such as `wtmp`, and turns a size-only `size X` into `maxsize X` plus `weekly`.
-     Globals in `logrotate.conf` follow the same rule. Lines inside
+     Globals in `logrotate.conf` follow the same rule. Lowering a stanza's `rotate` does not make
+     logrotate delete the copies above the new count (it removes only the one that falls off the
+     end), and copies inside the count can hold content from the old, longer regime. So `apply`
+     also deletes every rotated copy under `/var/log` that is 30 days old or more by mtime
+     (`name.N`, `name.N.gz|xz|bz2|zst|lz4|Z`, `name-YYYYMMDD…`; the journal's own directory is
+     left to journald), lists each file it removes, and takes no backup of them. `check` fails on
+     the same set, so a host that was never swept cannot report ok. Lines inside
      `prerotate|postrotate|firstaction|lastaction … endscript` are never touched. A file the
      parser does not understand (an `include` of another directory, an unbalanced brace) makes
      `apply` refuse with exit 2 and change nothing.
@@ -145,6 +151,12 @@ PATH). Each is mutation-checked: it goes red with its fix reverted.
   worst-case days. `apply` caps every one. A second `apply` changes nothing. Script bodies come
   through byte-identical. Backups land outside `logrotate.d`. An `include` of another directory is
   refused with no change.
+- **Rotated copies:** a fixture tree with `apt/history.log.12.gz`, `term.log.4.gz`,
+  `dpkg.log.3.xz`, `dpkg.log-20240101.gz`, an unattended-upgrades `.5` and an installer
+  `.log.2345`, all dated 300 days ago. `check` exits 1 and names each; `apply` deletes and lists
+  each and a following `check` exits 0. Survivors, asserted: a fresh `history.log.1.gz`, a
+  future-dated dateext copy, an old non-rotated `lastlog` and `Xorg.0.log` (reported as `info`
+  only), and an old `journal/…/system.journal.1`.
 - **rsyslog:** the filter is written when `etc/rsyslog.conf` exists and not otherwise.
 - **`/opt/kaleem` and Docker:** `check` fails on a fixture `*.log` dated 40 days ago and passes
   without it. With the Docker stub, it fails on a running container whose driver is `json-file`

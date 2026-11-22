@@ -39,6 +39,12 @@ environments.
    `minsize` and a size-only criterion have no worst case at all and are removed. If rsyslog is
    installed, a filter stops container lines being copied into `/var/log/syslog`, so the journal
    is their only copy.
+   Lowering `rotate` does not make logrotate delete the copies above the new count, so a host that
+   has been up for months keeps rotated files far older than 30 days, and the copies inside the
+   count can hold content from the old regime. `apply` therefore also deletes every rotated copy
+   under `/var/log` (`name.N`, `name.N.<compression>`, `name-YYYYMMDD…`) that is 30 days old or more
+   by mtime, listing each one and taking no backup; `check` fails on the same set. The journal's
+   own directory is left to journald.
 3. **A committed, tested script sets and checks the host side.** `infra/scripts/host-log-retention.sh`
    has `check` (read-only; exits 1 on a violation) and `apply` (idempotent; refuses without changing
    anything if it does not understand a logrotate file; backs originals up outside `logrotate.d`).
