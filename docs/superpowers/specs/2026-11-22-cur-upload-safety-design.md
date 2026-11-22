@@ -108,7 +108,7 @@ No HTTP route; `content` still has none (ADR-0062 decision 3). The Python API ch
   subclasses `kaleem.platform.exceptions.ValidationError` with no `field`, so the existing
   exception handler maps it to 400 and passes its own `error_code` through. `platform` is not
   changed.
-- `UploadThrottle`: a `ScopedRateThrottle` with `scope = "upload"`, exported from
+- `UploadThrottle`: a per-user throttle (`UserRateThrottle` subclass) with its own `scope = "upload"`, so a view that lists it needs no `throttle_scope`, exported from
   `content.services`. Each consumer's upload view lists it in `throttle_classes`, and each
   consumer's spec says so.
 
