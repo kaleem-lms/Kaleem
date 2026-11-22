@@ -310,6 +310,13 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
 
 ## Someday
 
+- **`.github/scripts/check-security-headers.sh` line 41 dies silently if the Dockerfile is missing**: `sed ... | head -n 1` under pipefail exits rc=2 with no message instead of printing "no nginx image ... found in the Dockerfile". Found 2026-11-22 by rch-mkt-foundation review fixes.
+- **A returning Arabic visitor sees the English home for a moment (found 2026-11-22,
+  rch-mkt-foundation).** The marketing site is static, so `/` redirects to `/ar/` in the browser
+  once the `kaleem_locale=ar` cookie is read, after the English page has painted. A server-side
+  redirect in `marketing/nginx.conf` (nginx can read the cookie) would remove it. Deferred
+  because the e2e suite runs on `astro preview`, not nginx, so the redirect could not be proved
+  in CI without a new harness.
 - **`just seed` is described as "reset DB" but converges (found 2026-11-22, plat-dev-seed).** The `justfile` comment, the rebuild roadmap and CLAUDE.md's command list say it resets the database. `seed basic` runs the e2e manifest, which converges only its own accounts and resets nothing. CLAUDE.md needs an ADR to edit; not tidied there (D10).
 - **A reseed grows `platform.DomainEvent` and `billing.TeacherEarning` (found 2026-11-22, plat-dev-seed).** Running `seed basic` twice doubled both tables (3 to 6 each) while users, sessions and reports stayed equal, because the manifest closes its lessons out again and the event bus and earnings ledger are append-only. Harmless for a developer database, and `tests/test_dev_seed_dataset.py` checks only users, sessions and reports for that reason. Left alone (D10).
 - **`kaleem/platform/access_log.py`'s comment says allauth's credential paths are "Mounted at /accounts/"**; since lb-allauth-surface-lockdown nothing is mounted there (the masking stays as defence in depth). Owner: lb-access-log-redaction. Found 2026-11-22.
