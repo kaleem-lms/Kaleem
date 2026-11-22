@@ -310,6 +310,8 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
 
 ## Someday
 
+- **`platform.tasks.send_templated_email` takes the recipient address as its `to` kwarg**, so Celery's worker records (`record.args`/`data`) and any future error tracker's Celery integration can hold it. No caller exists yet; the first caller (ntf-identity-emails-relayout) must pass a redacted `kwargsrepr` or the task should take a user id instead. ADR-0023. Found 2026-11-22 by ntf-email-foundation review fixes.
+- **`signaling/tests/test_app.py::test_media_state_is_never_echoed_back_to_its_sender` can hang in `receive_json`** under machine load (a 28-minute stall in a full gate while other gates ran; 41/41 alone). Add a receive timeout. Found 2026-11-22.
 - **The Stripe provider's error mapper may log Stripe's own message** when a request is rejected for a reason other than `resource_missing`; that text can name the provider customer. ADR-0023 wants ids and counts only in logs. Owner: whoever next touches `billing/providers/stripe.py`. Found 2026-11-22 by lb-gdpr-retention-jobs review.
 - **`.github/scripts/check-security-headers.sh` line 41 dies silently if the Dockerfile is missing**: `sed ... | head -n 1` under pipefail exits rc=2 with no message instead of printing "no nginx image ... found in the Dockerfile". Found 2026-11-22 by rch-mkt-foundation review fixes.
 - **A returning Arabic visitor sees the English home for a moment (found 2026-11-22,

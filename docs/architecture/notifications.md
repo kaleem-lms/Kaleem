@@ -94,7 +94,7 @@ is an app-relative path matching `^/[A-Za-z0-9/_-]*$`, with no `//`, scheme or q
 | Channel | State in `ntf-core` |
 | --- | --- |
 | `in_app` | the `Notification` row. The feed API and the bell are `ntf-inapp-feed` |
-| `email` | a `Protocol` and two services. `settings.NOTIFICATIONS_EMAIL_CHANNEL` is `None`; `ntf-email-foundation` implements it inside this module |
+| `email` | a `Protocol` and two services, implemented by `EmailChannelAdapter` (`ntf-email-foundation`, below). `settings.NOTIFICATIONS_EMAIL_CHANNEL` names it, and is `None` in production until the SMTP variables are set |
 | `push` | the same shape, fixed now. `settings.NOTIFICATIONS_PUSH_CHANNEL` is `None` and **no sender ships**. v1 push is web push for the PWA, which needs VAPID keys (an owner step on the VPS) and `rch-pwa-service-worker`; a follow-up unit builds the adapter and owns the subscription table, its personal-data hooks and its erase |
 
 `DEFAULT_CHANNELS` is `{"in_app", "email"}`. Push is opt-in per kind, so a kind that does not
@@ -106,6 +106,46 @@ An adapter reads a delivery with `get_pending_*_delivery`, which returns `None` 
 delivery is no longer pending, is gone (purged or erased), or belongs to the other channel.
 It reports with `record_*_delivery_result`, a conditional update: of two racing callers one
 gets `True`, and a second call changes nothing.
+
+## The email adapter
+
+Spec: `docs/superpowers/specs/2026-11-22-ntf-email-foundation-design.md`. Platform's layout
+and guarded send are in `docs/architecture/platform.md`.
+
+`kaleem.notifications.email.EmailChannelAdapter.dispatch(ids)` enqueues
+`send_email_delivery(delivery_id)` once per id; the only argument through the broker is the id.
+`send_delivery` runs in the worker:
+
+1. takes a per-delivery cache lock (`cache.add`, 10 minutes, released on every ending), so a
+   sweep and a slow worker never send together;
+2. reads the pending delivery, which carries the recipient's CURRENT language and zone, and
+   the address through `identity.services.get_user`;
+3. renders `notifications/email/notice` (subject and heading are the kind's lazy `title`; the
+   link is `FRONTEND_URL` plus the stored path). A producer adds
+   `notifications/email/kinds/<app>.<name>.{txt,html}` in its own app for the body, and a
+   generic line is used when it does not;
+4. sends, and records the result.
+
+Every ending is a terminal row with an `error_code`:
+
+| `error_code` | When |
+| --- | --- |
+| `channel_unconfigured` | no adapter set (`notify()`'s own path) |
+| `email_not_configured` | the adapter ran but delivery is not configured |
+| `recipient_inactive` | the account is inactive or gone (erased) |
+| `recipient_suppressed` | the address's domain is on `EMAIL_SUPPRESSED_DOMAINS` |
+| `recipient_refused` | the provider refused the recipient |
+| `send_failed` | a transient error survived three retries |
+| `delivery_expired` | still pending after 24 hours; a day-old notice is never sent |
+| `unknown_kind` | the kind was retired after `notify()` wrote the delivery |
+
+`sweep_pending_email_deliveries()` re-enqueues email deliveries pending for more than 15
+minutes (500 per run, oldest first) and expires those older than 24 hours. Idempotent. **It has
+no beat entry**, like the purge: the first producer unit adds
+`notifications-sweep-pending-email` in a slot the conductor assigns. Delivery is
+at-least-once: a worker killed after the provider accepted a message but before the result
+was recorded can send one duplicate after the lock expires. No log line, task argument or
+error carries an address.
 
 ## Personal data (ADR-0023)
 
@@ -131,15 +171,15 @@ assigns. Until then nothing writes a row.
 ## Tests
 
 `kaleem/notifications/tests/`: the registry, models, `notify()`, preferences, the delivery
-services, personal data and retention. `test_notify_concurrency.py` runs two real threads on a
+services, personal data and retention, and `test_email_adapter.py` and `test_email_tasks.py` for the email adapter, its tasks and the sweep, each in both locales where language matters. `test_notify_concurrency.py` runs two real threads on a
 barrier through `notify()` with one key and asserts one row, one delivery and one dispatch; it
 goes red with the unique constraint removed. The root `tests/test_notifications_producer_edges.py`
 pins the producer set. e2e: none, because this unit has no user-facing behaviour.
 
 ## Not here
 
-- The email layout, rendering, worker task and retries for deliveries left `pending`
-  (`ntf-email-foundation`), and the push sender (a follow-up unit; `ISSUES.md`).
+- The push sender (a follow-up unit; `ISSUES.md`). The email adapter is above, and the
+  layout it renders through is platform's.
 - The feed API and bell (`ntf-inapp-feed`), the preferences UI and unsubscribe
   (`ntf-preferences`), reminder scheduling (`ntf-reminders`).
 - Every concrete kind and its `notify()` call: the producer units.

@@ -15,7 +15,7 @@ Decision: `docs/adr/0063-domain-event-bus.md`.
 
 | Piece | File | What it is |
 | --- | --- | --- |
-| Typed exceptions | `exceptions.py` | `KaleemError` and its subtypes (`NotFoundError`, `PermissionDeniedError`, `ConflictError`, `ValidationError`, `ExternalServiceError`) |
+| Typed exceptions | `exceptions.py` | `KaleemError` and its subtypes (`NotFoundError`, `PermissionDeniedError`, `ConflictError`, `ValidationError`, `ExternalServiceError`, `StorageNotConfigured`, `EmailNotConfigured`, `RecipientSuppressed`) |
 | DRF exception handler | `drf.py` | Maps those exceptions to HTTP statuses; an unmapped `KaleemError` falls back to 400. Adds a stable `error_code` to every dict body (below) |
 | Pagination | `pagination.py` | `StandardPagination` |
 | Permissions | `permissions.py` | `DocsPermission` for the API docs; `IsStaff`, the server control behind every staff endpoint (authenticated and `is_staff`; imports only DRF; ADR-0057) |
@@ -25,7 +25,8 @@ Decision: `docs/adr/0063-domain-event-bus.md`.
 | Logging | `logging.py` | `JSONFormatter` for structured logs |
 | Access-log policy | `access_log.py`, `gunicorn_logging.py` | paths only, credential paths masked; below |
 | Health | `views.py` | `/health/live/` and `/health/ready/` (outside `/api/v1/`, on the closed allowlist) |
-| Email task | `tasks.py` | `send_email_message`, the Celery send of one already-rendered email |
+| Email task | `tasks.py` | `send_email_message`, the Celery send of one already-rendered email (allauth's, until `ntf-identity-emails-relayout`), and `send_templated_email`, which renders and sends in the worker |
+| Email | `email.py`, `templates/platform/email/`, `management/commands/send_sample_email.py` | the bilingual layout, the renderer and the guarded send; below |
 | Seed command | `management/commands/seed.py` | `manage.py seed [basic]`: runs the e2e manifest through `seed_e2e_all` by name; refuses unless `DEBUG` is on and the `FRONTEND_URL` host is loopback; takes no password |
 | Staging pool | `staging_pool.py`, `management/commands/seed_staging_pool.py` | the pool address scheme, the staging check and the seed orchestrator; below |
 | Personal-data registry | `personal_data.py`, `personal_data_contract.py` | below |
@@ -100,6 +101,55 @@ admin: server code reads it, and the user sees their own rows through the export
 `platform.events` hooks (ADR-0048) export every event whose `user_ids` contains the user
 (`{type, version, occurred_at, payload}`, any counterpart as an id only) and erase them,
 cascading the `HandledEvent` rows.
+
+## Email
+
+Spec: `docs/superpowers/specs/2026-11-22-ntf-email-foundation-design.md`.
+Decision: the 2026-11-22 amendment to `docs/adr/0018-transactional-email-via-celery.md`.
+
+Platform owns how a message looks and the only way one leaves. It sends nothing by itself:
+`notifications` is the first caller (`docs/architecture/notifications.md`), and identity's
+mail moves onto it in `ntf-identity-emails-relayout`.
+
+- **`render_email(template, context, *, language, timezone, list_unsubscribe=None)`** returns
+  a frozen `RenderedEmail(subject, text, html, headers)`. It renders `<template>.subject.txt`,
+  `.txt` and `.html` under `translation.override(language)` and `timezone.override(zone)`,
+  so lazy strings resolve in the recipient's language and an aware datetime prints in their
+  zone. A language outside `LANGUAGES` falls back to English. The HTML part is autoescaped;
+  the text and subject are not, and the subject is collapsed to one line. A body template
+  extends `platform/email/layout.txt` and `layout.html`, and may set `action_url` and
+  `action_label` in the context for the one button.
+- **The layout** is one table at most 600px wide with `role="presentation"`, all styles
+  inline, and `lang` / `dir` set per language. The header block holds the wordmark as text
+  (`pgettext("brand", "kaleem")`, `كَلِيم` in Arabic): no image, font or stylesheet is loaded.
+  The footer gives `SUPPORT_EMAIL`. The button is an `<a>` 44px high. Colours come from
+  `EMAIL_COLOURS`, a copy of the light-theme `@kaleem/tokens` values because a mail client
+  cannot read CSS variables; a test holds every text pair at 4.5:1 and every painted colour
+  to that mapping.
+- **`send_email(to, email)`** sends one multipart message from `DEFAULT_FROM_EMAIL` with
+  `Reply-To: SUPPORT_EMAIL`. It raises `EmailNotConfigured` before any connection when
+  `EMAIL_DELIVERY_CONFIGURED` is false, and `RecipientSuppressed` when the address's domain
+  (exact match, case-insensitive) is in `EMAIL_SUPPRESSED_DOMAINS`. Any other failure is
+  Django's own SMTP or connection exception, for the caller to retry or record.
+- **Configured** is a setting: base is `True` (locmem and mailpit count), production derives
+  it from the three SMTP variables being non-blank and lists the missing ones in
+  `EMAIL_DELIVERY_MISSING`. `PlatformConfig.ready()` logs one WARNING per process naming
+  them. Some-but-not-all does not refuse to start: a process that cannot start rolls a
+  deploy back.
+- **`send_templated_email`** is the task: it parses the `datetimes` keys from ISO strings,
+  renders, sends, retries transient SMTP and connection errors three times with backoff, and
+  logs (never retries) a not-configured, suppressed or refused recipient. It is
+  `ignore_result=True`, and no log line names the address.
+- **`manage.py send_sample_email <address> [--language en|ar]`** renders the fixed
+  `platform/email/sample` template through `send_email`, so the not-configured check and the
+  denylist apply. It exits non-zero naming the error code. It is the tool for
+  `hg-mail-client-render` and the setup step's credential check.
+
+**Covered by tests, in both locales:** MIME structure and part order, the headers, `lang` and
+`dir`, Arabic copy in both parts, escaping, no remote resource, the contrast of the defined
+pairs, the absolute link, no address or name in a body. **Not covered, and cannot be without
+real clients and SES out of its sandbox:** layout in Gmail, Outlook and Android mail, dark-mode
+inversion, Arabic font fallback, clipping, how `List-Unsubscribe` shows, and deliverability.
 
 ## The cache
 
