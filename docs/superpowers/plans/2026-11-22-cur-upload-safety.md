@@ -1,6 +1,6 @@
 ---
 spec: docs/superpowers/specs/2026-11-22-cur-upload-safety-design.md
-status: draft
+status: approved
 ---
 
 Repos: `backend` (worktree `kaleem-worktrees/backend-cur-upload-safety`, branch

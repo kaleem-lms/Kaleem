@@ -2,7 +2,7 @@
 name: cur-upload-safety
 phase: v1 (wave 3, content stream)
 modules: [content]
-status: draft
+status: approved
 created: 2026-11-22
 closed: null
 ---
@@ -32,7 +32,7 @@ deploys.
 
 ## The policy
 
-These numbers are proposals, for the owner to approve with this spec. They live as constants in
+These numbers were approved by the owner with this spec on 2026-11-22, unchanged. They live as constants in
 `kaleem/content/policy.py`, so changing one later is a one-line PR.
 
 | Family | Accepted when the bytes are | Stored as | Size cap |
@@ -177,6 +177,6 @@ this unit (its `merge_after`).
 
 ## Open questions
 
-- The owner approves the numbers in "The policy": the caps, the 30 MP limit, the 1 GiB quota and
-  60/hour. Children's photos and new refusal behaviour are why the owner approves this spec
-  (`dec-spec-approval`).
+None. The owner approved this spec on 2026-11-22 with the numbers in "The policy" unchanged: the
+caps, the 30 MP limit, the 1 GiB quota and 60/hour. Children's photos and new refusal behaviour
+are why the owner approves this spec (`dec-spec-approval`).
