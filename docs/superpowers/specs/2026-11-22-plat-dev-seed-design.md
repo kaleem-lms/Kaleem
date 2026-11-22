@@ -2,7 +2,7 @@
 name: plat-dev-seed
 phase: v1 programme (wave 4, platform stream)
 modules: [platform]
-status: draft
+status: approved
 created: 2026-11-22
 closed: null
 ---
