@@ -65,6 +65,8 @@ dropped silently:
 | A transient SMTP or connection error | retried 3 times with backoff, then `failed` / `send_failed` | WARNING per try, ERROR on the last |
 | Still `pending` after 15 minutes (broker down at commit, worker lost) | the sweep re-enqueues it | INFO |
 | Still `pending` after 24 hours | `failed` / `delivery_expired`, so a day-old notice is never sent | WARNING |
+| The adapter runs while delivery is not configured (a misconfiguration; `notify()` normally records `channel_unconfigured` first) | `failed` / `email_not_configured` | ERROR |
+| The kind was retired after `notify()` wrote the delivery | `failed` / `unknown_kind` | ERROR |
 | The delivery is already terminal, purged or erased | the task does nothing | none |
 
 No log line, task argument or error carries an email address. Logs name the delivery id
@@ -169,7 +171,8 @@ are ISO-8601 strings and are parsed into aware datetimes before the render.
 - `base.py` gains three settings:
   - `SUPPORT_EMAIL = env("DJANGO_SUPPORT_EMAIL", default="kaleem <support@kaleem.academy>")`;
   - `EMAIL_DELIVERY_CONFIGURED = True`, which local, test and e2e inherit, so their
-    locmem and mailpit backends count as configured;
+    locmem and mailpit backends count as configured, and `EMAIL_DELIVERY_MISSING`, the
+    variable names the startup warning reads (empty in base; production fills it);
   - `EMAIL_SUPPRESSED_DOMAINS = ("pool.kaleem.test", "erased.invalid")`. These are the two
     undeliverable domains kaleem creates itself: the staging pool and the erased-account
     placeholder. A test pins them to `staging_pool.POOL_DOMAIN` and to identity's

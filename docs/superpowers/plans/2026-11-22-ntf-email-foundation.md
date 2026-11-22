@@ -23,7 +23,7 @@ is `kaleem/notifications`.
 
 ## Steps
 
-1. [ ] **Typed errors and settings.** Write the tests first:
+1. [x] **Typed errors and settings.** Write the tests first:
    - `P/tests/test_exceptions.py`:
      - `test_email_not_configured_code` (`email_not_configured`)
      - `test_recipient_suppressed_code` (`recipient_suppressed`)
@@ -47,13 +47,13 @@ is `kaleem/notifications`.
    set `settings.NOTIFICATIONS_EMAIL_CHANNEL = None` explicitly. Its default is no longer
    `None`.
 
-2. [ ] **Startup warning.** Write `P/tests/test_apps.py` first:
+2. [x] **Startup warning.** Write `P/tests/test_apps.py` first:
    - `test_warns_once_naming_variables_when_not_configured` (no value appears in the message)
    - `test_silent_when_configured`
 
    Then add `PlatformConfig.warn_if_not_configured()`, modelled on `ContentConfig`'s.
 
-3. [ ] **Layout and render.** Write `P/tests/test_email_render.py` first. Each case is
+3. [x] **Layout and render.** Write `P/tests/test_email_render.py` first. Each case is
    parametrised over `en` and `ar` where the spec says so:
    - `test_lang_and_dir_per_language`
    - `test_arabic_copy_and_wordmark_in_both_parts`
@@ -75,7 +75,7 @@ is `kaleem/notifications`.
 
    Mutation check: drop the `translation.override` and the Arabic tests must go red.
 
-4. [ ] **Guarded send.** Write `P/tests/test_email_send.py` first:
+4. [x] **Guarded send.** Write `P/tests/test_email_send.py` first:
    - `test_not_configured_raises_and_sends_nothing`
    - `test_suppressed_domain_raises_case_insensitive`
    - `test_exact_match_leaves_kaleem_test_and_notpool_alone`
@@ -85,7 +85,7 @@ is `kaleem/notifications`.
    Then add `send_email` and `is_delivery_configured`. Mutation check: make the match a
    suffix match (`endswith`) and the exact-match test must go red.
 
-5. [ ] **Platform task.** Write the new tests first, in `P/tests/test_email_tasks.py`:
+5. [x] **Platform task.** Write the new tests first, in `P/tests/test_email_tasks.py`:
    - `test_renders_and_sends_with_parsed_datetimes`
    - `test_not_configured_logged_error_not_retried`
    - `test_suppressed_logged_info_not_retried`
@@ -95,14 +95,14 @@ is `kaleem/notifications`.
    Then add `send_templated_email` to `P/tasks.py`. This file is shared: change only the
    new task, and leave `send_email_message` untouched.
 
-6. [ ] **Sample command.** Write `P/tests/test_send_sample_email_command.py` first:
+6. [x] **Sample command.** Write `P/tests/test_send_sample_email_command.py` first:
    - `test_sends_sample_in_requested_language`
    - `test_not_configured_exits_nonzero_with_code`
    - `test_suppressed_address_refused`
 
    Then add `P/management/commands/send_sample_email.py`.
 
-7. [ ] **Notice template and adapter.** Write `N/tests/test_email_adapter.py` first:
+7. [x] **Notice template and adapter.** Write `N/tests/test_email_adapter.py` first:
    - `test_dispatch_enqueues_one_task_per_id`
    - `test_sends_in_recipient_language_and_zone` (set the user's `language="ar"` and
      `timezone="Asia/Riyadh"`)
@@ -122,7 +122,7 @@ is `kaleem/notifications`.
    `N/templates/notifications/email/notice.{subject.txt,txt,html}`, extending platform's
    layout. Mutation check: remove the lock and `test_held_lock_sends_nothing` must go red.
 
-8. [ ] **Tasks, retry and sweep.** Write `N/tests/test_email_tasks.py` first:
+8. [x] **Tasks, retry and sweep.** Write `N/tests/test_email_tasks.py` first:
    - `test_transient_error_retried_then_failed_send_failed`
    - `test_sweep_reenqueues_pending_older_than_15_min`
    - `test_sweep_leaves_newer_pending_alone`
@@ -133,18 +133,18 @@ is `kaleem/notifications`.
    Then add `send_email_delivery` and `sweep_pending_email_deliveries` to `N/tasks.py`, and
    the internal stale-pending query to `N/channels.py`.
 
-9. [ ] **Catalogs.** Run `django-admin makemessages -l ar --no-location --ignore '*/tests/*'`
+9. [x] **Catalogs.** Run `django-admin makemessages -l ar --no-location --ignore '*/tests/*'`
    in `P/` and in `N/`, then write draft Arabic for each new msgid. Mark the header
    "Drafts until reviewed (hg-arabic-review)", as the existing catalogs do. Then
    `tests/test_translation_catalogs.py` must pass.
 
-10. [ ] **Full gate and hand-back.**
+10. [x] **Full gate and hand-back.**
     - Run `backend-gate.sh <wt>` in full: migrate, `makemigrations --check`, pytest with
       coverage, ruff, format, `lint-imports` and `mypy`.
     - Then run the runbook section 3 checks. Merge `origin/main` (never rebase) right before
       the hand-back.
 
-11. [ ] **Meta docs**, in the meta worktree:
+11. [x] **Meta docs**, in the meta worktree:
     - Write the ADR amending ADR-0018 (number from the conductor). New mail renders in the
       worker under an explicit language and zone, through platform's layout. The send
       refuses when not configured and has no fallback. It covers the denylist,
@@ -159,7 +159,7 @@ is `kaleem/notifications`.
       ❌ e2e by design, with unit tests in both locales and the first mailpit flow in
       `ntf-booking-notifications`.
 
-12. [ ] **Setup checklist.** Add these rows to
+12. [x] **Setup checklist.** Add these rows to
     `_ops/programme/setup-and-deployment-checklist.md`:
     - The SES SMTP credentials, the domain verification (SPF and DKIM DNS records) and the
       exit from the sandbox. The variables are `DJANGO_EMAIL_HOST`,
