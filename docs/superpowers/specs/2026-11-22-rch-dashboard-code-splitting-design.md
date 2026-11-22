@@ -2,9 +2,9 @@
 name: rch-dashboard-code-splitting (round 2: entry headroom)
 phase: v1 (wave 1, PWA & bundle stream)
 modules: [dashboard routes, dashboard i18n]
-status: draft
+status: closed
 created: 2026-11-22
-closed: null
+closed: 2026-11-22
 ---
 
 Round 1 (`2026-10-18-rch-dashboard-code-splitting-design.md`, merged) split the bundle by
@@ -184,6 +184,35 @@ namespace chunks are new hashed files that old tabs never request.
    is recorded before and after in the hand-back, along with the `ui-*.js` size.
 7. `chunk-reload.spec.ts`, `pwa.spec.ts`, `arabic-sweep.spec.ts` and the rest of the suite
    stay green unchanged.
+
+## Result (2026-11-22)
+
+Measured on the build host (pnpm 12 / node 26; CI's line reads about 176 bytes lower):
+
+| | before | after |
+| --- | --- | --- |
+| initial JS, files | 21 | 21 |
+| initial JS, bytes | 579,807 (193 under budget) | 550,953 (29,047 under budget) |
+| `ui-*.js` | 214.6 KB | 184.9 KB |
+| lazy catalogue chunks | none for these six | 10 JSON chunks (5 new namespaces x 2 locales) and `account` grown; none in `dist/index.html`'s preloads |
+
+What left the entry: about 29 KB of English and Arabic text from `common.json`, which sat in
+the shared `ui-*.js` chunk. The code of the 50 migrated files did not move. The budget is
+unchanged at 580,000.
+
+Findings the plan did not predict:
+
+- **`useTranslation(["ns", "common"])` does not fall back by default.** react-i18next reads
+  only the first namespace of an array unless `react.nsMode` is `"fallback"`, so the residual
+  keys printed raw on `/schedule`, `/billing` and `/account`. The plan's `getFixedT` assertion
+  passed because `getFixedT` with an array does fall back, which hid this. `src/lib/i18n.ts`
+  now sets `react: { nsMode: "fallback" }`, and a `renderHook` test pins it. It was found by
+  the e2e spec, not by the unit suite.
+- **The plural families stay whole.** `booking.durationMinutes` keeps all six Arabic forms in
+  common, not the two English ones the first cut kept.
+- **`SessionList` reads `t(group.labelKey)`** with `"booking.today"` from a helper in common,
+  so it binds `["booking", "common"]`. A key reached through a variable is not covered by
+  `key-usage.test.ts`; the e2e spec and a review of every non-literal `t(...)` call were.
 
 ## Open questions
 

@@ -1,6 +1,6 @@
 ---
 spec: docs/superpowers/specs/2026-11-22-rch-dashboard-code-splitting-design.md
-status: draft
+status: done
 ---
 
 Worktree `WT=/home/abdulkhalek/Projects/kaleem-worktrees/dashboard-rch-dashboard-code-splitting`,
@@ -13,14 +13,14 @@ TDD loop: `_tools/dashboard-gate.sh "${WT}" <test path>`. Full gate before hand-
 
 ## Steps
 
-1. [ ] **Exact budget line (red, then green).** In `scripts/check-bundle-budget.test.mjs`,
+1. [x] **Exact budget line (red, then green).** In `scripts/check-bundle-budget.test.mjs`,
    assert that `main()` logs `initial JS: <n> files, <bytes with separators> bytes raw,
    <headroom> under budget` (or `over budget`). Red against today's `579.6 KB` line. Change
    only the log line in `check-bundle-budget.mjs`. Then run `pnpm exec vite build && node
    scripts/check-bundle-budget.mjs` and record the **before** line (local
    579,807 / CI 579,631).
 
-2. [ ] **Key guard (green on main, mutation-checked).** Write `src/locales/key-usage.test.ts`
+2. [x] **Key guard (green on main, mutation-checked).** Write `src/locales/key-usage.test.ts`
    with the spec's two rules. Walk `src` with `node:fs`, skipping `*.test.*` and `src/test/`.
    - Rule 1: closed literals `"<seg>.<path>"` whose `<seg>` is a top-level key of
      `en/common.json` or a `FEATURE_CATALOGUES` name, excluding file-like suffixes
@@ -31,7 +31,7 @@ TDD loop: `_tools/dashboard-gate.sh "${WT}" <test path>`. Full gate before hand-
    - The scratchpad prototype found 0 failures on main and 205 with `family` and `billing`
      deleted. Mutation-check it the same way before going on.
 
-3. [ ] **Loader tests (red).** Extend `src/lib/i18n-namespaces.test.ts` in the existing
+3. [x] **Loader tests (red).** Extend `src/lib/i18n-namespaces.test.ts` in the existing
    `unload` → `loader()` → `hasResourceBundle` pattern:
    - `/billing` → billing; `/family` → family; `/availability` → availability;
      `/match-requests` → matching;
@@ -42,7 +42,7 @@ TDD loop: `_tools/dashboard-gate.sh "${WT}" <test path>`. Full gate before hand-
 
    Red: the namespaces and loaders do not exist.
 
-4. [ ] **Catalogues (green for step 3).** Write a throwaway script in the scratchpad, not
+4. [x] **Catalogues (green for step 3).** Write a throwaway script in the scratchpad, not
    committed, that parses both `common.json` files, moves each block per the spec's table
    (residual keys stay), merges into `account.json` (root, plus `subjects` and
    `teacherProfile` objects), and writes every file back with tabs and a trailing newline.
@@ -53,7 +53,7 @@ TDD loop: `_tools/dashboard-gate.sh "${WT}" <test path>`. Full gate before hand-
    - Run steps 2 and 3. Step 2 is now **red** and lists every reference to rewrite. Run
      `parity.test.ts` and `terminology.test.ts`, which must be green.
 
-5. [ ] **Rewrite references (step 2 green).** Work file by file from the guard's list: set
+5. [x] **Rewrite references (step 2 green).** Work file by file from the guard's list: set
    `useTranslation(["<ns>", "common"])` and strip the prefix of moved keys only.
    - Files that a no-loader surface renders keep `useTranslation()`: `ManageBillingButton`,
      `DunningBanner`, `groupSessionsByDay`, `CallStatus`, `RoomPage`, `OfflineScreen` and
@@ -62,7 +62,7 @@ TDD loop: `_tools/dashboard-gate.sh "${WT}" <test path>`. Full gate before hand-
      them (step 3's list). Check with `codegraph_callers` on the component before choosing.
    - Run `tsc --noEmit` and the guard.
 
-6. [ ] **Component tests.** Run the touched feature directories, then the full suite
+6. [x] **Component tests.** Run the touched feature directories, then the full suite
    (`test:coverage`, through the full gate).
    - A test that now shows a raw key gets `import "@/test/feature-i18n";`. Add nothing
      else.
@@ -70,7 +70,7 @@ TDD loop: `_tools/dashboard-gate.sh "${WT}" <test path>`. Full gate before hand-
      `WeeklyAvailabilityEditor.test.tsx` and `parity.test.ts` where they name moved keys.
    - Coverage must not drop. The same lines are exercised.
 
-7. [ ] **e2e `e2e/feature-catalogues.spec.ts`.**
+7. [x] **e2e `e2e/feature-catalogues.spec.ts`.**
    - Reuse `login` from `fixtures.ts` and the route entries in `e2e/routes/`. Build the
      raw-key set from the moved catalogue JSON (dotted leaf paths, plural suffix stripped,
      bare and `<ns>.`-prefixed).
@@ -81,7 +81,7 @@ TDD loop: `_tools/dashboard-gate.sh "${WT}" <test path>`. Full gate before hand-
    - Budget is 30 s or less. Mutation: drop the family loader, see red, then restore.
    - Locally, use e2e slot 1 from runbook section 2 if it is free. CI is the authority.
 
-8. [ ] **Measure after.** Run `pnpm build` and record the after line. The spec's target is
+8. [x] **Measure after.** Run `pnpm build` and record the after line. The spec's target is
    ≤ 555,000 on CI.
    - Compare the `ui-*.js` size (214.6 KB before), and list which chunks are new and lazy
      (`booking-*`, `billing-*` and the others, two per namespace) and confirm none are
@@ -89,13 +89,13 @@ TDD loop: `_tools/dashboard-gate.sh "${WT}" <test path>`. Full gate before hand-
    - Update the measured-value comment over `INITIAL_JS_BUDGET`, leaving the constant at
      580,000.
 
-9. [ ] **Docs (meta worktree).** In `docs/developer-guide/i18n.md`, extend the feature
+9. [x] **Docs (meta worktree).** In `docs/developer-guide/i18n.md`, extend the feature
    catalogue table with the five new rows. Add the residual-key rule and the
    `useTranslation(["<ns>", "common"])` form, and note that `key-usage.test.ts` enforces
    both. Commit as `docs: feature catalogues for booking, billing, availability, family,
    matching`.
 
-10. [ ] **Hand-back.** Run the full dashboard gate, then `git fetch` and
+10. [x] **Hand-back.** Run the full dashboard gate, then `git fetch` and
     `git merge --no-edit origin/main` (merge, never rebase). Re-run the gate if the merge
     brought anything. Then run `gitleaks-range.sh` and the floor-touch grep, and write the
     runbook section 3 block with the before and after budget lines.
