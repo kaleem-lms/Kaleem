@@ -310,6 +310,13 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
 
 ## Someday
 
+- **A returning Arabic visitor sees the English home for a moment (found 2026-11-22,
+  rch-mkt-foundation).** The marketing site is static, so `/` redirects to `/ar/` in the browser
+  once the `kaleem_locale=ar` cookie is read, after the English page has painted. A server-side
+  redirect in `marketing/nginx.conf` (nginx can read the cookie) would remove it. Deferred
+  because the e2e suite runs on `astro preview`, not nginx, so the redirect could not be proved
+  in CI without a new harness.
+
 - **`AvailabilityPage` unmounts the editor when a background refetch fails (found 2026-11-08,
   fix/availability-load-race).** `dashboard/src/routes/_authed/-pages/AvailabilityPage.tsx` checks
   `isError` before rendering the editor, and React Query v5 reports `isError` on a failed
