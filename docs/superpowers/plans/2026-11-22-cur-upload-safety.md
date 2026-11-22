@@ -20,7 +20,7 @@ Files:
 | `kaleem/content/sniff.py` | new: signature checks, from bytes to a family and a content type, or `None` |
 | `kaleem/content/images.py` | new: the Pillow re-encode |
 | `kaleem/content/naming.py` | new: `clean_name(original, ext)` |
-| `kaleem/content/throttling.py` | new: `UploadThrottle(ScopedRateThrottle)`, `scope = "upload"` |
+| `kaleem/content/throttling.py` | new: `UploadThrottle(UserRateThrottle)`, `scope = "upload"` |
 | `kaleem/content/services.py` | `UploadRefused`; the checks wired into `upload_user_file`; `content_type` parameter removed; `UploadThrottle` re-exported |
 | `config/settings/base.py`, `config/settings/local.py` | the `"upload"` rate, 60/hour, and the 1000/hour override with the usual comment |
 | `kaleem/content/locale/ar/LC_MESSAGES/django.po` | the four messages |
