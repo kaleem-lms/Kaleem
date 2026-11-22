@@ -1,6 +1,6 @@
 ---
 spec: docs/superpowers/specs/2026-11-22-lb-server-log-retention-design.md
-status: draft
+status: in-progress
 ---
 
 Size M. Repos: `infra` (worktree `kaleem-worktrees/infra-lb-server-log-retention`, branch

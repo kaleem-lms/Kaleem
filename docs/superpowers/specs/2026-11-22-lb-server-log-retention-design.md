@@ -2,7 +2,7 @@
 name: lb-server-log-retention
 phase: v1 programme (launch-blocker stream)
 modules: [infra (compose, host), platform (no code change)]
-status: draft
+status: approved
 created: 2026-11-22
 closed: null
 ---
