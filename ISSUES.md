@@ -310,6 +310,8 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
 
 ## Someday
 
+- **`just seed` is described as "reset DB" but converges (found 2026-11-22, plat-dev-seed).** The `justfile` comment, the rebuild roadmap and CLAUDE.md's command list say it resets the database. `seed basic` runs the e2e manifest, which converges only its own accounts and resets nothing. CLAUDE.md needs an ADR to edit; not tidied there (D10).
+- **A reseed grows `platform.DomainEvent` and `billing.TeacherEarning` (found 2026-11-22, plat-dev-seed).** Running `seed basic` twice doubled both tables (3 to 6 each) while users, sessions and reports stayed equal, because the manifest closes its lessons out again and the event bus and earnings ledger are append-only. Harmless for a developer database, and `tests/test_dev_seed_dataset.py` checks only users, sessions and reports for that reason. Left alone (D10).
 - **`AvailabilityPage` unmounts the editor when a background refetch fails (found 2026-11-08,
   fix/availability-load-race).** `dashboard/src/routes/_authed/-pages/AvailabilityPage.tsx` checks
   `isError` before rendering the editor, and React Query v5 reports `isError` on a failed
