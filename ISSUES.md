@@ -310,6 +310,7 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
 
 ## Someday
 
+- **`.github/scripts/check-security-headers.sh` line 41 dies silently if the Dockerfile is missing**: `sed ... | head -n 1` under pipefail exits rc=2 with no message instead of printing "no nginx image ... found in the Dockerfile". Found 2026-11-22 by rch-mkt-foundation review fixes.
 - **A returning Arabic visitor sees the English home for a moment (found 2026-11-22,
   rch-mkt-foundation).** The marketing site is static, so `/` redirects to `/ar/` in the browser
   once the `kaleem_locale=ar` cookie is read, after the English page has painted. A server-side
