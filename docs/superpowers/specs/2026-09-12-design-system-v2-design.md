@@ -2,7 +2,7 @@
 name: design-system-v2
 phase: D
 modules: [platform]
-status: closed
+status: shipped
 created: 2026-09-12
 closed: 2026-09-12
 ---

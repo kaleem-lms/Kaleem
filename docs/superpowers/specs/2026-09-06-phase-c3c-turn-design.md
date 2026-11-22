@@ -2,8 +2,9 @@
 name: phase-c3c-turn
 phase: C
 modules: [scheduling, signaling, infra]
-status: draft
+status: shipped
 created: 2026-09-06
+closed: 2026-09-06
 ---
 
 ## Goal

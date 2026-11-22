@@ -2,9 +2,9 @@
 name: email-verification-login-integrity
 phase: A
 modules: [identity]
-status: approved
+status: shipped
 created: 2026-06-18
-closed: null
+closed: 2026-06-19
 ---
 
 ## Goal

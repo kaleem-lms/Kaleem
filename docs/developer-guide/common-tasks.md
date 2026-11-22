@@ -31,3 +31,8 @@ Then:
 ```bash
 just migrate
 ```
+
+## Add a dashboard string or an authed route
+
+See [i18n.md](i18n.md): English and Arabic keys together, all six Arabic plural forms, and a
+route-list entry for every new authed route.

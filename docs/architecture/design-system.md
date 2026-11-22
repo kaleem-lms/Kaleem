@@ -39,7 +39,21 @@ and import in their Tailwind v4 entry CSS:
     @import "@kaleem/tokens/theme.css";
 
 To change the brand: edit the tokens repo, commit, tag `vX.Y.Z`, push the tag; then bump
-the dependency ref in each consumer and reinstall. Current release: **v0.2.2**.
+the dependency ref in each consumer and reinstall. Current release: **v0.2.4**.
+
+**A font token names the family the consumer's `@font-face` rules DECLARE, not the
+family the font is called.** The variable fontsource package declares
+`"Fraunces Variable"`, so `--font-display` is `"Fraunces Variable", "Fraunces", Georgia,
+serif` (the second entry keeps a consumer on the static `@fontsource/fraunces` matching).
+Asking for plain `"Fraunces"` matched nothing and every display heading rendered Georgia
+until v0.2.3. A token also ships WITH its face: `--font-quran` was removed because no
+consumer installs Amiri Quran; the release that first renders Quranic script adds the face
+and the token together. `build.mjs` derives the emitted font list from `scale.font`, so
+adding or removing one is a one-file change. `tokens` cannot read the fontsource
+packages (it has no dependencies, ADR-0041), so the check that names and faces agree
+lives in the dashboard: `src/test/font-faces.test.ts` (names, from source) and
+`e2e/display-font.spec.ts` (a loaded `FontFace`, in a real browser). Marketing has no test
+suite, so its side is a built-CSS grep and a staging check.
 
 ### Rule: tokens are shared, components are not
 
@@ -97,17 +111,36 @@ to hand-roll:
 | --- | --- | --- |
 | `focusRing(surface)` | 14 copies in 5 forms | The surface is a **parameter**. `ring-offset-2` paints a gap in the *offset* colour, so the offset must be the surface the control sits on — a constant would silently break the one control inside a popover. |
 | `Dialog` + `AlertDialog` | 13 files, 2 centring recipes | **Two flavours, not one.** `alertdialog` interrupts for a decision and Radix refuses outside-dismissal for it. A grid positioner replaced transform-centring: RTL is free, the panel can animate, and a too-tall panel scrolls instead of clipping at both ends (1.4.10). |
-| `Select` | 4 impls at 3 heights | Stays a **native `<select>`** (ARIA in HTML). Density is a caller's choice; the 44px height and the `--input` boundary are not. |
+| `Select` | 4 impls at 3 heights | Stays a **native `<select>`** (ARIA in HTML). Density is a caller's choice; the 44px height and the `--input` boundary are not. It carries `Input`'s `aria-invalid` recipe (red border, red ring when unfocused), and a caller that shows an error sets `aria-invalid` and `aria-describedby` on it (the availability editor's inline row does). |
 | `Skeleton` | 3 hand-rolled blocks | Always `aria-hidden` — it announces nothing. The loading announcement is a **separate** `sr-only` `Spinner`. Not every pulse is a skeleton: `StatusChip`'s dot and `WaitingForPeer`'s avatar are live-status affordances on loaded content. |
 | `Card` (+ `as`) | 4 hand-rolled surfaces | **One radius, local density.** `as` exists because a session row must be an `<li>`. `CardFooter`/`CardAction` deleted — zero call sites. |
 | `Meter` | 2 impls | **Both roles kept.** `progressbar` = a task completing; `meter` = a measurement. `role` is required with no default. |
 | `PageHeader` | 5 auth headings | Its `<header>` is *not* a second banner: HTML-AAM scopes `banner` to headers outside `main`. Verified in Chromium; jsdom reports it wrongly. |
+| `Textarea` | none (new, 2026-10-18) | A **native `<textarea>`** on `Input`'s recipe. `resize-y` only: a horizontal handle lets a user drag it past a 320px viewport (1.4.10). Logical `text-start` and a `surface` prop, as `Select` has. |
+| `RatingInput` | none (new, 2026-10-18) | A **radiogroup, not a slider**: a rating is one choice out of N. It passes `dir` to Radix itself, because the app mounts no Radix direction provider and roving focus would otherwise treat every group as LTR. Its colours use only the asserted `primary` and `input` pairs, so `surface` is narrowed to `background` and `card`. |
 
 **Not folded in, deliberately.** `CallControlButton` keeps its own component: round
 controls in a round bar, 48px for one-handed use, and `tone` ≠ `variant` because
 `destructive` once coloured both "camera off" and "leave lesson". Those came from
 real-device feedback. Its `bg-secondary/95` was **measured** before being kept — worst
 case 7.15:1 over white video, above AAA — so the alpha is not a defect.
+
+### Upload, avatar and initials (cur-file-upload-primitive, 2026-10-18)
+
+Three primitives that the resources library, profile photo and message attachments
+build on instead of each writing their own:
+
+| Primitive | The decision worth remembering |
+| --- | --- |
+| `FileUpload` (`@/ui/file-upload`) | **Transport-agnostic.** The consumer passes `upload(file, { onProgress, signal })` and calls its own endpoint through `src/lib/api.ts`, so CSRF and the URL stay with the module that owns the endpoint. The browser-side `accept` and `maxBytes` checks are a convenience, not a control: the server decides. Starts on pick; one row per file (`uploading`, `failed`, `refused`, `done`); Retry resends the same `File`; Cancel aborts and drops the row; a result that lands after Cancel is ignored. A drop zone is an alternative to the Choose button (SC 2.5.7), never a replacement, and drops go through the same `accept` match because a drop bypasses the input's own. One polite live region speaks once per file. Focus never falls to `<body>`. |
+| `Avatar` | Radix `Avatar`: picture, else the person's initials, else the person icon. Named avatars are `role="img"`; `decorative`, or an empty name, hides it from assistive technology (an unnamed image is a violation and says nothing). |
+| `initials()` | Moved out of the call feature. Counts **grapheme clusters**, so Arabic harakat and characters outside the BMP are not cut in half; plain Latin and Arabic names give what they always gave. |
+
+**`FileUpload` is not in the `@/ui` barrel, on purpose.** The barrel is part of the
+initial bundle, and re-exporting this control measured +9.8 kB on the initial JS, over
+the bundle budget (a ratchet; raising it needs an ADR). It is imported by path, so it
+travels with the lazy routes that use it. Splitting the rest of the barrel is not done
+here (`rch-dashboard-code-splitting` listed it as out of scope).
 
 ### Target size (SC 2.5.8)
 
@@ -149,6 +182,22 @@ the dense controls accept *more* than they paint, so deleting the expansion cann
   `--primary` already had there. `scripts/check-colors.mjs` rejects the surface colours used
   as text, with the wordmark's decorative "." annotated as the one exemption.
 
+- **A secondary button's edge is `--control-border`, not its fill.** `--secondary` on the
+  page measures **1.09:1** in light (1.75:1 in dark), so the fill alone gives the control no
+  boundary, and axe cannot see it (its contrast rule is text only). v0.2.4 adds
+  `--control-border` (sand.500 / ink.500, the same steps as `--input`) and
+  `Button variant="secondary"` draws it as a 1px `border`: 3.04:1 on the light page, 5.29:1 on
+  dark. It is a token of its own because `--input` is documented and asserted as the
+  *form-field* boundary and `--border` is the exempt decorative hairline; the manifest
+  asserts it on background, card and popover. A border rather than a ring, because
+  `focusRing()` owns `ring-*` and a resting ring would push the focus ring inset (SC 2.4.11).
+  The rendered edge is measured in `e2e/design-preview.spec.ts`. **Not changed:**
+  `variant="outline"` still borders with `--border` (1.29:1) and is logged in `ISSUES.md`;
+  darkening `--secondary` instead was measured and rejected (its own label pair would fall to
+  4.09:1 and about fifteen other surfaces would repaint).
+  **A token must be listed in `build.mjs` to be emitted**; a test now fails when a colour is in
+  the theme JSON but missing from the CSS (it was dropped silently before).
+
 - **`--accent` (gold) is a surface/decoration color, not a text color.** In v2 it measures
   **3.05:1 in light** (needs 4.5) and **7.28:1 in dark**. The ban is a light-mode constraint
   applied to BOTH themes, because one token cannot be conditionally usable per theme; if that
@@ -185,6 +234,32 @@ step (ADR-0028).
 contrast gate, unit tests, and a mutation step that breaks a token value on purpose and
 fails if the gate stays green. `smoke.test.mjs` is gone — it scraped CSS with a regex and
 was superseded by real structural parity between the light and dark token trees.
+
+### The brand pipeline (since `inf-brand-tokens-pipeline`)
+
+`tokens` carries the machinery for brand assets, with **no brand in it yet**: the shipped
+manifest `brand/brand.json` has empty `source`, `emitted` and `extras` lists, and the gates run
+against `test/fixtures/brand/` (a fixture manifest, two colourless source SVGs and a committed
+`dist/`) until `inf-brand-mark-assets` adds the real mark. `brand.mjs` is a **developer tool,
+not package surface**: it is in neither `files` nor `exports` (a test fails if it appears in
+either), because it imports `@resvg/resvg-js` at top level. Consumers take files only
+(`brand/src/*.svg`, `brand/dist/*`), once those are exported by the mark unit.
+
+- **Manifest.** `brand.json` declares every asset and binds it to a colour **token alias**
+  (flat theme keys such as `{primary-text}`, no `color.` prefix), never to a literal. Source SVGs
+  carry shape only (`currentColor`); the emitter resolves the alias through `build.mjs` and
+  bakes it into standalone images.
+- **Gates** (all in `test/brand.test.mjs`, each seen red before it was trusted): every declared
+  file exists; `svgIssues` rejects any paint other than `currentColor` / `none` / `inherit` /
+  `url(#…)`, embedded rasters (`<image>`, `<feImage>`, `data:image`), live `<text>`, a missing
+  `viewBox` or `<title>`; every emitted PNG has its declared size (OG card 1200x630); committed
+  output equals what the emitter produces now (`node brand.mjs [manifest] [--check]`).
+- **CI.** The tokens `verify` job now installs one **devDependency** (`@resvg/resvg-js` 2.6.2,
+  pnpm 10 with a committed `pnpm-lock.yaml`, frozen). Consumers still install nothing from
+  `tokens`. Resvg output was measured byte-identical between node 24 (host) and node 22 (CI's
+  version) on linux-x64.
+- **Limit.** `brand.mjs --check` on the shipped manifest is vacuous until the mark lands, so
+  the fixture drift test in the suite is what proves the drift gate today.
 
 ## What each a11y gate cannot see
 

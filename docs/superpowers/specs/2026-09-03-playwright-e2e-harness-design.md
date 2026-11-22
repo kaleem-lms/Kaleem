@@ -2,9 +2,9 @@
 name: playwright-e2e-harness
 phase: B
 modules: [platform, identity]
-status: approved
+status: shipped
 created: 2026-09-03
-closed: null
+closed: 2026-09-03
 ---
 
 ## Goal

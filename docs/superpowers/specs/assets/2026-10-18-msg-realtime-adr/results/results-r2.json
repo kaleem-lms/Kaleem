@@ -1,0 +1,132 @@
+[
+ {
+  "variant": "opt1",
+  "fault": "block",
+  "probe": {
+   "sent": 1600,
+   "received": 1600,
+   "p50_ms": 0.87,
+   "p99_ms": 109.53,
+   "max_ms": 459.51,
+   "longest_gap_ms": 508.79
+  },
+  "stall_seconds": [
+   10
+  ],
+  "relay_health_after": "{\"status\":\"healthy\"}",
+  "runtimeerror_log_lines": 0,
+  "trigger": {
+   "closed_after_s": null,
+   "close_code": null
+  }
+ },
+ {
+  "variant": "opt1",
+  "fault": "raise",
+  "probe": {
+   "sent": 1600,
+   "received": 1600,
+   "p50_ms": 0.79,
+   "p99_ms": 2.2,
+   "max_ms": 5.66,
+   "longest_gap_ms": 54.84
+  },
+  "stall_seconds": [],
+  "relay_health_after": "{\"status\":\"healthy\"}",
+  "runtimeerror_log_lines": 1,
+  "trigger": {
+   "closed_after_s": 0.005,
+   "close_code": 1006
+  }
+ },
+ {
+  "variant": "opt1",
+  "fault": "subraise",
+  "probe": {
+   "sent": 1600,
+   "received": 1600,
+   "p50_ms": 0.86,
+   "p99_ms": 1.99,
+   "max_ms": 4.73,
+   "longest_gap_ms": 54.13
+  },
+  "stall_seconds": [],
+  "relay_health_after": "{\"status\":\"healthy\"}",
+  "runtimeerror_log_lines": 0,
+  "delivery": {
+   "sockets_up": 1,
+   "received": 0,
+   "p50_ms": 0.0,
+   "p99_ms": 0.0,
+   "max_ms": 0.0
+  },
+  "publish": {
+   "published": 76,
+   "to_users": 1
+  }
+ },
+ {
+  "variant": "opt2",
+  "fault": "block",
+  "probe": {
+   "sent": 1600,
+   "received": 1600,
+   "p50_ms": 0.91,
+   "p99_ms": 1.95,
+   "max_ms": 3.65,
+   "longest_gap_ms": 52.61
+  },
+  "stall_seconds": [],
+  "relay_health_after": "{\"status\":\"healthy\"}",
+  "runtimeerror_log_lines": 0,
+  "trigger": {
+   "closed_after_s": null,
+   "close_code": null
+  }
+ },
+ {
+  "variant": "opt2",
+  "fault": "raise",
+  "probe": {
+   "sent": 1600,
+   "received": 1600,
+   "p50_ms": 0.84,
+   "p99_ms": 3.19,
+   "max_ms": 4.62,
+   "longest_gap_ms": 54.26
+  },
+  "stall_seconds": [],
+  "relay_health_after": "{\"status\":\"healthy\"}",
+  "runtimeerror_log_lines": 1,
+  "trigger": {
+   "closed_after_s": 0.006,
+   "close_code": 1006
+  }
+ },
+ {
+  "variant": "opt2",
+  "fault": "subraise",
+  "probe": {
+   "sent": 1600,
+   "received": 1600,
+   "p50_ms": 0.96,
+   "p99_ms": 2.54,
+   "max_ms": 3.6,
+   "longest_gap_ms": 52.63
+  },
+  "stall_seconds": [],
+  "relay_health_after": "{\"status\":\"healthy\"}",
+  "runtimeerror_log_lines": 0,
+  "delivery": {
+   "sockets_up": 1,
+   "received": 0,
+   "p50_ms": 0.0,
+   "p99_ms": 0.0,
+   "max_ms": 0.0
+  },
+  "publish": {
+   "published": 76,
+   "to_users": 1
+  }
+ }
+]

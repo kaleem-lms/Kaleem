@@ -1,3 +1,12 @@
+---
+name: toast-notifications
+phase: A
+modules: []
+status: shipped
+created: 2026-06-19
+closed: 2026-06-19
+---
+
 # Toast notifications — design
 
 **Status:** approved (decisions made autonomously per the user's "do all of them" directive on the `tasks.todo` backlog).

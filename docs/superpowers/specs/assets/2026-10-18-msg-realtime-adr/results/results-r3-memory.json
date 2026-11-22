@@ -1,0 +1,24 @@
+[
+ {
+  "what": "signaling idle (pristine, no connections)",
+  "rss_mb": 39.3
+ },
+ {
+  "what": "opt1 inbox process idle",
+  "rss_mb": 41.4
+ },
+ {
+  "what": "opt1 inbox process, 2000 inbox sockets held",
+  "rss_mb": 91.4,
+  "sockets_up": 2000
+ },
+ {
+  "what": "opt2 inbox process idle",
+  "rss_mb": 41.3
+ },
+ {
+  "what": "opt2 inbox process, 2000 inbox sockets held",
+  "rss_mb": 91.5,
+  "sockets_up": 2000
+ }
+]

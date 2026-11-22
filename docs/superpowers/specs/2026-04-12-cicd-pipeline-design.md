@@ -3,9 +3,9 @@ name: cicd-pipeline
 description: CI/CD pipeline with Traefik blue-green deployment for staging (auto) and production (future, manual)
 phase: 0
 modules: []
-status: draft
+status: shipped
 created: 2026-04-12
-closed: null
+closed: 2026-06-10
 ---
 
 ## Goal

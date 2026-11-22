@@ -6,7 +6,8 @@ webhooks; it never decides pricing or payment logic itself — Stripe does, and 
 records what Stripe reports.
 
 Spec: `docs/superpowers/specs/2026-07-09-billing-subscriptions-design.md` · Status:
-shipped (Phase B, B1).
+shipped (Phase B, B1). Later: `docs/superpowers/specs/2026-10-19-lb-billing-state-gaps-design.md`
+(paid-through, resume, dunning banner, price drift).
 
 ## Data model
 
@@ -55,8 +56,10 @@ All inter-module and API-layer access goes through here.
 | --- | --- | --- |
 | `list_active_plans` | `() -> QuerySet[SubscriptionPlan]` | Active plans, `id` order. |
 | `create_checkout` | `(user, plan_id: int) -> str` | Validates buyer role fits the plan and that they have no current subscription, ensures a `BillingCustomer`, returns a Stripe-hosted checkout URL. |
-| `get_current_subscription` | `(user) -> Subscription \| None` | The user's live subscription (see `LIVE_STATUSES` below). |
-| `cancel_subscription` | `(user) -> Subscription` | Sets `cancel_at_period_end` via the provider and locally; raises `NotFoundError` if the user has no current subscription. |
+| `get_current_subscription` | `(user) -> Subscription \| None` | The user's live subscription or, failing that, a `canceled` one still inside its paid period (see below). |
+| `cancel_subscription` | `(user) -> Subscription` | Sets `cancel_at_period_end` via the provider and locally. Acts only on a *live* row: `NotFoundError` if there is none (a paid-through `canceled` row has nothing left upstream to cancel). |
+| `resume_subscription` | `(user) -> Subscription` | Takes back a cancel-at-period-end that has not taken effect: clears the flag via the provider and locally. `NotFoundError` with no live row; `ValidationError` ("Your subscription is not set to cancel.") when the row is not flagged or is not `active`/`past_due`. |
+| `detect_price_drift` | `() -> None` | Nightly, inside `tasks.reconcile_subscriptions`: records a `price_drift` incident per active plan whose Stripe Price disagrees with `display_amount`/`currency`, is archived, or is missing. Flags, never repairs. |
 | `handle_webhook` | `(payload: bytes, signature: str) -> None` | Verifies the signature, de-duplicates via `StripeEventLog`, applies the event. Raises `ValidationError` on a bad signature. |
 | `Capability` | `StrEnum` (`BOOK_SESSION`) | What a subscription entitles a user to. Only one member exists; the enum exists so call sites don't change when more are added. |
 | `is_entitled_to` | `(user, capability: Capability) -> bool` | The entitlement gate other modules call. `capability` is currently unused (every capability resolves to the same subscription check) — kept for a stable signature. |
@@ -64,15 +67,32 @@ All inter-module and API-layer access goes through here.
 Errors are typed (`platform.exceptions.NotFoundError` / `ValidationError` /
 `PermissionDeniedError`), never bare `Exception`.
 
+### Fixture subscriptions: `grant_dev_subscription`
+
+Fixtures only (the e2e seeds and the staging pool seed). It manufactures a subscription with
+no charge behind it, so it refuses unless one of two cases holds:
+
+1. `settings.DEBUG` (local development and CI), as it always has; or
+2. the deployment is staging (`staging_pool.is_staging()`, the host of `FRONTEND_URL`) **and**
+   the user's address is a pool address (`pool.<unit>.<role>@pool.kaleem.test`,
+   `staging_pool.is_pool_email`), added by ci-staging-pool-seed.
+
+Production is refused for every address; staging is refused for every non-pool address. The
+fixture row is unpaid and has no `BillingCustomer`, so the nightly Stripe reconciler never
+sees it. Both refusals are tested and mutation-checked
+(`billing/tests/test_entitlement.py::TestGrantDevSubscriptionOnStaging`).
+
 ### `LIVE_STATUSES` vs. entitlement — read this before touching either
 
 Two different questions, two different answers, both deliberate:
 
-- **`get_current_subscription`** uses `LIVE_STATUSES = (ACTIVE, PAST_DUE)` — "which row
-  is this user's *current* subscription", i.e. still has some claim on them (paying, or
-  failing to pay). This is what the `/billing` UI shows and what `cancel_subscription`
-  operates on. `past_due` counts as current because the user still has a subscription to
-  see, manage, or have retried — it just isn't paid.
+- **`get_current_subscription`** is "which row is this user's *current* subscription": a
+  row in `LIVE_STATUSES` (`active`, `past_due`, `unpaid`, `incomplete`) — still has a claim
+  on them — or, when there is none, a `canceled` row still inside its paid period (the
+  **paid-through** row). This is what the `/billing` UI shows and what `create_checkout`
+  guards on. `past_due` counts as current because the user still has a subscription to
+  see, manage, or have retried — it just isn't paid. `cancel_subscription` and
+  `resume_subscription` use the *live* lookup only, never the paid-through fallback.
 - **`is_entitled_to`** (via `_is_paid_through`) answers "can this user book a session
   right now" — `active` ⇒ yes; `canceled` ⇒ yes only while `current_period_end` is still
   in the future (access continues through the paid month); every other status,
@@ -81,6 +101,28 @@ Two different questions, two different answers, both deliberate:
 So a `past_due` subscription is simultaneously "current" (shows up in `/billing`, can be
 cancelled) and "not entitled" (can't book). Don't unify these into one status set —
 that's the whole point of having two separate checks.
+
+### Paid-through, resume and what "current" means
+
+A subscription cancelled immediately (in the Stripe portal, say) reads `canceled` while
+the customer is still paid up. It used to be invisible to `get_current_subscription`, so
+`/billing` showed the plan list and `create_checkout` sold a second, overlapping
+subscription. Now `get_current_subscription` returns that row too (live row first), so:
+
+- `GET me/subscription/` reports it as `current`; the dashboard shows "Active until
+  {date}" and "Your subscription won't renew. You can choose a plan again after {date}.",
+  with no plan list, no Cancel and no Resume.
+- `POST checkout/` is refused with the usual 400 until `current_period_end` passes, when
+  the row stops being current and the plan list returns. Entitlement is unchanged: it
+  already ended at the same instant.
+- **Resume** means one thing: undoing a *period-end* cancellation (`cancel_at_period_end`
+  on a live `active`/`past_due` row). The provider cannot revive a subscription it has
+  already cancelled, so a `canceled` row is not resumable.
+- The cancel and resume idempotency keys carry the row's `updated_at`
+  (`cancel:<sub>:<ts>` / `resume:<sub>:<ts>`): Stripe replays a cached response for a
+  repeated key for 24 hours, so a key built from the subscription alone would answer a
+  second cancel with the first one's response. A double click reads the same
+  `updated_at` and still collapses into one call.
 
 ### Entitlement matrix
 
@@ -99,6 +141,62 @@ subscription on a **Family** plan (`_has_paid_through(parent_id,
 plan_type=SubscriptionPlan.PlanType.FAMILY)`). An Individual plan held by someone else
 never chains.
 
+## Teacher rates and the earnings ledger (`billing/earnings.py`)
+
+What kaleem owes each teacher, lesson by lesson (ADR-0066). Re-exported from
+`billing/services.py`.
+
+```mermaid
+erDiagram
+    User ||--o{ TeacherRate : "is paid at"
+    User ||--o{ TeacherEarning : "earns"
+    TeacherRate ||--o{ TeacherEarning : "priced"
+```
+
+- **TeacherRate** — `teacher`, `amount_minor` (a fixed amount per 60-minute lesson, not
+  hourly), `currency` (three lowercase letters; one currency for everyone), `effective_from`.
+  Unique on `(teacher, effective_from)`, `amount_minor >= 1` at the database. Append-only: a
+  correction is a new rate from a later instant. `PROTECT` on the teacher.
+- **TeacherEarning** — one line per lesson that earns. `session_id` is a **plain integer, not
+  a foreign key** (billing may not import scheduling; the ledger must outlive the session
+  row), unique. `basis` is `held`, `student_absent` or `late_cancellation`;
+  `lesson_starts_at` and `recorded_at` hold both instants. `rate`, `amount_minor` and
+  `currency` are copied from the rate that priced the line and are **all null or all set**
+  (a database `CHECK`): a null set is an *unpriced* line. No column names the student.
+
+| Function | Signature | Purpose |
+| --- | --- | --- |
+| `record_lesson_earning` | `(*, teacher_id, session_id, lesson_starts_at, basis, recorded_at) -> None` | Writes the line in the caller's transaction, at the rate in effect when the lesson **started**. `teacher_absent` writes nothing; an unknown basis raises `ValueError`; a second line for a session raises `IntegrityError` (inside a savepoint, so the caller's transaction stays usable if it catches). With no rate in effect the line is unpriced and `billing.earning_unpriced` is logged at WARNING. |
+| `set_teacher_rate` | `(teacher, *, amount_minor, currency, effective_from) -> TeacherRate` | Refuses (`ValidationError` naming its field) an amount outside `1..2147483647`, a currency that is not three lowercase letters, a naive datetime, a currency different from the rates already set, and a second rate at the same instant. A user without a teacher profile is a `NotFoundError`. |
+
+The owner enters rates with `manage.py set_teacher_rate --teacher <id> --amount-minor <n>
+--currency <iso> --effective-from <ISO-8601 with offset>` until `pay-payout-runs` adds a staff
+screen (ADR-0057 rules out the Django admin). Real amounts are entered on the server and never
+committed.
+
+**What earns** (`dec-lesson-outcomes`, the owner's answers of 2026-10-26): `held`,
+`student_absent` and a family cancellation inside the 24-hour notice (the unit is spent) earn
+the full rate; a teacher's cancellation, a cancellation 24 hours or more ahead and
+`teacher_absent` earn nothing. A rebooked lesson earns once, when it is closed out: its source
+was refunded.
+
+**Where it is called from.** Scheduling calls `record_lesson_earning` from `booking._close_out`
+step 6 and from `booking._apply_cancellation` when `consumes_quota` is set (which includes
+`end_slot` inside the notice period). Both are inside the caller's `atomic()`, so a failure
+rolls the close-out or cancellation back. The close-out matrix
+(`scheduling/tests/test_close_out_matrix.py`) carries the `earning` column.
+
+**For the next author.** `sched-teacher-no-show` reverses pay for a lesson already paid as
+`held`. The one-line-per-session unique key forbids a second line, so that unit must replace it
+with a **conditional unique key** (unique per session where the line is not a reversal) in its
+own migration. Corrections are always new lines, never updates or deletes.
+
+**Personal data.** `billing.earnings` covers both models. The export is the teacher's own
+rates and lines (amounts, currency, basis, the two instants; no ids, no session reference).
+The erase hook is a deliberate no-op: the rows hold no name or free text and are kept for the
+statutory accounting period (`dec-retention-new-domains`). Refusing erasure while a line is
+unpaid needs a "paid" state, which `pay-payout-runs` adds.
+
 ## Provider abstraction (`billing/providers/`)
 
 `PaymentProvider` (`providers/__init__.py`) is a `Protocol`:
@@ -107,8 +205,11 @@ never chains.
 class PaymentProvider(Protocol):
     def ensure_customer(self, user) -> str: ...
     def create_checkout_session(self, request: CheckoutRequest) -> str: ...
-    def cancel_at_period_end(self, subscription_id: str) -> None: ...
-    def verify_and_parse_webhook(self, payload: bytes, signature: str) -> WebhookEvent: ...
+    def cancel_at_period_end(self, subscription_id: str, *, intent_at: datetime) -> datetime | None: ...
+    def resume(self, subscription_id: str, *, intent_at: datetime) -> datetime | None: ...
+    def get_price(self, price_id: str) -> ProviderPrice | None: ...
+    # plus retrieve_checkout_session, create_portal_session, get_subscription,
+    # list_subscriptions, verify_and_parse_webhook
 ```
 
 `get_provider()` instantiates `settings.BILLING_PAYMENT_PROVIDER` (a dotted path,
@@ -132,9 +233,10 @@ Session auth + CSRF like the rest of the API, **except the webhook**. Mounted at
 | Endpoint | Method | Auth | Response |
 | --- | --- | --- | --- |
 | `plans/` | GET | session | `[{ id, plan_type, sessions_per_cycle, display_amount, currency }]` |
-| `checkout/` | POST `{ plan_id }` | session | `{ checkout_url }`; 400 if already subscribed; 403 on role/plan mismatch |
+| `checkout/` | POST `{ plan_id }` | session | `{ checkout_url }`; 400 if already subscribed (a paid-through row counts); 403 on role/plan mismatch |
 | `me/subscription/` | GET | session | `{ current: {...} \| null, history: [...] }`, each item `{ id, plan_type, sessions_per_cycle, status, current_period_end, cancel_at_period_end }` |
-| `me/subscription/cancel/` | POST | session | the updated subscription (same shape as above); 404 if no current subscription |
+| `me/subscription/cancel/` | POST | session | the updated subscription (same shape as above); 404 if no *live* subscription |
+| `me/subscription/resume/` | POST | session | the updated subscription; 404 if no live subscription; 400 if it is not set to cancel or is not `active`/`past_due` |
 | `webhook/` | POST | **Stripe signature only** | `{ received: true }` |
 
 `GET me/subscription/` history is `request.user.subscriptions.select_related("plan")`
@@ -203,6 +305,27 @@ no subscription, and `IntegrityError` from the live-subscription constraint (on 
 savepoint so the surrounding transaction and the `StripeEventLog` write survive). An
 unhandled 500 here would make Stripe retry the same doomed event for three days.
 
+## Reconciliation: what it will and will not adopt, and the drift check
+
+`reconcile_subscriptions` (nightly) asks Stripe what is true and makes kaleem agree, but
+it will **not create** a local row for an upstream subscription kaleem did not sell. Our
+checkout stamps `user_id` onto the subscription's metadata
+(`ProviderSubscription.metadata_user_id`); when a subscription with no local row does not
+carry the customer's own user id — one an operator made by hand in the Stripe dashboard,
+or whose metadata names someone else — nothing is created and an `unknown_subscription`
+incident (`source=reconcile`) is recorded. That row would otherwise grant entitlement no
+kaleem checkout sold. A *lost* kaleem checkout completion still carries the metadata, so it
+is still recovered as before. Rows kaleem already holds are reconciled whatever their
+metadata says.
+
+`detect_price_drift` runs in the same nightly task (no new task name, no beat change). For
+each active plan it asks Stripe for the Price (`PaymentProvider.get_price`; a price Stripe
+does not know is `None`) and records one open `price_drift` incident (WARNING) naming the
+plan and price — never a user — when the amount or currency differs, the price is
+archived, or it is missing. A provider error on one plan skips that plan, not the rest. It
+flags, never repairs: which side is right is a money decision. `amount_mismatch` stays the
+CRITICAL signal raised at a real charge.
+
 ## Module boundaries
 
 `billing` may import `kaleem.platform` and call `kaleem.identity.services`
@@ -215,8 +338,32 @@ the models package is listed. The second contract needs `allow_indirect_imports`
 its own contract) because `billing` legitimately imports `kaleem.identity.services`,
 which of course imports its own models; `kaleem.billing.tests.*` is exempted, since test
 fixtures build identity rows directly. `scheduling` (and later modules) call `billing.services.
-is_entitled_to` directly for gating — `billing` never imports `scheduling`.
+is_entitled_to` directly for gating — `billing` never imports `scheduling`. Scheduling also
+calls `billing.services.record_lesson_earning` (ADR-0066); the arrow is the same.
 
 `identity.services.get_parent_user_ids(student_user_id: int) -> list[int]` was added for
-this module: resolves every parent linked to a student, empty list if none, used only
-for Family entitlement chaining.
+this module: resolves every parent linked to a student, empty list if none, used for
+Family entitlement chaining. Identity also uses it for `GET /api/v1/identity/me/`'s
+`is_linked_child` (derived, never stored, returned only to the user it describes), which
+the dashboard uses to hide the Billing nav entry from a child covered by a parent's plan;
+identity does not import billing.
+
+## Personal-data export
+
+`billing.subscriptions` (`personal_data.py`, registered from `BillingConfig.ready()`) exports
+the customer-since date, each subscription's plan type, sessions per cycle, amount, currency,
+status and dates, and the user's incidents as `{kind, first_seen_at, resolved_at}`. Withheld:
+every Stripe id and the provider's event clock, and an incident's detail, severity,
+occurrences and resolver (staff-only). `SubscriptionPlan` and `StripeEventLog` are listed
+`NOT_PERSONAL`.
+
+## Personal-data erasure
+
+The erase hook (`billing.subscriptions`, order 100, the first to run) **refuses** while the
+user has a subscription in `LIVE_STATUSES`: it raises `SubscriptionStillActiveError` (a
+`ConflictError`, `error_code` `subscription_active`, 409) and the whole erasure rolls back.
+A live subscription can still bill upstream, so erasure never cancels, prorates or refunds;
+the person cancels first. Otherwise it blanks each incident's `detail` (free text staff
+wrote). `Subscription` and `BillingCustomer` rows stay unchanged: they hold no name or email
+and are kept 12 months after closure (lb-dec-retention); lb-gdpr-retention-jobs purges them,
+and the provider's customer record, on that clock.

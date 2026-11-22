@@ -3,6 +3,7 @@ number: 0013
 title: Build admin UX in the custom dashboard; Django admin is internal-only
 status: accepted
 date: 2026-06-09
+amended_by: ADR-0057
 ---
 
 ## Context

@@ -1,3 +1,12 @@
+---
+name: email-privacy-cleanup
+phase: A
+modules: [identity]
+status: shipped
+created: 2026-06-19
+closed: 2026-06-19
+---
+
 # Email & privacy cleanup — design
 
 **Status:** approved (design decisions made autonomously per the user's "do all of them" directive on the `tasks.todo` backlog; this is a bug-fix/hardening slice with well-understood root causes).

@@ -188,6 +188,21 @@ hangs or passes while testing nothing.
    not a flake. When that happens, update this value and check the parsers still handle
    the new shape.
 
+### Stripe CLI pin
+
+The workflow installs a pinned release tarball (`stripe_<version>_linux_x86_64.tar.gz`
+from the GitHub release), checks its SHA-256 and asserts `stripe version` equals the pin
+(currently **1.53.1**). It is pinned, not taken from the apt `stable` channel, because
+v1.51.0 changed `stripe listen` without notice: `--forward-to` now exits at once unless
+`--events`, `--all-snapshot` or `--all-thin` is given, which turned the weekly run red.
+The harness passes `--all-snapshot` (`backend/tests/stripe_clock/cli.py`).
+
+To bump the pin, open a PR that changes `STRIPE_CLI_VERSION` and `STRIPE_CLI_SHA256` in
+`.github/workflows/stripe-clock.yml` (the digest is on the GitHub release asset), then
+dispatch `stripe-clock` on the branch and read the log before merging. If the forwarder
+fails to start, the failure message now says whether it exited, with its exit code, and
+prints its last lines with secrets masked.
+
 The harness shares the staging Stripe test account. Its objects are bound to a
 test clock and deleted on teardown, so they cannot be confused with staging data.
 
@@ -196,8 +211,12 @@ test clock and deleted on teardown, so they cannot be confused with staging data
 Use the Stripe CLI to forward events to your local backend:
 
 ```bash
-stripe listen --forward-to http://api.kaleem.localhost/api/v1/billing/webhook/
+stripe listen --all-snapshot --forward-to http://api.kaleem.localhost/api/v1/billing/webhook/
 ```
+
+Stripe CLI 1.51 and later refuses `--forward-to` without an event selector
+(`--events`, `--all-snapshot` or `--all-thin`); `--all-snapshot` forwards every
+snapshot event, which is what older versions did by default.
 
 `stripe listen` prints a `whsec_…` signing secret for this session — put it in your
 local `.env` as `DJANGO_STRIPE_WEBHOOK_SECRET`, and restart the backend so it picks up

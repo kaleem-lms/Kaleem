@@ -2,9 +2,9 @@
 name: scheduling-availability
 phase: B
 modules: [scheduling, identity]
-status: draft
+status: shipped
 created: 2026-06-25
-closed: null
+closed: 2026-06-26
 ---
 
 ## Goal

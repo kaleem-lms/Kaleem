@@ -2,9 +2,9 @@
 name: dashboard-student-preferences-ui
 phase: A
 modules: [identity]
-status: draft
+status: shipped
 created: 2026-06-18
-closed: null
+closed: 2026-06-19
 ---
 
 ## Goal

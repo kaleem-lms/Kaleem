@@ -1,0 +1,801 @@
+# scheduling — architecture
+
+Who teaches whom, and when: weekly availability, matching a student to a teacher, the standing
+weekly time and the lessons it generates, the monthly quota those lessons spend, and the video
+room each lesson is held in. It is the largest module in the codebase, and the only one with a
+second deployable (the signaling service) next to it.
+
+**Describes backend `18888b2` · dashboard `e61e23e`** (the `origin/main` heads on 2026-10-18,
+the typed read API from `ana-scheduling-read-api` included; the lesson close-out of
+`ana-session-outcomes` is written up here but lands after those SHAs). A change to the module updates
+the section it touches in the same PR; the SHAs above say how fresh the rest is.
+
+Specs: `2026-06-25-scheduling-availability-design.md` (availability) ·
+`2026-09-04-phase-c0-matching-inputs-design.md` (C0) · `2026-09-05-phase-c1-matching-design.md`
+(C1) · `2026-09-05-phase-c2-booking-quota-design.md` (C2) · `2026-09-05-phase-c3a-video-room-design.md`
+(C3a) · `2026-09-06-phase-c3b-signaling-design.md` (C3b) · `2026-09-06-phase-c3c-turn-design.md`
+(C3c) · `2026-09-07-phase-c3d-call-client-design.md` (C3d) ·
+`2026-09-07-phase-c3e-a-call-diagnostics-design.md` (C3e-a) ·
+`2026-09-07-phase-c3e-b-browser-hardening-design.md` (C3e-b) ·
+`2026-09-07-shared-signaling-service-design.md` · `2026-09-12-call-fixes-design.md` (C5) ·
+`2026-09-12-schedule-call-audit-fixes-design.md` (C6) · `2026-10-18-ana-scheduling-read-api-design.md` ·
+`2026-10-18-ana-session-outcomes-design.md` (lesson close-out) · `2026-10-25-eng-event-bus-design.md`
+(domain events).
+ADRs: 0033 (depends on curriculum and billing) · 0034 (custom WebRTC, group lessons deferred) ·
+0035 (signaling as a separate service) · 0036 (feature components split hook and presentation) ·
+0037 (signaling is shared, not blue-green) · 0064 (a deploy no longer ends a call) · 0039 (pre-negotiated transceivers) · 0046 (v1
+roadmap reconciliation, which drops trials) · 0054 (live-lesson captions: the stated gap) · 0063 (domain event bus). Operations live in `docs/runbook/signaling.md`,
+`turn.md` and `video-call.md`, not here.
+
+## The four fixed fields
+
+The roadmap (Section 2) requires these four at the top of every module's doc.
+
+### Owns
+
+Eight tables, all in `kaleem/scheduling/models.py`, migrations `0001`–`0012`. No other module
+reads or writes them.
+
+`WeeklyAvailability` · `MatchRequest` · `MatchDecline` · `TeacherAssignment` · `RecurringSlot` ·
+`Session` · `Room` · `CallDiagnostic`
+
+The signaling service holds room membership in process memory only and owns no table.
+
+### Public API
+
+`kaleem.scheduling.services` is the only thing another module may import. It returns frozen
+DTOs (`SessionInfo`, `AssignmentInfo`) and `TypedDict`s, never models, so a caller cannot walk
+into a model or `save()` one. The DTOs carry ids, times, status, subject and people's
+`full_name`. They never carry an email (ADR-0023).
+
+| Group | Functions |
+| --- | --- |
+| Availability | `get_availability`, `set_availability`, `merge_ranges`, `to_utc_intervals`, `to_utc_intervals_for` |
+| Quota | `get_quota` |
+| User-scoped reads | `upcoming_sessions`, `sessions_between`, `session_history`, `next_sessions`, `next_session_per_child`, `active_assignments`, `sessions_to_close` |
+| Rebooking | `sessions_to_rebook` (id-scoped: the caller authorizes) |
+| Close-out window | `CLOSE_OUT_WINDOW`, `close_out_window`, `may_close` |
+| Id-scoped reads | `get_session`, `is_session_party`, `is_assignment_party`, `is_active_teacher_of` |
+
+`services.py` keeps two rules apart, and so must a caller:
+
+- **User-scoped reads apply the role rule.** `role` is `None`, `"student"`, `"teacher"` or
+  `"parent"`; any other value raises `ValidationError`. `None` means the user's own sessions
+  as a student, their own as a teacher, and their children's. `"teacher"` gives a teacher who
+  is also a parent a clean teaching view; `"parent"` with no children returns nothing.
+- **Id-scoped reads apply no visibility rule: the caller authorizes.** `get_session` raises
+  `NotFoundError` for an unknown id and says nothing about who may look. `is_session_party`
+  (student, teacher, or a parent of the student) is who may *see and cancel* a lesson. It is
+  not who may *enter* one: `rooms.is_participant` is, and it excludes parents.
+
+Bounds are constants: `MAX_WINDOW` 31 days for `sessions_between`, `MAX_HISTORY_LIMIT` 100 for
+`session_history` (a keyset page, newest first), `MAX_NEXT_LIMIT` 50 for `next_sessions`.
+`SessionInfo.outcome` is `None` until a lesson is closed out, and a caller must never read `None`
+as an outcome (see "Closing a lesson").
+Every read except `get_quota` takes UTC-aware instants and raises `ValidationError` on a naive
+one. Turning a viewer's local day into instants, DST included, is the caller's job.
+
+`booking`, `matching`, `rooms` and `diagnostics` are **internal**. Only the module's own views,
+tasks and management commands call them. Their import direction is one way: they import
+`services`, never the reverse (`matching` already imports `to_utc_intervals`, so a
+`services -> booking` import would be a cycle that fails at import time).
+
+### Depends on
+
+- **`identity`, `curriculum` and `billing`, each through its `services` module only**
+  (ADR-0033). What it calls: identity for users, profiles, children and the timezone;
+  curriculum for a teacher's subject ids and the students' interest pairs; billing for
+  `get_session_allowance`, `is_entitled_to` and `Capability.BOOK_SESSION`. The foreign keys to
+  `curriculum.Subject` are written as a string label, which keeps a real database relation
+  without an import.
+- **`signaling.tokens`**, one token codec shared with the signaling service (ADR-0035). The
+  arrow runs one way: `kaleem.scheduling` imports `signaling`, and a contract forbids the
+  reverse.
+- `kaleem.platform` (typed exceptions), as every module does.
+
+Held by five import-linter contracts in `pyproject.toml`:
+
+| Contract | Holds |
+| --- | --- |
+| `scheduling imports no business modules except identity, curriculum and billing` | No edge to assessment, content, messaging, notifications, engagement or analytics |
+| `scheduling does not reach past identity's public API` | No direct `identity.models` import |
+| `scheduling does not reach past curriculum's public API` | No direct `curriculum.models` import |
+| `scheduling does not reach past billing's public API` | No direct `billing.models` import |
+| `signaling imports neither kaleem nor django` | The signaling service stays a plain ASGI app with no ORM, settings or database |
+
+The three "does not reach past" contracts use `allow_indirect_imports`, so the legitimate
+`scheduling.services -> identity.services -> identity.models` chain stays legal while a direct
+model import fails. Scheduling's own tests are exempted, because they build fixtures from the
+other modules' models. The last contract sets `include_external_packages`, without which the
+`django` half would silently pass.
+
+**Scheduling provides the teaching link without being imported** (ADR-0049).
+`SchedulingConfig.ready()` registers `is_active_teacher_of` and `active_student_ids_of`
+(ACTIVE assignments, any subject) with `kaleem.platform.teaching`, so `content` and
+`curriculum` can ask who teaches whom through the port. The `scheduling imports no business
+modules ...` contract also ignores exactly one transitive edge, `kaleem.curriculum.** ->
+kaleem.content.services`, because curriculum may now call content and scheduling reaches
+curriculum; a direct `scheduling -> content` import still breaks it.
+
+**No other module imports scheduling today.** It is wired in only from `config` (the API
+router, the app list, the beat schedule, the `VIDEO_PROVIDER` setting). The roadmap's planned
+`scheduling -> notifications` edge does not exist yet; `ntf-*` opens it.
+
+### Does not do
+
+- **Notifications.** Nothing emails or pushes about a match, a cancellation or a reminder. That
+  is `ntf-*` work, and the producers will call `notifications`.
+- **Trials.** Dropped in ADR-0046. The roadmap's old `TrialRequest` / `TrialSession` entry is stale.
+- **Group lessons.** A room holds exactly two participants (ADR-0034).
+- **Session reports and ratings.** `assessment`.
+- **Teacher earnings.** `billing` owns the ledger (`docs/architecture/billing.md`, ADR-0066). Scheduling only passes facts to `billing.services.record_lesson_earning`, from `_close_out` step 6 and from `_apply_cancellation` when the unit is spent.
+- **Media beyond a relay, and recording.** The module mints TURN credentials; it never sees,
+  mixes or stores media.
+
+## Data model
+
+```mermaid
+erDiagram
+    User ||--o{ WeeklyAvailability : declares
+    User ||--o{ MatchRequest : "waits as student"
+    Subject ||--o{ MatchRequest : "wanted in"
+    MatchRequest ||--o{ MatchDecline : "declined by"
+    User ||--o{ MatchDecline : "declines as teacher"
+    MatchRequest ||--o{ TeacherAssignment : "source of"
+    User ||--o{ TeacherAssignment : "student or teacher"
+    Subject ||--o{ TeacherAssignment : "taught as"
+    TeacherAssignment ||--o{ RecurringSlot : "has slots over time"
+    TeacherAssignment ||--o{ Session : "has lessons"
+    RecurringSlot ||--o{ Session : "generates"
+    Session ||--o{ Room : "held in"
+    Session ||--o{ CallDiagnostic : "reported on"
+    User ||--o{ CallDiagnostic : reports
+```
+
+`User` and `Subject` belong to `identity` and `curriculum`.
+
+- **WeeklyAvailability** — one local-time range per row: `weekday` 0–6, `start_time`,
+  `end_time`. Held by `availability_end_after_start` and `availability_weekday_in_range`; the
+  second exists because a service-validated weekday of 7 could still be inserted from a shell
+  and then makes `__str__` raise. A user's timezone lives on `identity`'s `User`, not here;
+  `set_availability` replaces the whole set in one transaction, merging touching and
+  overlapping ranges first.
+- **MatchRequest** — a student waiting for a teacher in one subject, status `open` /
+  `matched` / `cancelled`. `unique_open_match_request` is *partial* (only `open` rows), because
+  a rematched student legitimately accumulates rows over time.
+- **MatchDecline** — a teacher opting out of one request. The only reason offers need any
+  storage at all. `unique_match_decline` on `(request, teacher)`.
+- **TeacherAssignment** — an ongoing 1-on-1 relationship, status `active` / `ended`.
+  Many-over-time (rule #7): reassignment writes a new row and ends the old one.
+  `unique_active_assignment` on `(student, subject)` where active is the backstop for the
+  accept race. `source_request` is `RESTRICT`, not `PROTECT` (see below).
+- **RecurringSlot** — a student's standing weekly time. `weekday` and `start_time` are **UTC**.
+  `teacher` is denormalised from the assignment so double-booking can be a database constraint:
+  `unique_active_slot_per_assignment` (one active slot per assignment) and
+  `unique_active_teacher_slot` on `(teacher, weekday, start_time)` where active. The latter
+  catches exact collisions only; a partial overlap (10:00 against 10:30) cannot be a unique
+  index and is refused inside the claiming transaction.
+- **Session** — one lesson at one instant, status `scheduled` / `completed` / `cancelled`. A
+  row exists on ordinary weeks, not only on deviating ones. `unique_session_instant` on
+  `(assignment, starts_at)` makes generation idempotent. `duration_minutes` defaults to
+  `SESSION_DURATION_MINUTES` (60). It also stores `cancelled_by`, `cancelled_at`, `cycle_end`
+  (the billing period it counts against, identified by its end) and `consumes_quota`. A
+  closed-out lesson also carries `outcome` (`held` / `student_absent` / `teacher_absent`) and
+  `outcome_recorded_at`, both nullable. The check constraint `session_outcome_only_when_completed`
+  refuses an outcome on a lesson that is not `completed`, for every writer. A rebooked session
+  also carries `rescheduled_from`, the cancelled session it replaces (nullable, `SET_NULL`), and
+  `one_rebook_per_session` makes a cancellation spendable once, for every writer.
+- **Room** — a video room for one session, a row over time rather than a field on `Session`
+  (rule #7): a provider failure or a rescheduled lesson can mean a second room. `provider`
+  records which adapter minted it; `signaling_url` records where it lives. At most one is
+  active per session, held by `room_one_active_per_session`, partial on `status` (a unique
+  index over a nullable `ended_at` would constrain nothing, since NULLs are distinct).
+- **CallDiagnostic** — one failure reported by one participant's browser: closed `code`,
+  `user_agent`, redacted `stats` (JSON, nullable), `created_at`. Indexed on `created_at` for
+  the retention job.
+
+**Why the delete rules differ.** Everything hangs off `User` by cascade, so a delete rule must
+let a same-operation cascade through. `PROTECT` is evaluated per cascade branch and cannot tell
+an orphaning delete from a legitimate one; it broke deleting any matched student in C1. So:
+
+- `MatchRequest.student`, `TeacherAssignment.student` / `teacher`, `Session.assignment`,
+  `Room.session` and `CallDiagnostic.session` are `CASCADE`: none has a meaning apart from its
+  parent.
+- `TeacherAssignment.source_request` and `Session.slot` are `RESTRICT`. They keep the guard
+  against orphaning a row by deleting its source alone, and still allow both to leave together.
+  They are not the same guard twice: `Session.assignment` cascades because a session cannot
+  outlive its assignment, while `Session.slot` restricts because deleting a slot must not
+  silently strand its lessons.
+- `Session.cancelled_by` is `SET_NULL`: a cancelled lesson survives its canceller.
+
+**Two clocks.** `WeeklyAvailability` stores *local* wall-clock time because it belongs to one
+person in one timezone. A `RecurringSlot` belongs to *two* people in two zones, so a local time
+would have no single meaning, and a student who travels would silently move their teacher's
+lesson. Slots and sessions are UTC. The two meet in `to_utc_intervals`, which converts for the
+reference week of a given date, so DST is resolved per week.
+
+**Saturday-first.** `weekday` 0 is Saturday and 6 is Friday (`WEEKDAY_LABELS`). Python's
+Monday-0 weekday is converted at the edges (`_kaleem_weekday`, `_week_saturday`).
+
+**`consumes_quota` is stored, not inferred from status.** A session cancelled 30 hours ahead
+and one cancelled 30 minutes ahead are both `cancelled`, and only the first returns the unit.
+Storing the fact makes the quota a filter and leaves an audit trail of why a unit came back.
+
+## Matching
+
+Files: `matching.py`, views in `api/views.py`. Specs C0 and C1.
+
+**Offers are computed, never stored.** A materialised offer table would go stale the moment a
+teacher added a subject or edited availability, and an unmatched request would then need a job
+to re-fan-out. Here "re-evaluated when the pool changes" is a property of the query: a request
+stays `open` indefinitely, and `list_offers_for` recomputes who may see it on every read.
+
+**One hard-filter rule, in one place.** `_passes_hard_filters` takes already-fetched values and
+returns whether a teacher may be offered a request: the teacher declared a gender, the student
+has a stated preference, the request's subject is one the teacher teaches, `gender_allows`,
+and the two share more than zero minutes of availability. `is_eligible` (which guards accept
+and decline) and `list_offers_for` (which decides what a teacher sees) both call it, with
+values fetched singly or in bulk, so the two cannot drift apart.
+
+It **fails closed on both unknowns.** An undeclared teacher gender is not a wildcard, and a
+missing student profile is "we don't know", which is never read as `no_preference`. Collapsing
+either would hand a child a teacher they may have ruled out.
+
+**Overlap is computed on instants.** `overlap_intervals` intersects the two people's UTC
+intervals for the reference week and is the single source of truth for "when are these two both
+free"; `overlap_minutes` sums it and booking reuses it, so matching and booking cannot disagree
+about when a lesson could happen. Comparing local wall-clock pairs would pair people who are
+asleep. The inbox batches the reads (`to_utc_intervals_for`, `get_users`,
+`get_student_preferences`) to avoid an N+1. Offers are sorted best fit first (most overlap),
+then longest wait; rank orders the list and decides nothing, because the first to accept wins.
+
+**`sync_match_requests` is pull-based.** Billing must never import scheduling, so entitlement
+is asked for rather than announced. For every student interest pair that has no active
+assignment and no open request, it opens a request if the student is entitled to
+`Capability.BOOK_SESSION`. It is idempotent, so running it on a read is correct, merely
+repeated, and it needs no event bus and no beat entry. It runs as a side effect of
+`GET match-offers/` and `GET match-requests/mine/`, and by hand through the
+`sync_match_requests` management command for staff. Each create sits in its own savepoint, so
+an `IntegrityError` from a concurrent reconcile (the partial unique index catching a duplicate)
+is the correct end state rather than a failure that poisons the request's transaction.
+
+**The accept race.** `accept_offer` is atomic. `select_for_update` serialises concurrent
+accepts on the request row; eligibility is re-checked *inside* the transaction, because the
+inbox that produced the click may be seconds stale; then the request becomes `matched` and an
+assignment is created. A non-open request is a `ConflictError` (409), an ineligible teacher a
+`PermissionDeniedError`, an unknown id a `NotFoundError`. `unique_active_assignment` is the
+backstop, and an `IntegrityError` from it is translated into the same 409 rather than leaking
+as a 500. `decline_offer` has the same guards and is idempotent (`get_or_create`).
+
+`list_assignments_for` is role-aware: each side sees the other's name, never their email, and a
+parent also sees their children's active assignments.
+
+## Booking and quota
+
+Files: `booking.py`, quota in `services.py`. Spec C2. Matching answers *who* teaches a
+student; booking answers *when*.
+
+**Whose time, and which subject** (`lb-parent-acts-for-child`). `claim_slot`, `slot_options`
+and `get_active_slot` take a `student_id` and a `subject_slug` (keyword-only). Two functions
+answer the two questions, and every booking read and write goes through them:
+
+- `student_for(actor, student_id)` is the one authorisation for acting on someone's behalf: the
+  actor themselves, or a child linked to them through `ParentStudent`. A stranger, a teacher
+  naming their own student, and an id that does not exist all raise the same `NotFoundError`
+  ("Student not found."), so a refusal never says whether the account exists. Who may book is the
+  family's decision, so a teacher is deliberately not admitted.
+- `resolve_assignment(actor, student_id, subject_slug)` returns the ACTIVE assignment the time
+  belongs to. `(student, subject)` names at most one (`unique_active_assignment`). A slug that
+  matches none is a 404 ("Assignment not found."); no slug with one assignment is that one; no
+  slug with none is `None`; no slug with two or more is a 400 on `subject`, because a guess would
+  attach a lesson to the wrong subject.
+
+**Slot options.** `slot_options` returns weekly start times where both people are free for a
+whole session (`_fitting_candidates` over the overlap windows, stepping by 60 minutes), the
+teacher is not already booked there, and the student does not already hold that time in another
+subject. `_conflicts` compares weekly minutes as a *circular*
+distance, so Friday 23:30 and Saturday 00:00 are adjacent: the week wraps.
+
+**Claiming a slot.** `claim_slot` is atomic and closes the double-booking race by locking every
+*active assignment of the teacher* before scanning their slots. Locking the slot rows would not
+work: `select_for_update` over a queryset that matches nothing locks nothing, so two students
+claiming a teacher's first slot would both see an empty scan. Every claimant has an assignment
+with that teacher, so that set is never empty. A student may hold one active slot per
+assignment (`ConflictError` otherwise), so a student with two subjects holds two.
+
+The lock is one `SELECT ... FOR UPDATE` over every ACTIVE assignment of the teacher **or** the
+student, ordered by id. A multi-subject student's assignment with a *different* teacher is then
+held before `generate_sessions` locks it again, and `generate_sessions` orders its own per-student
+lock by id too, so the two never take overlapping rows in opposite orders. A query-shape test pins
+this; the two-thread race itself is still untested (`ISSUES.md`).
+
+The two failures are decided together on purpose. A time outside the shared window always
+reads as "not available" (`ValidationError`, field `start_time`), regardless of what the
+teacher holds there; `ConflictError` ("already booked") is reserved for a time inside the
+shared window, so a student cannot enumerate their teacher's other bookings by probing times
+outside their own availability. The student's *own* other ACTIVE slots are scanned the same way
+(a two-subject student's teachers may differ, and both may be free at the same hour); a clash
+inside the window is a `ConflictError` ("You already have a weekly time then."), which names only
+their own schedule.
+
+**Generating sessions.** `generate_sessions` materialises each student's sessions for the
+current billing cycle, up to the cycle's end. The quota is **one per student, shared across their
+subjects** (`dec-multi-subject-quota`), so it is spent in date order across all of that student's
+active slots, `(starts_at, slot id)`, until the cycle's allowance is gone. Looping slot by slot
+instead would hand the whole allowance to whichever slot came first and leave a second subject
+with nothing every cycle. A subject booked after the allowance is spent therefore has no session
+until the next renewal; `GET slots/` carries `next_session_at` (null then), and the dashboard says
+so. It runs **nightly** (the `scheduling-generate-sessions`
+beat entry) and **inline on claim** for that one student, in the claim's transaction, so a
+student told "your weekly time is booked" does not then see "no upcoming sessions" for a day.
+It is idempotent (`get_or_create` on `(assignment, starts_at)`), and daily rather than fired on
+a renewal webhook: an unentitled student generates nothing, and the first run after they are
+entitled again fills in the rest of the cycle, which does the work of a late-renewal rule
+without a catch-up path for every way a renewal can be late or replayed. It locks per student,
+not around the run, so overlapping runs cannot jointly overspend one student's quota. **Quota
+is enforced by construction**: the loop stops at the limit, so a fifth session of a
+four-session cycle is never written.
+
+**The quota and its cycle key.** `get_quota` asks billing for `(limit, cycle_end)` and counts
+`_consumed`. A session counts if `consumes_quota` is true *and* either its stored `cycle_end`
+equals the one billing reports now, *or* that stored instant has not yet passed. The second
+clause is the point. Four billing paths write `current_period_end`; a rewrite differing by one
+second inside a cycle, under plain equality, would drop `used` to zero and let the next nightly
+run issue a second full allowance. The relaxed key can only count *more* sessions than equality
+did, so the failure it replaces is unreachable through it, and a finished cycle stops counting
+on its own, which is how a student regains their allowance on renewal with nothing to clean up.
+Status is deliberately not in the filter: a completed lesson and a late-cancelled one both
+consumed their unit.
+
+**Cancelling.** `cancel_session` may be called by the student, the teacher or a parent of the
+student (`is_assignment_party`). `_apply_cancellation` decides the refund and is shared with
+`end_slot`, so ending a slot cannot become a way to reclaim a unit that a direct cancellation
+would have spent:
+
+- A **teacher** cancelling always refunds, at any notice.
+- Anyone else refunds only when the lesson starts at least `CANCELLATION_NOTICE` (24 hours)
+  away; exactly 24 hours counts as in time.
+- The result is stored in `consumes_quota`. The session payload's `cancellation_refunds` is
+  computed server-side against the server's clock, so the interface states the consequence
+  before the click and the rule lives in one place.
+
+**A session can be cancelled only before it starts.** From `starts_at` onwards it is closed out
+(`held` or `student_absent`), not cancelled, for every party and every path that cancels
+(`booking.may_cancel`, shared by `cancel_session` and the session payload's `may_cancel`). The
+refusal order is: not a party (403), not `scheduled` (409), already started (409).
+
+Cancelling also ends the lesson's room (see Rooms).
+
+**Ending a slot.** `end_slot` (a party to the assignment only) cancels the future `scheduled`
+sessions of that slot under the same rule, then marks the slot `ended`.
+
+**Closing a lesson.** Spec `2026-10-18-ana-session-outcomes-design.md`, resolving
+dec-lesson-outcomes. `completed` means "closed out", and `Session.outcome` says how it went:
+
+- `held` and `student_absent` are recorded by the lesson's teacher, through `complete_session`
+  and `mark_student_absent`. Both keep `consumes_quota` true: the unit stays spent.
+- `teacher_absent` exists in the enum but nothing in this module writes it. It is set only by
+  staff adjudication, built later by `sched-teacher-no-show`.
+- **The window** is `starts_at <= now < starts_at + CLOSE_OUT_WINDOW` (7 days), measured from the
+  *start*, in UTC instants. It is written once, in `services.close_out_window`; `booking` uses it
+  to refuse and `services.may_close` uses it to answer, so they cannot disagree. A lesson nobody
+  closes stays `scheduled` with no outcome. Nothing auto-closes it.
+- **The ordered sequence.** Both writers call `booking._close_out`, inside one transaction:
+  (1) lock the row, (2) the actor is the lesson's teacher (403), (3) the lesson is `scheduled`
+  (409), (4) the window (409, a message per side), (5) write status, outcome and
+  `outcome_recorded_at`, (6) the earning line, written through `billing.services.record_lesson_earning` in this same transaction (ADR-0066; billing decides what the outcome earns), (7) end the
+  lesson's rooms, (8) publish `scheduling.session_completed` (the domain event bus, below;
+  *notices are still reserved for the notification units*). The refusal order is the order of steps 2 to 4, so a non-party learns
+  nothing about another person's lesson. Each later unit adds its step in its slot and extends
+  `tests/test_close_out_matrix.py`, the one table of action x actor x prior status x clock.
+- **Closing ends the call.** The window opens at the start, so a teacher can close a lesson
+  while its call is running, and that ends the room.
+- **Cancelling stops at the start.** A session can be cancelled only before it starts, so the
+  close-out window and cancelling never overlap; the matrix pins both, cell by cell, including
+  the `may_cancel` flag and a `rebooked_count` that no close-out or cancellation may move.
+- **Blue-green.** Both columns are nullable with no default, so the previous release keeps
+  working beside this one. A lesson it completes during a deploy keeps a NULL outcome.
+  Migration `0013_session_outcome` backfilled existing `completed` rows as `held`.
+
+**Rebooking a cancelled session.** Spec `2026-10-25-sched-reschedule-design.md`, dec-reschedule
+option 1: *a refunded unit can be spent on a one-off session in the same cycle* (answers OQ-C2-4).
+Moving one occurrence in place (OQ-C2-1) is not built.
+
+- **What is rebookable** (`services.sessions_to_rebook`): a cancelled session whose unit was
+  refunded (`consumes_quota` false: a family cancellation made 24 hours or more ahead, or any
+  teacher cancellation), with nothing rebooked from it yet, its cycle still current, its
+  assignment `active`, and a unit left in the student's one shared quota.
+- **Which times are offered** (`booking.reschedule_options`): at least `CANCELLATION_NOTICE`
+  from now and no later than the current cycle's end; a whole session fits inside both
+  people's availability for that week (`matching.overlap_intervals`, the same source as weekly
+  booking, so a zone's clock change is honoured); nothing of either person's collides, meaning
+  no scheduled session of the teacher or the student and no *active weekly time* of either,
+  even on a week where its session was cancelled, because the nightly generator may yet write
+  that week's session. Any row of the same assignment at that instant also blocks it
+  (`unique_session_instant`), the cancelled source included.
+- **Spending the unit** (`booking.reschedule_session`, `@transaction.atomic`): the student or a
+  linked parent, never the teacher. It takes `claim_slot`'s lock first (the teacher's and the
+  student's active assignments, ordered by id), then the session row, re-checks everything,
+  recomputes the options inside the lock and creates a new row with `consumes_quota=True`,
+  the source's assignment and slot, the quota's current `cycle_end` and `rescheduled_from`.
+  The source row is never modified. Refusals, in order: unknown session or not the family (404,
+  the same body as an unknown id), not cancelled in time (409), already rebooked (409),
+  assignment ended or cycle over (409), no unit left (409), then the time itself: outside the
+  range or the shared availability (400 on `starts_at`, whatever the calendars hold, the rule
+  `claim_slot` uses so a probe learns nothing about the teacher's other bookings), or inside the
+  shared availability but taken (409).
+- **One unit, one spender.** The generator can also spend a refunded unit on the weekly time's
+  next occurrence. Whichever commits first takes it; the second finds `remaining == 0` (the
+  generator writes nothing, the rebook is refused). Both take the same per-student lock.
+- **A rebooked session is an ordinary session.** It can be joined, closed out and cancelled
+  under the same rules; cancelled in time it becomes rebookable in turn, cancelled late it spends
+  the unit. While upcoming it holds its weekly time against new weekly claims
+  (`slot_options` hides it and `claim_slot` refuses it with the existing messages).
+- **Ending a weekly time** cancels its future sessions by `slot`, an upcoming rebooked one
+  included, under the 24-hour rule.
+- **Blue-green.** `rescheduled_from` is a nullable column: the previous release ignores it and
+  never writes it, and the previous dashboard ignores the new payload field.
+
+## Domain events
+
+Files: `events.py`, `booking.py`. Spec `2026-10-25-eng-event-bus-design.md`, ADR-0063. The bus
+itself is described in `platform.md`. Scheduling is a producer: it registers two event types
+from `SchedulingConfig.ready()` and publishes them inside the same `atomic()` block as the
+change they describe, so a refused close-out or cancellation publishes nothing. Subscribers
+(engagement, analytics) never import this module; they read the payload as a mapping.
+Published from the release after the bus itself shipped (the blue-green rule for new task
+names).
+
+| Type (version 1) | Published by | Payload |
+| --- | --- | --- |
+| `scheduling.session_completed` | `booking._close_out`, step 8, so `complete_session` and `mark_student_absent` | `session_id`, `student_id`, `teacher_id`, `starts_at`, `outcome` (`held` or `student_absent`) |
+| `scheduling.session_cancelled` | `booking._apply_cancellation`, so `cancel_session` and one event per future session `end_slot` cancels | `session_id`, `student_id`, `teacher_id`, `starts_at`, `cancelled_by_teacher`, `in_time` |
+
+- `occurred_at` is the close-out's or the cancellation's `now`. Datetimes are ISO UTC strings.
+- `cancelled_by_teacher` and `in_time` are independent facts. `in_time` is "at least
+  `CANCELLATION_NOTICE` (24 hours) before the start", exactly 24 hours counting as in time. A
+  teacher cancelling an hour before is refunded, yet `in_time` is false. `in_time` is not derived
+  from `consumes_quota`, which a teacher's cancellation always clears. These two are what a
+  streak rule needs ("teacher cancellations and timely cancellations freeze it"). Who cancelled
+  beyond teacher or not is left out on purpose.
+- `teacher_absent` is not published: staff adjudication (`sched-teacher-no-show`) will add it.
+- `user_fields` are `student_id` and `teacher_id`, so the platform export and erase hooks find
+  both people's events. The log is kept 90 days.
+- Pinned by `tests/test_events.py` (payloads) and the `events` column of
+  `tests/test_close_out_matrix.py` (which type each of the 216 cells publishes, `()` for every
+  refusal).
+
+## Rooms
+
+Files: `rooms.py`, `providers/`. Spec C3a, ADR-0034.
+
+**The provider seam.** `VideoProvider` is a `Protocol` with `create_room`, `get_join_url` and
+`end_room`, selected by the `VIDEO_PROVIDER` setting (a dotted path, resolved by
+`get_provider()`). `FakeVideoProvider` is the default setting: a real implementation that mints deterministic ids and per-user expiring URLs, which
+is what gave C3a real tests before any media code existed. `SignalingProvider` is the real one.
+The provider layer never touches an ORM object: it takes `RoomRequest`, `ProviderRoom` and
+`Participant` value objects and returns a `JoinGrant`.
+
+**The join window.** `join_window(session)` is `starts_at - JOIN_OPENS_BEFORE` (10 minutes) to
+`starts_at + duration + JOIN_CLOSES_AFTER` (15 minutes). It is pure, with no queries, and
+defined once so the interface and the guard cannot disagree. `can_join_at` is sent to clients
+so a countdown runs locally instead of polling.
+
+**`is_participant` is the entry rule, and it excludes parents.** The actor must be the
+session's teacher or student. A parent may see the schedule but may not enter the lesson, and
+the rule is about *this* session, not about roles: a teacher who also has a child on the
+platform is a participant in the lessons they teach. It is written once and called by the join
+guard, the diagnostics endpoint and the session payload (`may_join`), so widening it (a
+co-teacher, an observer) is one line that lands on all three. `_participant` maps an admitted
+person to teacher or student; its final `raise AssertionError` exists to catch the predicate
+drifting from it, rather than handing an unrecognised person the student's seat.
+
+**Joining.** `join_session` authorizes, lazily ensures a room, and mints a grant. The checks
+run in a deliberate order: who you are (403), whether the session is `scheduled` (409), whether
+it is inside the window (409, "not open yet" or "has closed"), so a non-participant learns
+nothing about whether someone else's lesson is running. The session row is locked
+(`of=("self",)`, so only that row, not the assignment or subject) only for the check-and-create
+block; the grant is minted outside the lock. **The grant expires exactly when the window
+closes**, and the TURN credentials derive from the same instant, so nothing disagrees about when
+a person's access ends.
+
+**One active room per session.** `_ensure_room` reuses the active room, or creates one lazily
+on first join (not eagerly for every generated session), writing the row only after the
+provider returns so an outage leaves no half-created room. A provider failure is logged with its
+traceback and re-raised as a typed `ExternalServiceError` (rule #8). If an active room's
+`provider` differs from the configured one it refuses rather than ask the new provider for a
+URL to the old provider's room; the operator's fix is to end the active rooms.
+
+**`Room.signaling_url`** records where a room lives, captured at creation. It was introduced
+when the two deploy colours each handed out their own signaling host, which could land two
+participants of one lesson in different one-peer rooms. ADR-0037 made signaling one shared
+host, so that split can no longer happen. The column stays as the durable record and the
+tripwire if a per-host scheme returns; `get_join_url` still prefers the row's value over
+settings.
+
+**Rooms end** when a session is cancelled or closed out (`end_rooms_for_session`), which is what
+gives `Room.Status.ENDED` a production path. The local row is marked `ended` even if the
+provider call fails, because reusing a room the provider has dropped is worse than minting a new
+one. Migration `0009_end_active_rooms` ended every active room once, for rooms written under
+the old per-colour scheme; it is not a recurring step.
+
+## Diagnostics
+
+Files: `diagnostics.py`, `CallDiagnostic`. Spec C3e-a.
+
+Exists because the browsers C3e targets (Safari, iOS) cannot be run in this project, so a row
+here is the only evidence a failure there ever produces.
+
+- **A closed vocabulary.** `CallDiagnostic.Code` has ten values: `gum-denied`,
+  `gum-not-found`, `gum-in-use`, `autoplay-blocked`, `gum-no-gesture`,
+  `ice-restart-unsupported`, `backgrounded`, `device-lost`, `screenshare-failed` and
+  `line-mismatch`. The serializer is a `ChoiceField` against the model's own choices, so an
+  unrecognised code is a 400, not a stored row. `line-mismatch` is a mismatch of negotiated
+  media lines, which only a pair of mismatched dashboard bundles (a lesson in progress across a
+  deploy) can produce under ADR-0039.
+- **The user agent is read server-side** from the request header and never accepted from the
+  body, so a client cannot forge the one field the phase exists to read. It is truncated to
+  `USER_AGENT_MAX_LENGTH` (512) rather than rejected, so an unusually long one does not cost the
+  report.
+- **Authorization is `rooms.is_participant`**, the same predicate as the join guard.
+- **Stats are redacted in the browser**, by an allow-list of named fields (`redactStats.ts`), so
+  a network address never reaches the server. The server stores the JSON as given and does not
+  re-validate its shape.
+- **Retention is 90 days**: `RETENTION`, enforced by `purge_expired`, run daily by the
+  `scheduling-purge-call-diagnostics` beat entry.
+- **Throttled** at 20 per hour per user (`call-diagnostics`), because a broken browser is
+  exactly the client that retries in a loop.
+
+## Signaling and TURN
+
+Files: `signaling/` (top-level package, not under `kaleem/`), `providers/signaling_provider.py`,
+`providers/turn.py`. Specs C3b and C3c, ADR-0035, ADR-0037.
+
+**The service.** `signaling.app` is a Starlette WebSocket relay for one lesson's two
+participants. It shares the backend image and imports no Django (the contract above): no ORM,
+no settings module, no database. Its entire input is a socket and a signed token. It exposes
+`/ws/rooms/{room_id}` and a health route that proves it can sign a token, not merely that the
+port is open. **It is a shared service, not blue-green** (ADR-0037): one host serves both
+deploy colours.
+
+**The token.** The API mints a `RoomToken` (room id, user id, `is_teacher`, expiry), HMAC-signed
+with a secret shared by the API and signaling. It is a capability scoped to one room and one
+participant, not a login (ADR-0003 forbids bearer tokens as user authentication). Verification
+compares in constant time, refuses a malformed or non-ASCII value as an ordinary refusal, checks
+the claims' types, and rejects an expired token or one signed for a different room.
+`signaling.tokens` is pure stdlib so both processes use one codec.
+
+**Where the token travels.** In the WebSocket subprotocol, never in a query string, which would
+leak to `Referer`, browser history and any proxy in front. The client opens
+`new WebSocket(join_url, [SUBPROTOCOL, token])`, protocol name first, with
+`SUBPROTOCOL = "kaleem.signaling.v1"`. Any other shape (no header, the name alone, extra
+entries, the wrong order) is treated as no credential and refused. Refusals are logged by
+*reason* only, never the token.
+
+**Close codes.** Application codes in the 4000 range, one per reason so the client can tell
+them apart:
+
+| Code | Meaning |
+| --- | --- |
+| `4400` | A frame the service does not accept: not text, not JSON, not an object, or a `type` outside the relayable set |
+| `4401` | Unauthorized: no credential, a bad or expired token, or a token for another room |
+| `4409` | Room full: a third participant tried to join |
+| `4410` | Replaced: this participant opened a newer socket and took over their seat. Not an error; the client must not retry |
+
+A refusal is accept-then-close, so the browser sees the code rather than a bare handshake
+failure.
+
+**The room.** `RoomRegistry` is a process-local dict with `MAX_PEERS = 2`. A seat belongs to a
+*participant* (`user_id`), not to a socket: a second socket from the same person *replaces* the
+first (a reconnect after a dropped network, or a second tab) rather than filling the room and
+locking their teacher out. Freeing the seat and announcing `peer-left` are one fact,
+in one `finally`, so a socket that dies mid-announcement still frees its seat and the survivor
+always gets a `peer-left` to match its `peer-joined`. A displaced socket's cleanup announces nothing
+(`registry.leave` returns False). The registry assumes one
+process (ADR-0035's one-replica constraint, which the single shared host of ADR-0037 keeps), so
+two peers of a room always reach the same one. If that stops being true, `signaling/rooms.py`
+is the file that grows a fan-out layer.
+
+**Relayed messages.** The relay passes frames to the *other* peer only, and drops them when no
+one is there. It does not read SDP or the `media-state` booleans. The relayable types are
+`offer`, `answer`, `ice` and `media-state`. `media-state` exists because the browser gives the
+peers no other way to learn that a share stopped or a camera was released. Widening the set is
+a breaking change in one direction only (a client sending a type the server does not know is
+closed with `4400` mid-call), so the server deploys first. By convention the teacher offers and
+the student answers; the grant carries `is_teacher` so the client need not guess.
+
+**TURN.** About one connection in six cannot go peer-to-peer. `providers/turn.py` builds the
+ICE server list from the `TURN_URLS` setting: STUN entries without a credential, TURN entries
+with a time-limited credential from coturn's REST scheme (an HMAC over `expiry:user_id` with the
+shared secret, mandated by coturn). coturn holds only the shared secret and has no account
+table, so **the expiry in the username is the whole revocation story**, which is why it is the
+room's own join-window close and not a duration invented here. The functions are pure: no
+settings read, no clock.
+
+**Fail closed.** `SignalingProvider.__init__` raises `ImproperlyConfigured` unless both the
+signaling secret and URL and both the TURN secret and URLs are set, so a misconfigured
+deployment is a loud failure at the point of use and not a broken join link handed to a student
+mid-lesson. `signaling.app` likewise fails loudly, not silently, without its secret.
+
+## HTTP surface
+
+All under `/api/v1/scheduling/`, mounted through `config.api_router` (ADR-0029). Twenty routes.
+"Profile" means the user holds that profile; a person may hold several.
+
+| Method | Path | Who | Notes |
+| --- | --- | --- | --- |
+| `GET` `PUT` | `me/availability/` | student or teacher profile; with `?student=`, a parent of that child | `PUT` replaces the set and may set the timezone. `?student=<user id>` reads or writes a linked child's, and the time zone lands on the child. 404 for anyone else |
+| `GET` | `match-offers/` | teacher | Reconciles first (`sync_match_requests`), then lists offers |
+| `POST` | `match-offers/<int:request_id>/accept/` | teacher | 201; 404 unknown, 409 taken, 403 ineligible |
+| `POST` | `match-offers/<int:request_id>/decline/` | teacher | 204; idempotent |
+| `GET` | `match-requests/mine/` | student | Reconciles first; cancelled requests excluded |
+| `GET` | `assignments/` | student, teacher or parent profile | A parent sees their children's. Rows carry `student_id` |
+| `GET` | `slot-options/` | student; with `?student=`, a parent | Computed candidates, not rows. `?student=` and `?subject=` (a slug) name the assignment; see "Whose time" |
+| `GET` `POST` | `slots/` | student; with `student`, a parent | `POST` claims (201), body `{weekday, start_time, student?, subject?}`; `GET` is 404 when there is no active slot and carries `next_session_at` (the slot's next scheduled session, or null) |
+| `DELETE` | `slots/<int:slot_id>/` | student or parent | 204; the service requires a party to the assignment, and the view still refuses a teacher |
+| `GET` | `sessions/` | student, teacher or parent profile | Upcoming, every status; payload adds `may_cancel`, `cancellation_refunds`, `can_join_at`, `may_join`, `may_complete`, `outcome`, `rescheduled_from` |
+| `GET` | `sessions/to-rebook/` | any signed-in user; with `?student=`, the student's parent | The cancelled sessions whose refunded unit can still be spent, oldest first, in the session payload. A teacher or anyone outside the family gets `[]` for themselves and 404 for a named student |
+| `GET` | `sessions/<int:session_id>/reschedule-options/` | the student or a parent of the student | `[{"starts_at"}]`, ascending, UTC. Refuses exactly as the `POST` does, apart from the rows about a time. Anyone else, a teacher included: 404 |
+| `POST` | `sessions/<int:session_id>/reschedule/` | the student or a parent of the student | Body `{starts_at}`; 201 and the new session's payload. 409 for a refusal about the session, the unit or a taken time; 400 on `starts_at` for a time that is not offered |
+| `GET` | `sessions/to-close/` | teacher | The teacher's `scheduled` lessons that have started and are inside the 7-day window, oldest first; 403 without a teacher profile |
+| `POST` | `sessions/<int:session_id>/cancel/` | the student, the teacher or a parent of the student | Refund rule applied; ends the room |
+| `POST` | `sessions/<int:session_id>/complete/` | the session's teacher | Records `held`. 409 before the start, after the window, or when not `scheduled`. Ends the room |
+| `POST` | `sessions/<int:session_id>/no-show/` | the session's teacher | Records `student_absent`, same guard as `complete/`. Ends the room |
+| `POST` | `sessions/<int:session_id>/join/` | a participant (teacher or student, not a parent) | Throttled `session-join`, 30 per hour; `POST` because it can create a room |
+| `POST` | `sessions/<int:session_id>/diagnostics/` | a participant | Throttled `call-diagnostics`, 20 per hour; 201 |
+| `GET` | `quota/` | student; with `?student=`, a parent | 404 when billing reports no allowance |
+
+The view layer is thin: it checks the profile, calls one service, and serializes. Cancel and
+complete return a payload built from the public read after the transaction committed, never
+from the model the mutation returned. `_today()` is a seam so a test can pin the reference week.
+
+Text follows `Accept-Language` (ADR-0058). The five `subject_name` fields (offers, assignments,
+match requests, slots, sessions) are `api/fields.py::SubjectNameField`, which translates the
+stored English name through `curriculum.services.subject_display_name` at the edge; the services
+keep returning the stored name, because the video provider is handed one. Every error message in
+this module is a gettext call, with its Arabic in `kaleem/scheduling/locale/`.
+
+## Jobs
+
+| What | Where | When |
+| --- | --- | --- |
+| `scheduling-generate-sessions` | `tasks.generate_sessions` -> `booking.generate_sessions` | Beat, `crontab(hour="2", minute="43")`. Retries only on `OperationalError`, for lock contention with an interactive `claim_slot` |
+| `scheduling-purge-call-diagnostics` | `tasks.purge_call_diagnostics` -> `diagnostics.purge_expired` | Beat, `crontab(hour="4", minute="11")`, after the other nightly jobs |
+| `platform-sweep-pending-events`, `platform-purge-old-events` | `kaleem.platform.tasks` (the bus, `platform.md`) | Beat, `crontab(minute="*/10")` and `crontab(hour="4", minute="41")`. Listed here because the events they deliver are scheduling's |
+| `sync_match_requests` | management command | By hand, for staff. Production never strictly needs it: the same reconcile runs on read |
+| `seed_e2e_matching` | management command | Fixture for the e2e suite; separate from identity's `seed_e2e` because identity may not import curriculum or billing |
+| `seed_e2e_assessment_lessons` | management command | Fixture for the assessment flows; see "E2E fixtures" below |
+
+Beat times are crontab hours in the Celery timezone, which `config/settings/base.py` sets from
+`TIME_ZONE` (UTC). The task bodies stay thin wrappers so the logic is testable without a broker
+and callable by hand from a shell.
+
+## E2E fixtures
+
+`seed_e2e_assessment_lessons` gives the assessment teacher (`e2e.asm.teacher`) one student
+(`e2e.asm.student`, Quran) and four 60-minute lessons, repositioned onto offsets from the seed's
+run and closed out through `booking.complete_session` / `mark_student_absent`, so the close-out
+window guard is exercised rather than bypassed: `heldReported` (now - 3 days, held),
+`heldUnreported` (now - 2 days, held), `studentAbsent` (now - 1 day) and `toClose` (now - 3
+hours, still scheduled). It resets only that student's scheduling rows, so the call flows'
+lesson (the booked student's) is never touched. Both parties are available Thursday 15:00-18:00
+UTC, a window no other seeded account uses: `sync_match_requests` is global, and an overlap
+with another entitled student's open request would offer it to this teacher. The dev
+subscription allows four lessons a cycle and all four are used, so a fifth state needs a second
+student. Rules for flows that use these: write only to your own lesson, and assert on your own
+row rather than a list's length. `seed_e2e_assessment` (assessment) then files the fixture
+report; the accounts come from identity's `seed_e2e`.
+
+## Personal data held
+
+Described here, not changed by this doc (ADR-0023). Scheduling holds, per person:
+
+- **Availability**: weekly local-time ranges.
+- **Match requests and declines**: which student wants which subject, and which teacher declined.
+- **Assignments**: who teaches whom, in what subject, since when.
+- **Slots and sessions**: the standing weekly time and each lesson's instant, status, and, for a
+  cancelled lesson, who cancelled it and when. A rebooked lesson also links to the cancelled
+  session it replaces (`rescheduled_from`): it records why a unit was spent twice in one cycle
+  and stops a cancellation being rebooked twice. Kept for the life of the session row, nulled if
+  the source is ever deleted, visible to the session's parties and to staff in Django admin.
+- **Rooms**: provider, an external id and the signaling host. No media.
+- **Attendance**: whether a student attended a lesson (`outcome`: `held` / `student_absent`)
+  and when the teacher recorded it (`outcome_recorded_at`). Students may be minors, so this is
+  children's attendance data. Kept for the life of the `Session` row, visible to the lesson's
+  student, teacher and the student's parents, and to staff in Django admin. It is the basis for
+  attendance, reports, pay and no-show handling.
+- **Call diagnostics**: the reporting user, the user agent, and redacted client stats.
+
+The signaling service keeps user ids in process memory for the life of a socket and persists
+nothing.
+
+**Retention.** The one period in code is 90 days for call diagnostics (`diagnostics.RETENTION`).
+Nothing else in the module is purged.
+
+**Registry.** Scheduling has joined the personal-data registry with an export hook and an erase
+hook (`docs/architecture/platform.md`); a new scheduling model fails the coverage guard in
+`tests/test_personal_data_hooks_cover_every_model.py` until a hook names it.
+
+## Clients
+
+The dashboard uses the module through four routes, each a thin page over a feature folder:
+
+| Route | Feature folders |
+| --- | --- |
+| `/availability` | `features/scheduling` (weekly editor, timezone bar, unsaved-changes guard) |
+| `/match-requests` | `features/matching` (teacher offer list, student's teacher card, parent's children's teachers) |
+| `/schedule` | `features/booking` (a "Booking for" picker, a booking panel per child or self, one claim card per subject, a "Sessions to rebook" card with its reschedule dialog, session list with a "Rebooked" chip, cancel dialog, quota badge, join button) and a parent's per-child availability editor from `features/identity`. The rebook copy is the lazily loaded `reschedule` catalogue, loaded by the route |
+| `/sessions/$sessionId/room` | `features/call` (lobby, call room, controls, diagnostics reporter) |
+
+The folder names diverge from the backend, which keeps booking inside `scheduling`
+(`ISSUES.md`). Feature components split into a hook and a presentation component (ADR-0036).
+The call client's internals are covered by ADR-0036, ADR-0039 and `docs/runbook/video-call.md`,
+and are not repeated here, with one exception: how the client ends a signaling socket that
+fails before it ever opens.
+
+**Connect deadline** (`lb-call-connection-failure-path`). `useSignaling` gives each connection
+attempt 10 s (`CONNECT_TIMEOUT_MS`). A socket still connecting then is abandoned (handlers
+detached, closed) and takes the same path as an unexpected close, so the backoff reconnect
+(500 ms doubling, 5 attempts) continues behind the screen. A network that accepts the connection
+and never answers the upgrade fires neither `open` nor `close`, so before this the room read
+"Connecting…" for ever. The failure it reports depends on whether this hook instance ever
+opened: `unreachable` ("Couldn't reach the session server") if never, `lost` ("Connection to the
+session server was lost") once it had opened and the reconnects are spent. Both are retryable
+terminal screens; 4401, 4409 and 4410 are unchanged. **Try again** remounts the room, re-acquiring the microphone and
+the chosen devices, and the camera only if the person's latest choice (the Lobby's, then any
+in-room toggle, reported up through `onMediaChoiceChange`) had it on. No diagnostic row is
+written for a connect timeout (it would need a new `CallDiagnostic` code).
+
+**A drop after an open is not the end of a call** (`lb-signaling-deploy-continuity`, ADR-0064).
+After the hook has opened, a close the server gave no reason for (a relay restart is 1012 or
+1006, as is a network blip) sets no failure while reconnect attempts remain: `connected` goes
+`false`, `failure` stays `null`, and the peer connection and local media are kept. Media is peer
+to peer and never passes through the relay, so the call carries on. `lost` is set only on the
+last failed attempt, because `useCallRoom` treats it as terminal and stops the camera. A drop
+before the first open, and the codes the server names (4400, 4401, 4409, 4410), report at once.
+When both peers rejoin, the relay sends `peer-joined` and the teacher re-offers on the same
+`RTCPeerConnection`. On the server side, `signaling/fingerprint.py` (standard library only; the
+"signaling imports neither kaleem nor django" contract stays) prints a SHA-256 of what the relay
+runs, which `ship.sh` uses to leave the container alone when nothing it runs changed. It is a CLI
+(`python -m signaling.fingerprint`) and adds no route, wire change or stored data.
+
+## Deliberately not here
+
+- **Notifications** on match, cancel or reminder (`ntf-*`).
+- **Trials** (ADR-0046) and **group lessons** (ADR-0034).
+- **Moving a single occurrence in place.** A cancelled session's refunded unit can be rebooked
+  onto a one-off (see Booking and quota), but an occurrence is never moved: it is cancelled and
+  a new session is made (OQ-C2-1 stays unbuilt).
+- **Carrying a unit into the next cycle** (BR-02), and telling the teacher about a rebooked
+  session (`ntf-booking-notifications`).
+- **Session reports and ratings** (`assessment`). The outcome itself lives here.
+- **Setting `teacher_absent`** and its remedy (`sched-teacher-no-show`).
+- **Teacher earnings** (`billing`).
+- **A parent setting a child's subject interests.** `curriculum`'s `me/student-subjects/` is
+  self-only, and a child gets no match request without an interest (`ISSUES.md`).
+- **Recording**, and any media path beyond a TURN relay.
+- **Captions, real-time text and an audio-activity indicator in the call.** None exist, and
+  the call has no data channel. A stated launch gap, not an oversight (ADR-0054).
+- **Joining the personal-data registry** (see above).
+
+## Personal-data export
+
+`scheduling.lessons` (`personal_data.py`, registered from `SchedulingConfig.ready()`) exports
+the person's availability, match requests, assignments, declines, weekly slots, lessons (with
+each room's open and close times, and, for a rebook, the id of the session it replaces) and
+their own call diagnostics. The other person in an
+assignment or a lesson appears as `role` plus `counterpart_user_id`, never a name or email.
+Withheld: the room's provider, handle and signaling address, a diagnostic's free-form
+`stats`, and quota bookkeeping.
+
+## Personal-data erasure
+
+The erase hook (`scheduling.lessons`) deletes the person's availability, declines and call
+diagnostics; cancels their open match requests; ends every active assignment they are in, on
+either side, and its active weekly slots; and cancels their upcoming `scheduled` sessions
+with `cancelled_by` set to them and `consumes_quota=False` (an erasure is not a 24-hour-rule
+cancellation, so it does not go through `booking`). Past and in-progress sessions, rooms and
+ended assignments stay: they are the other person's record too. Active rooms of the
+cancelled sessions end through `rooms.end_rooms_for_session` after commit. When a teacher is
+erased the reconciler (`matching.sync_match_requests`) opens a fresh request for each
+still-entitled student, so matching resumes with no new code.

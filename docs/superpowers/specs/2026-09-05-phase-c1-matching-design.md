@@ -2,9 +2,9 @@
 name: phase-c1-matching
 phase: C
 modules: [scheduling, curriculum, billing, identity]
-status: draft
+status: shipped
 created: 2026-09-05
-closed: null
+closed: 2026-09-05
 ---
 
 ## Goal

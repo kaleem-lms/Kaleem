@@ -36,6 +36,22 @@ permissions:
   actions: read
   contents: read
 
+env:
+  # ADR-0030 (as amended): the dependency scanners (`pnpm audit`, `trivy`) are
+  # report-only until this day and blocking from it, with no further edit to this file.
+  # `.github/scripts/sca-gate.sh` is the only thing that reads it. A scanner ERROR
+  # (registry or DB outage, bad report) fails the step on any day.
+  #
+  # Moving this date LATER needs an ADR, exactly as lowering a coverage floor does
+  # (ADR-0026). Moving it earlier is an ordinary PR once the baseline is clean.
+  # The `sast` job (semgrep) reads the same value through the same guard.
+  SCA_BLOCKING_FROM: "2026-11-30"
+  # The commit of github.com/semgrep/semgrep-rules the `sast` job scans with. Rules are
+  # fetched by this SHA, never by branch or registry name, so what "green" means changes
+  # only by a commit here (ADR-0047). Bumping it is an ordinary PR; a finding the new rules
+  # surface follows the date guard like any other.
+  SEMGREP_RULES_SHA: 17e31e11ebac99fb7dfe1cd288f7a32151b6f3f9
+
 jobs:
   # One job, two questions, because a job skipped by `if:` also skips its
   # dependents -- so a separate guard job would have to run on pull requests
@@ -125,7 +141,7 @@ jobs:
         with:
           submodules: recursive
           token: ${{ secrets.SUBMODULE_TOKEN }}
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.13"
       - name: Install dependencies
@@ -136,6 +152,12 @@ jobs:
         run: ruff format --check .
       - name: Import linter
         run: lint-imports
+      - name: Type check (mypy)
+        # django-stubs imports config.settings.test, which reads DATABASE_URL.
+        # Nothing connects to it; the URL only has to parse.
+        env:
+          DATABASE_URL: postgres://kaleem:kaleem@localhost:5432/kaleem_test
+        run: mypy .
 
   backend-test:
     runs-on: ubuntu-latest
@@ -186,13 +208,24 @@ jobs:
         with:
           submodules: recursive
           token: ${{ secrets.SUBMODULE_TOKEN }}
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.13"
       - name: Install dependencies
         run: pip install -r requirements/local.txt
+      # The translation catalogs are compiled from their .po files, and the
+      # completeness check shells out to GNU gettext (msgfmt, xgettext). The runner
+      # image ships it; this makes that a checked fact instead of an assumption.
+      - name: Ensure GNU gettext
+        run: |
+          command -v msgfmt >/dev/null && command -v xgettext >/dev/null \
+            || { sudo apt-get update -q && sudo apt-get install -y --no-install-recommends gettext; }
       - name: Run migrations
         run: python manage.py migrate --noinput
+      # `migrate` applies the migrations that exist; it cannot notice a model
+      # change that shipped without one. This can.
+      - name: Check for missing migrations
+        run: python manage.py makemigrations --check --dry-run
       # D3 coverage gate. The floor lives in backend/pyproject.toml
       # ([tool.coverage.report] fail_under), NOT here, so the gate runs
       # identically on a developer's machine and on this runner. It is a ratchet
@@ -230,7 +263,7 @@ jobs:
       - uses: pnpm/action-setup@v6
         with:
           version: 10
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: "22"
           cache: "pnpm"
@@ -255,7 +288,12 @@ jobs:
       # 2026-09-12).
       - name: Token pin agrees with the submodule (G3)
         working-directory: .
-        run: node scripts/check-token-pin.mjs
+        # The submodule checkout fetches only the pinned commit, which carries no tags
+        # once tokens main has moved past the release. Fetch the tags first, or a correct
+        # pin reads as "tag does not exist" (seen on 2026-10-18 after tokens#9).
+        run: |
+          git -C tokens fetch -q --depth=1 origin "+refs/tags/*:refs/tags/*"
+          node scripts/check-token-pin.mjs
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       - name: TypeScript check
@@ -293,7 +331,7 @@ jobs:
       - uses: pnpm/action-setup@v6
         with:
           version: 10
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: "22"
           cache: "pnpm"
@@ -323,6 +361,22 @@ jobs:
       # already built.
       - name: No palette rules in the built CSS
         run: node scripts/check-colors.mjs --built
+      # Access-log policy: the image's nginx config must log paths only. This
+      # runs the real config over the real build in a real nginx container, sends probe
+      # values in the query string, Referer, User-Agent and Cookie, and fails if any
+      # reaches the container's output (access log and error log both). The self-test
+      # runs the checker against configs that leak and that log nothing and requires it
+      # to fail on each, so a pass here cannot be a checker that looks at nothing.
+      - name: Access log self-test
+        run: ${GITHUB_WORKSPACE}/.github/scripts/test-check-nginx-access-log.sh
+      - name: Access log records no credential
+        run: ${GITHUB_WORKSPACE}/.github/scripts/check-nginx-access-log.sh nginx.conf dist
+      # The image is environment-neutral: its start-up hook writes /env.js from
+      # KALEEM_API_URL and KALEEM_CSRF_COOKIE_NAME and refuses to start on a missing or
+      # malformed one (ADR-0019 amendment). The test includes a real nginx container
+      # started with the hook and no variables, which must exit non-zero.
+      - name: Runtime config hook
+        run: sh docker/test-runtime-config.sh
 
   # ADR-0021 has required end-to-end tests since 2026-06-17 and no harness existed
   # until 2026-09-03; ADR-0026 recorded the clause as suspended in the meantime. This
@@ -367,14 +421,39 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
+      # The inbox the e2e flows read (ADR-0052, amending ADR-0027). Pinned, because the
+      # helper's HTTP API (dashboard/e2e/support/inbox.ts) is per version; the same
+      # version is pinned in docker-compose.local.yml. A bump goes through an API re-check.
+      mailpit:
+        image: axllent/mailpit:v1.30.1
+        ports:
+          - 1025:1025
+          - 8025:8025
+        options: >-
+          --health-cmd "/mailpit readyz"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     env:
       DATABASE_URL: postgres://kaleem:kaleem@localhost:5432/kaleem_e2e
       CELERY_BROKER_URL: redis://localhost:6379/0
       DJANGO_SETTINGS_MODULE: config.settings.local
-      # No mailpit here; an unreachable SMTP host would turn an incidental send into
-      # a 500 rather than a no-op.
-      DJANGO_EMAIL_BACKEND: django.core.mail.backends.locmem.EmailBackend
+      # Production's cookie names, not Django's defaults (ADR-0019 amendment). Staging and
+      # production share a cookie domain, so the dashboard must follow whatever name the API
+      # sets; running the suite under a non-default name proves it does, on every mutation
+      # (CSRF) and every login (session). The Playwright step reads the CSRF name from here.
+      DJANGO_SESSION_COOKIE_NAME: kaleem_sessionid
+      DJANGO_CSRF_COOKIE_NAME: kaleem_csrftoken
+      # Mail goes to the job's own mailpit (the service above), which the inbox flows
+      # read over HTTP. Nothing leaves the runner.
+      DJANGO_EMAIL_BACKEND: django.core.mail.backends.smtp.EmailBackend
+      DJANGO_EMAIL_HOST: localhost
+      DJANGO_EMAIL_PORT: "1025"
+      E2E_MAILPIT_URL: http://localhost:8025
       E2E_APP_URL: http://app.kaleem.localhost:4173
+      # Must equal E2E_APP_URL: the backend builds every emailed link from it. Unset, it
+      # defaults to port 80, where nothing listens, and the inbox helper refuses the link.
+      DJANGO_FRONTEND_URL: http://app.kaleem.localhost:4173
       # C3d: the call e2e spec needs a real join URL, so this job runs the real
       # SignalingProvider instead of the FakeVideoProvider default -- otherwise the
       # browser gets a join_url pointing at the unresolvable https://video.kaleem.test
@@ -405,13 +484,13 @@ jobs:
         run: |
           echo "127.0.0.1 app.kaleem.localhost api.kaleem.localhost ws.kaleem.localhost" | sudo tee -a /etc/hosts
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.13"
       - uses: pnpm/action-setup@v6
         with:
           version: 10
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: "22"
           cache: "pnpm"
@@ -432,12 +511,24 @@ jobs:
       - name: Install backend dependencies
         working-directory: backend
         run: pip install -r requirements/local.txt
+      # The seeds are an ordered manifest kept in the backend repo
+      # (backend/config/e2e_seeds.txt). A unit that needs fixture state appends a
+      # line there; it does not edit this file.
       - name: Migrate and seed
         working-directory: backend
         run: |
           python manage.py migrate --noinput
-          python manage.py seed_e2e
-          python manage.py seed_e2e_matching
+          python manage.py seed_e2e_all
+      # The .mo files are build output and are not committed, and a server without
+      # them does not fail: it answers in English. Staging runs the image, which
+      # compiles them, so an e2e run on an uncompiled tree would be English in CI and
+      # Arabic in production -- the server-strings flows would pass or fail for the
+      # wrong reason.
+      - name: Compile the Arabic catalogs
+        working-directory: backend
+        run: |
+          command -v msgfmt >/dev/null || { sudo apt-get update -q && sudo apt-get install -y --no-install-recommends gettext; }
+          python manage.py compilemessages
       - name: Start the API
         working-directory: backend
         run: |
@@ -470,26 +561,108 @@ jobs:
           done
           echo "::error::Signaling never became ready"; cat /tmp/signaling.log; exit 1
 
+      # Tasks queued with `.delay()` sit in Redis until something consumes them, and
+      # nothing did in this job. The worker is the same command as
+      # docker-compose.local.yml; no beat, so no scheduled task fires mid-suite.
+      - name: Start the Celery worker
+        working-directory: backend
+        run: |
+          nohup celery -A config.celery_app worker -l info --concurrency=2 \
+            > /tmp/celery.log 2>&1 &
+      # No shipped flow observes a task's effect yet, so this is the check that the
+      # worker is up and can execute one: queue a real task and wait for its result.
+      # The mail goes to the runner's own mailpit, so nothing leaves it, and the probe
+      # also proves the whole path: a dead worker, or a broken SMTP setting, fails here
+      # in seconds rather than as a mystery in a Playwright spec.
+      - name: Prove the worker executes a task
+        working-directory: backend
+        run: |
+          python manage.py shell -c "
+          import sys
+          from kaleem.platform.tasks import send_email_message
+          result = send_email_message.delay(
+              subject='worker probe',
+              body='worker probe',
+              from_email='ci@kaleem.test',
+              to=['worker-probe@kaleem.test'],
+          )
+          try:
+              result.get(timeout=60)
+          except Exception as exc:
+              print('worker probe failed:', repr(exc))
+              print(open('/tmp/celery.log').read())
+              sys.exit(1)
+          print('worker probe ok: task executed by the worker')
+
+          import json, time, urllib.parse, urllib.request
+          url = 'http://localhost:8025/api/v1/search?' + urllib.parse.urlencode(
+              {'query': 'to:\"worker-probe@kaleem.test\"'}
+          )
+          for _ in range(60):
+              with urllib.request.urlopen(url) as response:
+                  if json.load(response)['messages_count'] > 0:
+                      print('worker probe ok: mail reached mailpit')
+                      sys.exit(0)
+              time.sleep(0.5)
+          print('worker probe failed: the task ran but no mail reached mailpit')
+          print(open('/tmp/celery.log').read())
+          sys.exit(1)
+          "
+
+      # The domain event bus end to end (ADR-0063): publish a platform.bus_probe event and
+      # wait until the real worker records the probe handler's HandledEvent. That proves
+      # on_commit, the broker, the worker, the handler and the record in one go, which no
+      # unit test can (they run Celery eagerly). Nothing user-visible changes with the
+      # bus, so there is no Playwright flow; this is the unit's e2e.
+      - name: Prove the event bus delivers through the worker
+        working-directory: backend
+        run: |
+          python manage.py event_bus_probe --timeout 60 || {
+            status=$?
+            echo "event bus probe failed; the worker's log follows"
+            cat /tmp/celery.log
+            exit "${status}"
+          }
+
       - name: Install dashboard dependencies
         working-directory: dashboard
         run: pnpm install --frozen-lockfile
+      # No VITE_API_URL: the shipped image is environment-neutral, and so is this build. The
+      # API base and the CSRF cookie name reach the page through /env.js, written below by the
+      # image's own start-up hook. A bundle that quietly kept a build-time base would still
+      # pass here only if the hook were skipped, and then every flow would fail on the cookie.
       - name: Build the dashboard
         working-directory: dashboard
-        env:
-          VITE_API_URL: http://api.kaleem.localhost:8000/api/v1/
         run: pnpm build
-      - name: Serve the built dashboard
-        working-directory: dashboard
+      # The build is served by the SHIPPED nginx image with the SHIPPED nginx.conf, not by
+      # `vite preview`: the security headers (ADR-0056) exist only in that file, so a
+      # preview server would let every e2e assertion about them pass or fail for the wrong
+      # reason. The image is read from the Dockerfile's production stage so the two cannot
+      # drift. Docker publishes on IPv4 and IPv6, which `app.kaleem.localhost` needs.
+      - name: Serve the built dashboard with the production nginx config
         run: |
-          nohup pnpm preview --host app.kaleem.localhost --port 4173 \
-            > /tmp/preview.log 2>&1 &
+          image=$(sed -n 's/^FROM \(nginx[^ ]*\) AS production$/\1/p' dashboard/Dockerfile)
+          test -n "$image" || { echo "::error::no 'FROM nginx… AS production' in dashboard/Dockerfile"; exit 1; }
+          # dist is mounted writable and the hook is mounted where the Dockerfile copies it,
+          # so the container writes dist/env.js exactly as the shipped image does. If the hook
+          # is not executable nginx skips it with a log line, env.js stays `{}`, and the
+          # build (which has no base) refuses to load: the whole suite goes red.
+          docker run -d --name dash -p 4173:80 \
+            -v "$PWD/dashboard/dist:/usr/share/nginx/html" \
+            -v "$PWD/dashboard/nginx.conf:/etc/nginx/conf.d/default.conf:ro" \
+            -v "$PWD/dashboard/docker/40-kaleem-runtime-config.sh:/docker-entrypoint.d/40-kaleem-runtime-config.sh:ro" \
+            -e KALEEM_API_URL=http://api.kaleem.localhost:8000/api/v1/ \
+            -e KALEEM_CSRF_COOKIE_NAME=kaleem_csrftoken \
+            "$image"
       - name: Wait for the dashboard
         run: |
           for _ in $(seq 1 60); do
             curl -sf -o /dev/null http://app.kaleem.localhost:4173/ && exit 0
             sleep 2
           done
-          echo "::error::Dashboard never became ready"; cat /tmp/preview.log; exit 1
+          echo "::error::Dashboard never became ready"; docker logs dash; exit 1
+      - name: Show the runtime config the dashboard served
+        run: docker exec dash cat /usr/share/nginx/html/env.js
 
       - name: Install Playwright chromium
         working-directory: dashboard
@@ -499,9 +672,12 @@ jobs:
         run: pnpm e2e
 
       # A red e2e job with no artefact is a guessing game.
+      - name: Collect the nginx log
+        if: failure()
+        run: docker logs dash > /tmp/nginx.log 2>&1 || true
       - name: Upload the Playwright report
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: playwright-report
           path: |
@@ -509,7 +685,8 @@ jobs:
             dashboard/test-results/
             /tmp/django.log
             /tmp/signaling.log
-            /tmp/preview.log
+            /tmp/celery.log
+            /tmp/nginx.log
           retention-days: 7
 
   # ADR-0030. The Definition of Done has asked for a security pass since 2026-06-17
@@ -553,24 +730,84 @@ jobs:
           # it exactly one to look at.
           fetch-depth: 0
 
+      # The scanners below decide whether a PR may merge, so they are tested first
+      # (the test-classify-changes.sh precedent): a gitleaks that scanned nothing prints
+      # "no leaks found" too, and the guard against that is code that can rot.
+      - name: Self-test the scan wrappers
+        run: .github/scripts/test-security-scripts.sh
+
+      # ADR-0056. The production compose publishes exactly the ports the deploy runbook
+      # lists, so a debug port added to the gateway fails here instead of being open on the
+      # VPS. The checker is tested first: a checker that cannot fail passes everything.
+      - name: Only the documented ports are published
+        run: |
+          .github/scripts/test-check-published-ports.sh
+          .github/scripts/check-published-ports.sh infra/docker-compose.production.yml
+
+      # Deploy-pipeline checks. Every compose service outside a colour profile must be in
+      # ship.sh's explicit start lists, or it is never started and nothing says so (coturn
+      # once went unstarted with every health check green). The checkers are tested first, for
+      # the same reason as above; infra has no CI of its own, so its shell tests run here.
+      - name: The deploy pipeline's scripts and service lists
+        run: |
+          infra/scripts/test-deploy-lib.sh
+          .github/scripts/test-check-shipsh-services.sh
+          .github/scripts/check-shipsh-services.sh infra/docker-compose.production.yml infra/scripts/ship.sh
+          .github/scripts/test-check-traefik-static-config.sh
+          .github/scripts/check-traefik-static-config.sh infra/docker-compose.production.yml
+          .github/scripts/test-deploy-outcome.sh
+          .github/scripts/test-check-staging-host-key.sh
+          .github/scripts/check-staging-host-key.sh
+
       # Known historical findings are allowlisted by fingerprint in `.gitleaksignore`,
       # one annotated line each, so a NEW secret in a NEW commit still fails here.
       # The image is pinned: an unpinned scanner changes what "green" means without a
-      # commit.
+      # commit. The wrapper refuses a shallow clone and any scan that read fewer commits
+      # than the history holds, because gitleaks exits 0 having scanned none.
       - name: Gitleaks — meta repo history
+        run: .github/scripts/gitleaks-history.sh .
+
+      # ADR-0030 left submodule histories unscanned; a local run over all five found
+      # nothing, so there is no baseline to wait for and this blocks from the start.
+      # Every repository is scanned before the step reports, so one run names them all.
+      - name: Gitleaks — submodule histories
         run: |
-          docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:v8.30.1 \
-            git /repo --redact --no-banner --exit-code 1
+          failed=0
+          for sub in backend dashboard marketing infra tokens; do
+            .github/scripts/gitleaks-history.sh "$sub" || failed=1
+          done
+          exit "$failed"
 
       # Directory mode covers the submodule working trees — the code the deploy is
-      # actually built from — which the history scan above cannot see. Submodule
-      # *histories* are covered only by their own pre-commit hooks (ADR-0030, known gap).
+      # actually built from — which the history scans above cannot see.
       - name: Gitleaks — checked-out tree, submodules included
         run: |
           docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:v8.30.1 \
             dir /repo --redact --no-banner --exit-code 1
 
-      - uses: actions/setup-python@v5
+      # Runs from the COMMITTED lockfiles with no install, so it needs neither the
+      # tokens git dependency nor a token. Report-only until SCA_BLOCKING_FROM, then
+      # blocking (sca-gate.sh). The log and step summary carry counts per severity only: the
+      # audited repositories are private and this page is public.
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 10
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+      - name: pnpm audit — production dependencies of both frontends
+        run: |
+          worst=0
+          for app in dashboard marketing; do
+            rc=0
+            .github/scripts/pnpm-audit.sh "$app" || rc=$?
+            gate=0
+            .github/scripts/sca-gate.sh "pnpm audit ($app)" "$rc" 5 || gate=$?
+            [ "$gate" -eq 0 ] || worst="$gate"
+          done
+          exit "$worst"
+
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.13"
 
@@ -586,6 +823,169 @@ jobs:
           pip install --quiet pip-audit
       - name: pip-audit
         run: pip-audit --progress-spinner off --path /tmp/prodenv/lib/python3.13/site-packages
+
+  # ADR-0030 (as amended). Scans the three images staging runs, built exactly as
+  # `deploy-staging` builds them and not pushed: HIGH and CRITICAL vulnerabilities that
+  # have a fix. Report-only until SCA_BLOCKING_FROM, blocking from it (sca-gate.sh).
+  #
+  # Third-party images (traefik, postgres, redis, coturn) are NOT scanned here: their tags
+  # float and are pulled on the VPS, so a scan in CI would not be the image that runs.
+  #
+  # It builds the images a second time (deploy-staging builds them again on merge). A
+  # floating base tag could therefore differ between the two builds; that is accepted.
+  # The scanner is the digest-pinned image, never a marketplace action: an unpinned
+  # scanner changes what "green" means without a commit.
+  image-scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    needs: triage
+    # Same three clauses as every other build gate, see `backend-lint`.
+    if: >-
+      needs.triage.outputs.code == 'true'
+      && needs.triage.outputs.verified != 'true'
+      && github.actor != 'dependabot[bot]'
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+          token: ${{ secrets.SUBMODULE_TOKEN }}
+
+      - name: Build backend image
+        run: |
+          docker build \
+            -f backend/Dockerfile \
+            --target production \
+            -t scan/backend:ci \
+            backend/
+
+      # Flags as in `deploy-staging`, minus the registry tags and the push.
+      - name: Build dashboard image
+        env:
+          DOCKER_BUILDKIT: "1"
+          TOKENS_REPO_TOKEN: ${{ secrets.TOKENS_REPO_TOKEN }}
+        run: |
+          docker build \
+            -f dashboard/Dockerfile \
+            --target production \
+            --secret id=tokens_token,env=TOKENS_REPO_TOKEN \
+            -t scan/dashboard:ci \
+            dashboard/
+
+      - name: Build marketing image
+        env:
+          DOCKER_BUILDKIT: "1"
+          TOKENS_REPO_TOKEN: ${{ secrets.TOKENS_REPO_TOKEN }}
+        run: |
+          docker build \
+            -f marketing/Dockerfile \
+            --target production \
+            --secret id=tokens_token,env=TOKENS_REPO_TOKEN \
+            -t scan/marketing:ci \
+            marketing/
+
+      # The vulnerability DB is a ~70 MB download from a registry that rate-limits;
+      # one cache entry per day keeps three scans to one download at most.
+      - name: Date for the trivy DB cache key
+        id: day
+        run: echo "day=$(date -u +%F)" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/trivy
+          key: trivy-db-${{ steps.day.outputs.day }}
+          restore-keys: trivy-db-
+
+      # `--exit-code 5` is the "found something" code and nothing else: a trivy that
+      # cannot fetch its DB or read the image exits 1, which sca-gate.sh treats as an
+      # error on every day. `.trivyignore` entries carry an `exp:` date.
+      - name: trivy — HIGH and CRITICAL with a fix available
+        run: |
+          mkdir -p "$HOME/.cache/trivy" "$RUNNER_TEMP/trivy-out"
+          worst=0
+          for app in backend dashboard marketing; do
+            rc=0
+            docker run --rm \
+              -v /var/run/docker.sock:/var/run/docker.sock \
+              -v "$PWD:/src:ro" \
+              -v "$HOME/.cache/trivy:/root/.cache/trivy" \
+              -v "$RUNNER_TEMP/trivy-out:/out" \
+              aquasec/trivy:0.72.0@sha256:cffe3f5161a47a6823fbd23d985795b3ed72a4c806da4c4df16266c02accdd6f \
+              image --scanners vuln --severity HIGH,CRITICAL --ignore-unfixed \
+              --ignorefile /src/.trivyignore --no-progress --exit-code 5 \
+              --format json --output "/out/$app.json" \
+              "scan/$app:ci" || rc=$?
+            # Counts only: the images come from private repositories and this log is
+            # public. The detail is for a local run (docs/runbook/ci.md).
+            counts=0
+            .github/scripts/trivy-counts.sh "$app" "$RUNNER_TEMP/trivy-out/$app.json" "$rc" || counts=$?
+            [ "$counts" -eq 0 ] || worst="$counts"
+            gate=0
+            .github/scripts/sca-gate.sh "trivy ($app)" "$rc" 5 || gate=$?
+            [ "$gate" -eq 0 ] || worst="$gate"
+          done
+          exit "$worst"
+
+  # ADR-0047 addendum. semgrep over the code that ships (backend `kaleem`, `signaling`,
+  # `config`, and `dashboard/src`) with the pinned OWASP-tagged `security` rules. A finding
+  # is report-only until SCA_BLOCKING_FROM and blocking from it (sca-gate.sh); a scan that
+  # failed, or that read less than it should have, fails on every day. The wrapper is
+  # `.github/scripts/semgrep-scan.sh`; the `security` job self-tests it.
+  #
+  # The scanned repositories are private and this log is public, so the output is COUNTS
+  # ONLY. The itemised list is for a local run (docs/runbook/ci.md).
+  sast:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: triage
+    # Same three clauses as every other build gate, see `backend-lint`.
+    if: >-
+      needs.triage.outputs.code == 'true'
+      && needs.triage.outputs.verified != 'true'
+      && github.actor != 'dependabot[bot]'
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+          token: ${{ secrets.SUBMODULE_TOKEN }}
+
+      # Fetched by commit and not copied into this public repository: the rules are
+      # published under their own licence. The assertion is what makes the pin real.
+      - name: Fetch the pinned rules
+        run: |
+          rules="$RUNNER_TEMP/semgrep-rules"
+          git init -q "$rules"
+          git -C "$rules" fetch --depth 1 https://github.com/semgrep/semgrep-rules.git "$SEMGREP_RULES_SHA"
+          git -C "$rules" checkout -q FETCH_HEAD
+          test "$(git -C "$rules" rev-parse HEAD)" = "$SEMGREP_RULES_SHA"
+
+      # A ruleset that loaded nothing, or a wrong rules path, would make the real scan read
+      # "clean". The canary has one known-bad line per language and must be flagged in both;
+      # if it is not, this job is red and the scan below proves nothing.
+      - name: Canary — the rules still flag a known-bad line in each language
+        env:
+          GITHUB_STEP_SUMMARY: /dev/null
+        run: |
+          rc=0
+          out="$(SEMGREP_DETAILS=1 SEMGREP_TARGETS=.github/scripts/fixtures/semgrep-canary \
+            .github/scripts/semgrep-scan.sh --rules "$RUNNER_TEMP/semgrep-rules" .)" || rc=$?
+          printf '%s\n' "$out"
+          if [ "$rc" -ne 5 ]; then
+            echo "::error::the semgrep canary exited $rc, want 5: the rules are not flagging a known-bad line"
+            exit 1
+          fi
+          for f in canary.py canary.ts; do
+            printf '%s' "$out" | grep -qF "$f" || {
+              echo "::error::the semgrep canary was not flagged in $f"
+              exit 1
+            }
+          done
+
+      # Exit 5 is "I looked, and found something"; 4 is an incomplete scan; 6 is semgrep
+      # itself failing. Only 5 is subject to the date (sca-gate.sh).
+      - name: semgrep — shipped code
+        run: |
+          rc=0
+          .github/scripts/semgrep-scan.sh --rules "$RUNNER_TEMP/semgrep-rules" . || rc=$?
+          .github/scripts/sca-gate.sh semgrep "$rc" 5
 
   # Publishes "these gates went green against this exact content" so the push
   # that merges this PR does not have to prove it again.
@@ -607,6 +1007,8 @@ jobs:
         e2e,
         marketing-build,
         security,
+        image-scan,
+        sast,
       ]
     # Deliberately NOT `!cancelled()`: unlike deploy-staging, this job must run
     # only when every gate actually ran and passed. A skipped gate means this
@@ -626,7 +1028,7 @@ jobs:
           echo "tree=$tree" >> "$GITHUB_OUTPUT"
           echo "::notice::recording verified tree $tree"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: verified-tree-${{ steps.tree.outputs.tree }}
           path: verified-tree.txt
@@ -634,7 +1036,7 @@ jobs:
 
   marketing-build:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     needs: triage
     # `verified != 'true'` and not `== 'false'`: the guard step is skipped on
     # pull_request events, so this output is the EMPTY STRING there, not "false".
@@ -657,7 +1059,7 @@ jobs:
       - uses: pnpm/action-setup@v6
         with:
           version: 10
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: "22"
           cache: "pnpm"
@@ -684,8 +1086,43 @@ jobs:
       # the palette (ADR-0040).
       - name: Type-check
         run: pnpm check
+      # Renders the real .astro layout and pages through Astro's container. The coverage
+      # floor (ADR-0026) lives in marketing/vitest.config.ts and is set by the conductor
+      # from this step's measured figures; a local run never sets it.
+      - name: Unit tests
+        run: pnpm test:coverage
       - name: Build
         run: pnpm build
+      # Access-log policy: the dashboard job holds the checker's self-test.
+      - name: Access log records no credential
+        run: ${GITHUB_WORKSPACE}/.github/scripts/check-nginx-access-log.sh nginx.conf dist
+      # ADR-0056. The REAL nginx.conf in the REAL nginx image over the built site: every
+      # location must send the security headers, and no built page may carry inline code a
+      # Content-Security-Policy would block. The checker is tested first.
+      - name: Security headers
+        working-directory: .
+        run: |
+          .github/scripts/test-check-security-headers.sh
+          .github/scripts/check-security-headers.sh \
+            marketing/nginx.conf marketing/dist marketing/security-headers.expected
+      # The e2e suite runs against `astro preview` of the build above, so it must come
+      # after it. No backend, database or secrets: the site is static.
+      - name: Install Playwright chromium
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Run e2e
+        run: pnpm e2e
+      # A red e2e step with no artefact is a guessing game. The name differs from the
+      # dashboard e2e job's `playwright-report`: one run cannot hold two artefacts of
+      # the same name.
+      - name: Upload the Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: marketing-playwright-report
+          path: |
+            marketing/playwright-report/
+            marketing/test-results/
+          retention-days: 7
 
   deploy-staging:
     needs:
@@ -698,6 +1135,8 @@ jobs:
         e2e,
         marketing-build,
         security,
+        image-scan,
+        sast,
       ]
     # `!cancelled()` opts out of the default "all needs succeeded" rule, which
     # would treat a deliberately SKIPPED gate as a reason not to deploy. The
@@ -736,98 +1175,160 @@ jobs:
       - name: Set short SHA
         run: echo "SHORT_SHA=${GITHUB_SHA::7}" >> $GITHUB_ENV
 
+      # Secrets reach every step below through `env:`, never interpolated into a command line.
       - name: Log in to GHCR
-        run: echo "${{ secrets.GHCR_PAT }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+        env:
+          GHCR_PAT: ${{ secrets.GHCR_PAT }}
+          GHCR_USER: ${{ github.actor }}
+        run: printf '%s' "${GHCR_PAT}" | docker login ghcr.io -u "${GHCR_USER}" --password-stdin
 
-      - name: Build backend image
+      # buildx with a registry cache: the three images no longer build from scratch on every
+      # merge. The cache lives at ghcr.io/kaleem-lms/<image>:buildcache and is read and written
+      # ONLY here -- a master-push job that runs after every gate -- so a pull request can never
+      # seed it. Tags and image contents are as before; `--provenance=false` keeps the pushed
+      # manifest the same shape as the plain `docker build` + `docker push` it replaces, and
+      # `--push` publishes both tags in one step.
+      - name: Set up buildx
+        run: docker buildx create --use --driver docker-container
+
+      - name: Build and push backend image
         run: |
-          docker build \
+          docker buildx build --push --provenance=false \
             -f backend/Dockerfile \
             --target production \
             -t ghcr.io/kaleem-lms/backend:${{ env.SHORT_SHA }} \
             -t ghcr.io/kaleem-lms/backend:latest \
+            --cache-from type=registry,ref=ghcr.io/kaleem-lms/backend:buildcache \
+            --cache-to type=registry,ref=ghcr.io/kaleem-lms/backend:buildcache,mode=max \
             backend/
 
-      - name: Push backend image
-        run: |
-          docker push ghcr.io/kaleem-lms/backend:${{ env.SHORT_SHA }}
-          docker push ghcr.io/kaleem-lms/backend:latest
-
-      - name: Build dashboard image
+      - name: Build and push dashboard image
         env:
-          DOCKER_BUILDKIT: "1"
           TOKENS_REPO_TOKEN: ${{ secrets.TOKENS_REPO_TOKEN }}
         run: |
-          docker build \
+          docker buildx build --push --provenance=false \
             -f dashboard/Dockerfile \
             --target production \
             --secret id=tokens_token,env=TOKENS_REPO_TOKEN \
-            --build-arg VITE_API_URL=https://api-staging.kaleem.academy/api/v1/ \
             -t ghcr.io/kaleem-lms/dashboard:${{ env.SHORT_SHA }} \
             -t ghcr.io/kaleem-lms/dashboard:latest \
+            --cache-from type=registry,ref=ghcr.io/kaleem-lms/dashboard:buildcache \
+            --cache-to type=registry,ref=ghcr.io/kaleem-lms/dashboard:buildcache,mode=max \
             dashboard/
 
-      - name: Push dashboard image
-        run: |
-          docker push ghcr.io/kaleem-lms/dashboard:${{ env.SHORT_SHA }}
-          docker push ghcr.io/kaleem-lms/dashboard:latest
-
-      - name: Build marketing image
+      - name: Build and push marketing image
         env:
-          DOCKER_BUILDKIT: "1"
           TOKENS_REPO_TOKEN: ${{ secrets.TOKENS_REPO_TOKEN }}
         run: |
-          docker build \
+          docker buildx build --push --provenance=false \
             -f marketing/Dockerfile \
             --target production \
             --secret id=tokens_token,env=TOKENS_REPO_TOKEN \
             -t ghcr.io/kaleem-lms/marketing:${{ env.SHORT_SHA }} \
             -t ghcr.io/kaleem-lms/marketing:latest \
+            --cache-from type=registry,ref=ghcr.io/kaleem-lms/marketing:buildcache \
+            --cache-to type=registry,ref=ghcr.io/kaleem-lms/marketing:buildcache,mode=max \
             marketing/
-
-      - name: Push marketing image
-        run: |
-          docker push ghcr.io/kaleem-lms/marketing:${{ env.SHORT_SHA }}
-          docker push ghcr.io/kaleem-lms/marketing:latest
 
       # Push the current infra config to the VPS BEFORE running ship.sh.
       # Without this, compose-topology / ship.sh changes (e.g. new services)
-      # never reach /opt/kaleem — only the rebuilt image is delivered.
+      # never reach /opt/kaleem -- only the rebuilt image is delivered.
       # .env.production is intentionally NOT synced: it holds secrets and is
       # managed on the VPS.
-      # scp-action v1 is a composite action, not the Docker action v0.1.x was:
-      # it curl-downloads the drone-scp binary onto the runner at deploy time,
-      # unpinned by checksum (ISSUES.md). Every input below survived the switch
-      # unchanged, and its entrypoint is `set -euo pipefail` with `curl -f`, so a
-      # missing source file still fails the deploy loudly.
-      - name: Sync infra config to staging
-        uses: appleboy/scp-action@v1.0.0
-        with:
-          host: ${{ secrets.STAGING_HOST }}
-          username: ${{ secrets.STAGING_USER }}
-          key: ${{ secrets.STAGING_SSH_KEY }}
-          # coturn/turnserver.conf is NOT optional here. The compose file bind-mounts
-          # it; if the file is absent on the VPS, Docker silently creates an empty
-          # DIRECTORY at that path and mounts it, so coturn starts with none of its
-          # hardening — no deny-list, no quotas — which is an unfenced relay reachable
-          # on raw UDP: an SSRF pivot into the private network and a DDoS amplifier.
-          source: "infra/docker-compose.production.yml,infra/scripts/ship.sh,infra/traefik/traefik.yml,infra/coturn/turnserver.conf"
-          target: /opt/kaleem
-          strip_components: 1
-          # /opt/kaleem already holds hand-provisioned copies; replace them with
-          # the repo version (default is false, which makes tar refuse to extract
-          # over existing files: "Cannot open: File exists").
-          overwrite: true
+      #
+      # The runner's own OpenSSH does the work (`tar | ssh`, then `ssh`): nothing is
+      # downloaded at deploy time on a runner whose environment holds the staging key and the
+      # registry token. The host key is PINNED: `.github/deploy/staging_known_hosts` holds the
+      # staging host's public key under the alias `kaleem-staging` (no address in the
+      # repository), checked with StrictHostKeyChecking=yes. A mismatch fails the first
+      # connection, before anything is synced. To rotate it, see docs/runbook/deploy.md.
+      #
+      # The file set: coturn/turnserver.conf is NOT optional. The compose file bind-mounts
+      # it; if the file is absent on the VPS, Docker silently creates an empty DIRECTORY at
+      # that path and mounts it, so coturn starts with none of its hardening -- no deny-list,
+      # no quotas -- which is an unfenced relay reachable on raw UDP: an SSRF pivot into the
+      # private network and a DDoS amplifier. scripts/deploy-lib.sh is sourced by ship.sh and
+      # must arrive in the same sync. Extraction replaces the hand-provisioned copies already
+      # in /opt/kaleem (GNU tar's default) and `--no-same-owner` keeps them owned by the
+      # deploy user rather than the runner's uid.
+      - name: Sync infra config and deploy to staging
+        env:
+          STAGING_HOST: ${{ secrets.STAGING_HOST }}
+          STAGING_USER: ${{ secrets.STAGING_USER }}
+          STAGING_SSH_KEY: ${{ secrets.STAGING_SSH_KEY }}
+          GHCR_PAT: ${{ secrets.GHCR_PAT }}
+          GHCR_USER: ${{ github.actor }}
+        run: |
+          set -euo pipefail
+          known_hosts="${GITHUB_WORKSPACE}/.github/deploy/staging_known_hosts"
+          .github/scripts/check-staging-host-key.sh "${known_hosts}"
+          umask 077
+          key="${RUNNER_TEMP}/staging_key"
+          trap 'rm -f "${key}"' EXIT
+          printf '%s\n' "${STAGING_SSH_KEY}" >"${key}"
+          ssh_opts=(
+            -i "${key}"
+            -o IdentitiesOnly=yes
+            -o BatchMode=yes
+            -o StrictHostKeyChecking=yes
+            -o UserKnownHostsFile="${known_hosts}"
+            -o GlobalKnownHostsFile=/dev/null
+            -o HostKeyAlias=kaleem-staging
+            -o HostKeyAlgorithms=ssh-ed25519
+            -o ConnectTimeout=20
+            -o ServerAliveInterval=30
+          )
+          target="${STAGING_USER}@${STAGING_HOST}"
+          tar -C infra -cf - \
+            docker-compose.production.yml \
+            scripts/ship.sh \
+            scripts/deploy-lib.sh \
+            coturn/turnserver.conf \
+            | ssh "${ssh_opts[@]}" "${target}" 'tar -C /opt/kaleem --no-same-owner -xf -'
+          # The two remote command strings below expand on the client on purpose: a short commit
+          # SHA and a GitHub login (letters, digits, hyphens), neither of which can carry a quote.
+          # shellcheck disable=SC2029
+          printf '%s' "${GHCR_PAT}" \
+            | ssh "${ssh_opts[@]}" "${target}" "docker login ghcr.io -u '${GHCR_USER}' --password-stdin"
+          # shellcheck disable=SC2029
+          ssh "${ssh_opts[@]}" "${target}" "cd /opt/kaleem && bash scripts/ship.sh ${SHORT_SHA}"
 
-      - name: Deploy to staging via SSH
-        uses: appleboy/ssh-action@v1.2.5
-        with:
-          host: ${{ secrets.STAGING_HOST }}
-          username: ${{ secrets.STAGING_USER }}
-          key: ${{ secrets.STAGING_SSH_KEY }}
-          envs: SHORT_SHA
-          script: |
-            echo "${{ secrets.GHCR_PAT }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-            cd /opt/kaleem
-            export DEPLOY_SHA=$SHORT_SHA
-            bash scripts/ship.sh $SHORT_SHA
+  # Makes a deploy that did not happen visible. `deploy-staging` skips, silently, whenever a
+  # gate is red (ISSUES.md #88): a grey job among green ones, and master quietly stops being
+  # what staging runs. This runs after it on every master push, whatever happened, and fails
+  # with "master is not on staging" unless staging has the commit or the push was
+  # documentation-only. A Dependabot push is red on purpose: its gates skip, and staging
+  # lagging master is exactly what should be seen. All the logic is in
+  # .github/scripts/deploy-outcome.sh, which has its own tests (the `security` job).
+  deploy-outcome:
+    needs:
+      [
+        triage,
+        backend-lint,
+        backend-test,
+        dashboard-lint,
+        dashboard-build,
+        e2e,
+        marketing-build,
+        security,
+        image-scan,
+        sast,
+        deploy-staging,
+      ]
+    # `always()` is the point: without it this job is skipped, like deploy-staging, exactly
+    # when something went wrong.
+    if: >-
+      always()
+      && github.event_name == 'push'
+      && github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Check that master is on staging
+        env:
+          NEEDS_JSON: ${{ toJSON(needs) }}
+          CODE: ${{ needs.triage.outputs.code }}
+          ACTOR: ${{ github.actor }}
+        run: .github/scripts/deploy-outcome.sh

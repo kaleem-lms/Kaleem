@@ -5,8 +5,19 @@
 Deploys are triggered automatically when code is merged to `master`:
 
 1. CI runs (lint, test, build)
-2. If all pass, `deploy-staging` job builds a Docker image, pushes to GHCR, and SSHs into the staging VPS
+2. If all pass, the `deploy-staging` job builds the three images with `docker buildx` (a registry
+   build cache at `ghcr.io/kaleem-lms/<image>:buildcache`, written only by this master-only job),
+   pushes them to GHCR, syncs the infra config to the VPS and runs `scripts/ship.sh` there. The
+   sync and the remote run use the runner's own OpenSSH (`tar | ssh`, then `ssh`) against a
+   **pinned host key**; nothing is downloaded at deploy time.
 3. On the VPS, `scripts/ship.sh` runs a blue-green swap
+4. The `deploy-outcome` job runs after it on every master push, whatever happened, and goes red
+   with "master is not on staging" unless staging has the commit (see below)
+
+The synced files are `docker-compose.production.yml`, `scripts/ship.sh`, `scripts/deploy-lib.sh`
+(sourced by `ship.sh`, so the two always travel together) and `coturn/turnserver.conf`. Traefik's
+configuration is the `traefik` service's `command:` in the compose file; there is no
+`traefik/traefik.yml` any more (an old copy left on the VPS is unused and harmless). `.env.production` is never synced.
 
 ## Manual deploy (if CI is down or you need to deploy a specific SHA)
 
@@ -20,27 +31,102 @@ bash scripts/ship.sh $DEPLOY_SHA
 
 ## Rollback
 
-Re-deploy the previous image SHA:
+The host keeps the images of the last `KEEP_DEPLOYS` (default 5) deploys, and `ship.sh` records
+each successful deploy's SHA in `/opt/kaleem/.deploy-history` (newest last). A rollback is a
+deploy of an older SHA, and it needs no re-pull:
 
 ```bash
 ssh deploy@<staging-ip>
 cd /opt/kaleem
+tail -5 .deploy-history          # newest last; the last line is what is live
 bash scripts/ship.sh <previous-sha>
 ```
 
-The previous SHA can be found in the GitHub Actions deploy log or in GHCR tags.
+A rolled-back SHA moves to the end of the history. A SHA older than the last five may have been
+removed from the host; `ship.sh` then pulls it from GHCR, which keeps every SHA tag.
+
+**Signaling in a rollback.** The shared `signaling` service does not follow `DEPLOY_SHA`. `ship.sh`
+step 3b sets `SIGNALING_SHA` to the SHA the relay is already running when its fingerprint matches
+the incoming image's, and to the deploy SHA otherwise, and the compose file reads
+`${SIGNALING_SHA:-${DEPLOY_SHA:-latest}}`. So a rollback to an older SHA leaves a running relay
+alone when that older image carries the same relay (its log line says `signaling unchanged`), and
+recreates it on the older SHA when it does not. If a deploy aborts at the signaling health gate,
+`restore_signaling` puts back the image that was running, through `SIGNALING_SHA`. A manual
+`docker compose up -d signaling` must set `SIGNALING_SHA` (see "Pinning or rolling back signaling
+by hand" in `docs/runbook/signaling.md`), or it moves the relay onto `DEPLOY_SHA`'s image or
+`:latest`.
+
+## Image retention (what keeps the disk bounded)
+
+`ship.sh` removes every `ghcr.io/kaleem-lms/*` image whose tag is a commit SHA unless that SHA is
+one of the last `KEEP_DEPLOYS` recorded deploys, the SHA being deployed, or an image any container
+(running or stopped) uses. It never touches another repository's image (traefik, postgres, redis,
+coturn), an untagged image, or the `latest` and `buildcache` tags beyond dangling layers
+(`docker image prune -f`, never `-a`). It runs at the **start** of every deploy as well as the end,
+so a run of failed deploys cannot fill the disk. A removal that fails (an image in use, a race) is
+logged and skipped, never fatal.
+
+The log shows `Keeping: <shas>`, `Removed <n> superseded images` and, unchanged, the
+`Disk now: <free> free (<n>% used)` line. Disk use is bounded by `KEEP_DEPLOYS`, not by how often
+you merge. To keep more or fewer for one run: `KEEP_DEPLOYS=3 bash scripts/ship.sh <sha>`.
+
+On a host with no `.deploy-history`, the first deploy records the image the live colour runs
+before it prunes, so a rollback target survives.
+
+## Which deploys did not happen: `deploy-outcome`
+
+`deploy-staging` skips, without a signal, when any gate is red (a grey job among green ones). The
+`deploy-outcome` job runs after it on every master push (`.github/scripts/deploy-outcome.sh`):
+
+- staging deployed: green;
+- a documentation-only push (`triage` reports `code=false`): green, with a notice that no deploy
+  was expected;
+- otherwise (a red gate, a failed deploy, a cancelled one, a failed `triage`, or a Dependabot push
+  whose gates skip): **red, "master is not on staging"**, with each gate's result in the log and in
+  the step summary.
+
+A red `deploy-outcome` is not noise: master is not what staging runs. Fix the gate, or re-run the
+workflow once it is green.
+
+## The staging host key
+
+The deploy trusts exactly one host key, committed in `.github/deploy/staging_known_hosts` as
+`kaleem-staging ssh-ed25519 <key>` (the alias, never the address) and used with
+`StrictHostKeyChecking=yes`. `.github/scripts/check-staging-host-key.sh` verifies the file's shape
+on every PR. A mismatch fails the deploy at its first connection, before anything is synced.
+
+If the VPS is rebuilt (or its host key regenerated) every deploy fails there until the file is
+updated:
+
+```bash
+# On the VPS: the public key, and its fingerprint.
+cat /etc/ssh/ssh_host_ed25519_key.pub
+ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub
+# Locally: confirm the fingerprint against one you already trust (your own known_hosts entry
+# for the host from before the rebuild is NOT it; use the provider console or the rebuild log).
+# Then replace the file's one line with:  kaleem-staging <type> <base64>   and open a PR.
+```
+
+## The deploy script's service lists
+
+`ship.sh` names its shared services (step 4) and static frontends (step 10) once, as arrays at the
+top; `bash scripts/ship.sh --list-services` prints them and touches nothing. Every compose service
+outside a colour profile must be in that union, or it is never started and nothing says so (coturn
+once went unstarted with every health check green). Checked twice: the `security` job fails a PR
+that adds a service without adding it (`.github/scripts/check-shipsh-services.sh`), and `ship.sh`
+refuses to start, before pulling, if the host's compose file disagrees.
 
 ## First-time VPS setup
 
 Before the first deploy, the VPS needs:
 
 1. Docker + Docker Compose installed
-2. `/opt/kaleem/` directory with `docker-compose.production.yml`, `traefik/`, `scripts/`, `.env.production`
+2. `/opt/kaleem/` directory with `docker-compose.production.yml`, `scripts/`, `.env.production`
 3. GHCR login credentials
 4. Firewall: ports 80, 443 open; 8080 (Traefik dashboard) restricted
 
 ```bash
-mkdir -p /opt/kaleem/{traefik,scripts}
+mkdir -p /opt/kaleem/scripts
 # Copy files from infra/ submodule to /opt/kaleem/
 # Create .env.production from .env.production.example
 # Start shared services first:
@@ -77,6 +163,36 @@ Variables added in Phase C3b (signaling / WebRTC) — all four are required, see
 | `DJANGO_SIGNALING_URL` | `django-*` | `SignalingProvider` refuses to construct (`ImproperlyConfigured`) |
 | `DJANGO_VIDEO_PROVIDER` | `django-*` | falls back to `FakeVideoProvider` — deploy succeeds, signaling is healthy, and **no lesson can reach it** |
 
+### Per-environment values (`lb-prod-env-parametrization`)
+
+One set of images runs in every environment; everything that differs is in `.env.production`
+(ADR-0019 amendment). `infra/.env.production.example` shows the staging value of each host
+variable with its production value in a `# production:` comment beside it.
+
+| Variable | Read by | Missing means |
+| --- | --- | --- |
+| `DJANGO_SESSION_COOKIE_NAME`, `DJANGO_CSRF_COOKIE_NAME` | `django-*`; the CSRF name also feeds the `dashboard` container | production settings refuse to import, so the new colour never becomes healthy and the deploy rolls back; a missing CSRF name also fails compose resolution (`:?`). Staging: `sessionid` / `csrftoken`. Production: `kaleem_sessionid` / `kaleem_csrftoken` |
+| `DJANGO_COOKIE_DOMAIN`, `CORS_ALLOWED_ORIGINS`, `CSRF_TRUSTED_ORIGINS` | `django-*` | no default in production: the process refuses to start (the deploy rolls back), instead of serving an API the dashboard cannot use |
+| `DJANGO_FRONTEND_URL` | `django-*` | as above (it was already required) |
+| `ACME_EMAIL` | `traefik` | `${ACME_EMAIL:?}` fails compose resolution **before any container changes**. Changing it makes Traefik register a new ACME account; certificates are kept |
+| `API_DOMAIN` | `django-*` router and the `dashboard` container (`KALEEM_API_URL=https://${API_DOMAIN}/api/v1/`) | compose resolution fails |
+
+**Step 6c of `ship.sh`** runs `manage.py check --deploy --tag security --fail-level WARNING`
+inside the new colour, after the health checks and before migrations, against the real
+environment. A finding rolls the colour back like a failed health check and the log shows
+the check ids (never values). The only silenced check is `security.W021`.
+
+**The dashboard's runtime config.** The container writes `/env.js` at start. After a deploy:
+
+```bash
+curl -s https://<DASHBOARD_DOMAIN>/env.js
+# window.__KALEEM_CONFIG__ = {"apiUrl":"https://<API_DOMAIN>/api/v1/","csrfCookieName":"<name>"};
+```
+
+A missing or malformed value stops the container at start (it logs `kaleem-runtime-config:`
+and the variable name). `ship.sh` does not health-gate the static frontends, so this `curl`
+is the check; a crash-looping `dashboard` container is what a bad value looks like.
+
 ## Checking deploy status
 
 ```bash
@@ -92,5 +208,5 @@ curl http://localhost:8000/health/ready/
 | --- | --- |
 | `GHCR_PAT` | Push/pull Docker images |
 | `STAGING_HOST` | VPS IP address |
-| `STAGING_SSH_KEY` | SSH private key |
+| `STAGING_SSH_KEY` | SSH private key (written to a mode-600 file in `$RUNNER_TEMP` for the deploy step only) |
 | `STAGING_USER` | SSH username |

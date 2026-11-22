@@ -16,16 +16,18 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
 
 ## Blocks launch
 
-- **`--font-display` names a family nothing ships: the dashboard renders Georgia, not
-  Fraunces.** `@kaleem/tokens` sets `--font-display: "Fraunces", Georgia, serif`, but the only
-  face imported anywhere is `@fontsource-variable/fraunces`, whose `@font-face` declares the
-  family **`"Fraunces Variable"`**. The names never match, so every heading in the app falls
-  through to Georgia — in production, today. Found 2026-09-14 by the design-sync font gate,
-  which is the first check anywhere that compares referenced families against shipped
-  `@font-face` rules; no existing gate looks at this. `--font-quran: "Amiri Quran"` has the
-  same shape — no Amiri package is installed at all — but that token has no consumer yet, so
-  it is latent rather than live. Fix is one of: import the non-variable `@fontsource/fraunces`,
-  or change the token to `"Fraunces Variable"`. Needs a token release either way.
+- **No minimum age for self-registration, by owner decision (2026-10-17).** Registration takes
+  a birthdate and refuses only one in the future or more than 120 years back
+  (`backend/kaleem/identity/api/serializers.py`, `validate_birthdate`), so a person of any age can
+  open a student or parent account themselves. The product spec has no age threshold
+  (`docs/superpowers/specs/2026-06-08-kaleem-product-spec.md` line 39), and the owner kept it
+  that way at kickoff (`rch-d-minors`, `docs/decisions/2026-10-17-v1-kickoff-decisions.md`).
+  GDPR Article 8 sets the age of digital consent between 13 and 16 depending on the member
+  state, and COPPA covers children under 13 in the US; below those ages, consent to processing a
+  child's data has to come from a parent. **Before real users:** counsel signs off on this
+  position together with the legal texts (`hg-counsel-review`), and `launch-go-no-go` records
+  the answer. If counsel asks for a gate, it comes back through a new owner decision; the unit
+  that would build it, `rch-legal-age-gate`, is parked in the programme plan.
 
 - ~~**`text-primary` links fail AA in dark mode wherever they sit on a card.**~~ **FIXED
   2026-09-13** in `@kaleem/tokens` v0.2.2 + dashboard #63. The root cause was not a bad
@@ -44,33 +46,6 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
   auth routes in **both themes**); and Lighthouse audits the default theme only, scoring
   these same pages 1.00 the same day (the new sweep is explicitly dark-first). A source lint
   also now rejects the primary/accent SURFACE colours used as text.
-
-- **Staging passwords were world-readable on a then-public `master`, and remain in git
-  history.** On 2026-09-08 `kaleem-lms/Kaleem` was public and
-  `curl https://raw.githubusercontent.com/kaleem-lms/Kaleem/master/STATE.md` returned
-  `KaleemC3d!2026` and `KaleemStaging!2026` to an anonymous caller. **The repo has since been
-  made private by its owner** — as of 2026-09-11 `private: true`, and the same anonymous
-  `curl` 404s, so the open window is closed. It is not undone: the strings stay in history at
-  every older commit, and anyone who cloned or scraped while it was open still holds them,
-  exactly as the `.gitleaksignore` rotation record says of the 588a1e35 credentials (ADR-0032).
-  **Do:** rotate the staging passwords for `c3d.student@`, `c3d.teacher@`,
-  `billing.clickthrough@`, `billing.recheck@`, `billing.failcard@` and the two `*.smoke@` users,
-  then keep the new ones out of the repo entirely.
-
-  ⏸ **DEFERRED by the owner 2026-09-13.** It stays under *Blocks launch* and its severity is
-  unchanged — deferring is a decision about **when**, not about whether it matters. What the
-  deferral actually accepts, stated so the next reader does not have to reconstruct it:
-  these credentials reach **staging only**, the repo is private again so the window is closed,
-  and the exposure is bounded by whoever cloned during it. It must still be done before real
-  users and real money, and it cannot be done by rotating alone at that point — the strings are
-  in history for good, so the new ones must never enter the repo.
-
-  ⚠ **This is NOT the same task as unblocking the staging walk, and bundling them was my
-  error.** `STATE.md` called them "one task, not two". They share a symptom — no working
-  credential — but not a purpose: rotation is *security remediation* for leaked strings, while
-  the walk needs *any* working login. A fresh throwaway staging account, created and never
-  written down here, unblocks the walk without touching the leaked ones. That is a much smaller
-  piece of work and is now independent of this deferral.
 
 - ~~**`security` (gitleaks) skips on documentation-only changes, and root `*.md` counts as
   documentation.**~~ **FIXED 2026-09-13** (ADR-0042, meta). The `code == 'true'` clause is
@@ -96,31 +71,6 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
   replica, not one per colour, so there is no second process to split across and no colour for a
   pin to outlive. Implemented and unit-tested; **not yet verified by a live staging colour
   flip** — see the new entry below.)*
-
-- **Traefik logs no request path for any route, and C3c did NOT make it safe to restore.**
-  The token itself is fixed — since C3c it rides `Sec-WebSocket-Protocol`, not a query string.
-  But the plan to then restore Traefik's dropped `RequestPath` field **does not survive contact
-  with the URLconf and is withdrawn.** `config/urls.py` includes `allauth.urls`, which serves
-  `/accounts/confirm-email/<key>/` and `/accounts/password/reset/key/<uidb36>-<key>/` — single-use
-  **account-takeover** credentials in the **path**, not the query string. Removing the signaling
-  token changed nothing about whether `RequestPath` is safe to log, and Traefik still has no
-  per-router access-log config and no partial-field redaction.
-  The remedy is therefore not a Traefik rollback: **give dashboard and marketing path-level
-  logging from their own container access logs**, the same compensating control Django already
-  has through gunicorn. Until that lands, those two surfaces have no path-level visibility at the
-  gateway.
-
-- **The gunicorn access log captures account-takeover credentials, and the compose comment
-  claiming otherwise is wrong (C3b, spotted in C3c's final review).**
-  `infra/docker-compose.production.yml`'s django-blue/django-green comment used to assert "safe
-  to log in full: no capability token ever appears in an API URL." That is true of the video
-  signaling token, but the entry directly above establishes the opposite for `allauth.urls`:
-  `/accounts/confirm-email/<key>/` and the password-reset key are single-use account-takeover
-  credentials carried **in the path**, and those requests go through Django, so
-  `gunicorn --access-logfile -` records them in full. Pre-existing since C3b; C3c nominated that
-  same compensating control as the model for dashboard and marketing to copy (the bullet above),
-  which is what surfaced the contradiction. The compose comment has been corrected to say so; the
-  underlying leak is not fixed here.
 
 - **No `turns:` TLS listener, so a TLS-443-only egress filter still blocks the relay (C3c).**
   coturn listens on `3478` UDP and TCP only. Traefik owns 443 on the staging box, and a `turns:`
@@ -165,11 +115,13 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
   `account` migrations were applied first hits `InconsistentMigrationHistory` and the
   deploy aborts. This bit staging once (2026-06-10, fixed by recreating the DB). Either
   start prod empty or write the documented repair step first.
-- **`deploy-staging` `needs:` every check, so a red required check makes the deploy
-  *silently skip*** — the PR looks merged but nothing shipped. That bit us on #88. Add a
-  deploy gate or status so a skipped deploy is visible rather than looking like success.
-  (The squash-divergence half of this entry is **resolved** by ADR-0028: no `develop`, and
-  merge commits for anything carrying submodule pointers.)
+- ~~**`deploy-staging` `needs:` every check, so a red required check makes the deploy
+  *silently skip*** — the PR looks merged but nothing shipped. That bit us on #88.~~ **FIXED
+  2026-10-25** (`lb-deploy-pipeline-hardening`): the `deploy-outcome` job runs after it on every
+  master push and fails with "master is not on staging", naming the gates, unless staging has the
+  commit or the push was documentation-only. (The squash-divergence half of this entry was
+  **resolved** by ADR-0028: no `develop`, and merge commits for anything carrying submodule
+  pointers.)
 - **GDPR operational obligations.** ADR-0023 fixed the by-design engineering rule and the
   email leaks; these are the heavier operational duties, all still missing: a data-retention
   policy, a DSAR / right-to-erasure flow (export + delete a user's data), a cookie/consent
@@ -194,17 +146,22 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
   and the state recorded AFTER the old colour was torn down. The host was remediated by
   hand — pruned 73G/0-free to 7.5G/65G-free, `.active-color` restored to `green`.
   **What remains open:** (a) nothing monitors disk on that host, so the next capacity
-  problem is also found by a failed deploy; (b) `docker image prune` now runs only on a
-  SUCCESSFUL deploy, so a run of consecutive failures still accumulates images; (c) the
-  prune keeps 24h of images, which after this incident's `prune -a` means there is
-  currently NO local rollback target — `restore_signaling()` and a rollback would have to
-  re-pull from GHCR. Worth a cheap disk alarm before it bites in production.
-- **EN 301 549 clause 7: no captions or audio description for live lessons.** ADR-0040
-  adopts EN 301 549, and for the design system its delta over WCAG 2.2 AA is ~zero
-  (clause 9 incorporates WCAG by reference). **Clause 7 is the one with real teeth** and
-  kaleem cannot currently meet it: the call carries no captioning. Belongs to the call
-  feature, needs its own spec, deliberately out of scope for the design-system work.
-  Logged here rather than left unstated so "EN 301 549 conformant" is never claimed flat.
+  problem is also found by a failed deploy (`lb-uptime-host-alerts`). ~~(b) `docker image prune`
+  runs only on a SUCCESSFUL deploy, so a run of consecutive failures still accumulates images;
+  (c) the prune keeps 24h of images, so there is no dependable local rollback target.~~ **(b) and
+  (c) FIXED 2026-10-25** (`lb-deploy-pipeline-hardening`): retention is by deploy count
+  (`KEEP_DEPLOYS`, default 5, recorded in `/opt/kaleem/.deploy-history`), runs at the start of every
+  deploy as well as the end, and keeps the last five deploys' images for rollback.
+- **Live lessons have no captions, no real-time text and no audio-activity indicator; the
+  accessibility statement that says so is not published yet.** Decided 2026-10-18
+  (ADR-0054, amends ADR-0040): state the gap and build after launch. The clause named
+  here before was wrong. ADR-0040 said clause 7, but clause 7 only governs displaying
+  captions that exist; the clauses with teeth for a two-way voice and video lesson are
+  EN 301 549 V4.1.1 **6.2.1.1** (real-time text) and **6.5.5** (indicator of audio
+  activity). What still blocks launch: the statement is drafted
+  (`docs/decisions/2026-10-18-accessibility-statement-draft.md`, owner commits it,
+  counsel reviews it) but not published; `rch-mkt-legal-pages` publishes it. This entry
+  closes when it is live. The build work is under **Someday**.
 - **Throwaway users in the staging DB.** `stg.smoke@example.com`, `ses.smoke@example.com`,
   and `c0.subjects.check@example.com` (a child of `billing.clickthrough@`, created
   2026-09-05 while verifying C0 and left unverified — it cannot log in). Clear via
@@ -265,7 +222,12 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
   explicit too, because a default is exactly what an SDK upgrade is free to change. Landed
   before `SENTRY_DSN` is ever set, which is the only time this is cheap.
 
-- **There is no `docs/architecture/scheduling.md`, and D9 asks for one every phase.** `identity`,
+- ~~**There is no `docs/architecture/scheduling.md`, and D9 asks for one every phase.**~~
+  **FIXED 2026-10-18** (meta, feat/ana-scheduling-arch-doc). `docs/architecture/scheduling.md` now
+  exists: the four fixed fields, the data model, matching, booking and quota, rooms, diagnostics,
+  signaling and TURN, the HTTP surface and the personal data held, as of backend `18888b2` and
+  dashboard `e61e23e`. Each scheduling unit updates its own section in its PR. The entry as it
+  stood: `identity`,
   `billing` and `curriculum` each have an architecture doc; `scheduling` — now the largest module
   in the codebase, spanning C0 matching inputs, C1 matching, C2 booking + quota, C3a rooms, C3b
   signaling and C3c TURN — has none. Each of those phases quietly skipped the "arch doc updated"
@@ -291,18 +253,18 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
   is normal and a lesson runs an hour — and raised in local/test settings so the e2e flows and
   CI's retry are unaffected. The test drives the real throttle rather than reading the
   attribute, because a `throttle_scope` with no matching rate silently does nothing.
-- **The C3a e2e does not cover "a parent sees no Join control".** The spec lists it; it shipped
+- ~~**The C3a e2e does not cover "a parent sees no Join control".**~~ **FIXED 2026-10-18** (lb-e2e-seed-gaps: `parent-schedule.spec.ts`, on a seeded guardian link). The spec lists it; it shipped
   covered at API level (403 against a real `ParentStudent` row) and at component level only.
   `seed_e2e` creates no parent↔student link, so the flow would be vacuous without seed work.
 
 - **e2e now covers every shipped user-facing area; what remains is listed below.** The
   2026-09-04 conversion took the suite from 6 flows to 20 — availability, family, account
   and email, and the app shell all have specs, and the `CLAUDE.md` D3 table names them.
-  Still uncovered, each for a stated reason: **change-password** (would rotate the shared
-  seed password mid-suite — needs its own throwaway account, a small slice), the
+  Still uncovered, each for a stated reason: ~~**change-password**~~ (covered 2026-10-18 by
+  `change-password.spec.ts` on its own account), the
   inbox-dependent flows below, and billing. A table that claims less than reality is
   harmless; one that claims more is how the gate stayed fictional for three months.
-- **Flows the harness structurally cannot reach without more infrastructure:** anything
+- ~~**Flows the harness structurally cannot reach without more infrastructure:**~~ **FIXED 2026-10-18** (ntf-mail-e2e-harness, ADR-0052: a pinned mailpit in the e2e job; registration, password reset and child activation are now covered). anything
   needing a real inbox — registration, password reset, child activation — because CI has no
   mail-catcher wired in. That is its own slice (a mailpit service plus a way to read the
   link). Note this is *not* the same as the billing exclusion below, which is permanent.
@@ -326,10 +288,9 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
   migration and one default assertion — so every row held `[]` and the drop lost nothing. The
   migration's docstring records that, since the next reader of a `RemoveField` on a JSON
   column will want to know whether data went with it.
-- **Dashboard zod validation messages are not i18n'd** — they render English regardless of
-  locale (`registerSchema`'s birthdate refine, plus zod's defaults on every form). zod runs
-  outside React so `t()` cannot be called in the schema. Breaks ar parity for validation copy
-  (ADR-0020). Fix repo-wide via a locale-aware resolver wrapper or per-field `setError`.
+- A validation error already on screen does not re-translate when the language is switched; it
+  updates on the next validation (typing or submitting). Same for the curriculum
+  `validate: () => t(...)` forms. Rare (the language toggle sits away from the form), so not fixed.
 - ~~`test_checkout_completed_..._unknown_user_is_ignored` would still pass if the `get_user`
   check were deleted.~~ **FIXED 2026-09-13** (backend #56) — the `caplog` assertion on
   `reason=unknown_user` is in, and **mutation-checked both ways**: green with the guard removed
@@ -348,6 +309,105 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
 - Dunning UX beyond mirroring `past_due` (retry/notice flow) is deferred.
 
 ## Someday
+
+- **`AvailabilityPage` unmounts the editor when a background refetch fails (found 2026-11-08,
+  fix/availability-load-race).** `dashboard/src/routes/_authed/-pages/AvailabilityPage.tsx` checks
+  `isError` before rendering the editor, and React Query v5 reports `isError` on a failed
+  refetch *while keeping the data*, so a teacher with an unsaved edit on a flaky network loses it
+  once the retries run out. The fix is to gate on `data === undefined` like
+  `StudentAvailabilityCard` now does. Not fixed there (D10).
+- **Seeded staging lessons will mail `.test` addresses once staging sends notification mail.** `seed_staging_pool` (ci-staging-pool-seed) puts four lessons in state for each unit's pool accounts, all on `pool.kaleem.test`, which cannot receive mail. The notification units own the mailer and should suppress or sink mail to that domain (`staging_pool.POOL_DOMAIN`) on staging so the provider does not see bounces.
+- **Senders should skip `is_active=False` recipients.** An erased account (lb-gdpr-erasure)
+  keeps its row with the placeholder address `erased-<id>@erased.invalid`, which is never
+  deliverable. Any later notification or email sender that does not filter inactive users
+  will try to mail it and bounce. Wants one filter in the notification layer's recipient
+  resolution, not one per producer.
+
+- **Messages show no "Seen" mark for the other side.** `msg-dashboard-ui` built the caller's own
+  read state only (unread counts, the "New messages" divider, the pointer moving on view),
+  because the API exposes the caller's unread count and not the counterpart's read pointer.
+  A "Seen" receipt needs a backend field first, then a mark in `MessageItem`. Owner confirmed
+  the narrower reading of "receipts" with the spec (2026-10-25).
+
+- **The root `brand/` package is stale.** It dates from June 2026 (9448fe3, made for Stitch) and
+  carries the pre-ADR-0040 v0.1.1 palette, which contradicts the shipped one. The new brand brief
+  says it is not an input. Wants deleting or marking historical by the brand stream. Found
+  2026-10-25 by inf-brand-brief-rewrite.
+- **The /account time-zone sync is one-way.** Changing the zone in the new Language and time
+  zone card refetches the availability panel, but saving a zone in the availability panel on the
+  same page does not refresh the card. Found 2026-10-19 by ntf-recipient-locale-tz.
+- **identity imports scheduling internals** (`@/features/scheduling/queries`, and
+  `TimezoneBar` from `@/features/scheduling`), against the dashboard's no-cross-feature-import
+  rule. Move the shared time-zone pieces to `src/lib` or a shared component. Found 2026-10-19.
+
+- **No call diagnostic for a connect timeout.** The client's 10 s signaling deadline lands on
+  "Couldn't reach the session server" but reports nothing: it needs a new `CallDiagnostic.Code`
+  on the backend plus the contract test. Found 2026-10-18 by lb-call-connection-failure-path.
+- **`unreachable` and `bad-message` are set at once and a later open does not clear them.** A
+  drop before the first open (`unreachable`) and a 4400 (`bad-message`) still end the call
+  screen while the hook keeps reconnecting behind it. `lost` after an open was fixed by
+  lb-signaling-deploy-continuity (only reported once the reconnect budget is spent); these two
+  were kept on purpose by that spec. Found 2026-10-18 by lb-call-connection-failure-path.
+
+- **Build captioning and real-time text for live lessons (after launch, own spec).**
+  ADR-0054 recommends the order: the audio-activity indicator (6.5.5, smallest; the
+  lobby's `useMicLevel` can be reused on the remote stream), then
+  real-time text over a data channel (6.2.1.1, ADR-0039 fourth line), then captions only
+  through on-device recognition or a vendor behind its own ADR. Owner orders it. Arabic and
+  recitation recognition quality is unmeasured; Safari and iOS cannot be verified here.
+- **`Button variant="outline"` borders with the decorative `--border` at 1.29:1** — the same
+  SC 1.4.11 boundary question as the secondary button, across about 45 buttons. Found
+  2026-10-18 by lb-known-wcag-gaps; out of its scope.
+- **A secondary Button inside a `bg-secondary`/`bg-muted` well has a 2.78:1 edge in light**
+  (3.03 dark): `control-border` is asserted on background/card/popover only. None sits in
+  such a well today. Found 2026-10-18 by lb-known-wcag-gaps.
+
+- **`SessionAdmin` still lets staff edit `status`.** Moving a closed lesson back to `scheduled`
+  in the admin now violates `session_outcome_only_when_completed` and returns a 500 rather
+  than a form error. Found 2026-10-18 by ana-session-outcomes.
+- **The allauth confirmation email greets "Hello from !"** — the site name is empty, so the
+  greeting has nothing after "from". Seen in the first real e2e inbox mail. Found 2026-10-18 by
+  ntf-mail-e2e-harness.
+- **`dashboard/public/icons.svg` is dead.** It is Vite's template sprite of social icons and
+  nothing references it (seen in `rch-pwa-manifest-head`). It ships in every build. Delete it
+  in a unit that already touches `public/`.
+
+- ~~**Five Arabic plural families have no `_zero` form**~~ **FIXED 2026-10-25**
+  (rch-i18n-rtl-leak-fixes). The five Arabic `_zero` strings are in the catalogue and the parity
+  gate's `ZERO_FORM_ALLOWLIST` is empty at ceiling 0. The wording is a DRAFT until the Arabic
+  review (`hg-arabic-review`) signs it off.
+- **The call room is not in the Arabic sweep.** It needs a session in progress and live media;
+  it is swept in English by `session-ui.spec.ts` only. Found 2026-10-18.
+- **`dashboard/e2e/` is neither type-checked (tsconfig `include`: `src`) nor linted (biome
+  `files.includes`: `src/**`).** A type error in a spec surfaces only when Playwright runs it.
+  Found 2026-10-18.
+
+- **The load-test smoke scenario is not a CI job.** `infra/loadtest/selftest.sh` proves
+  the harness locally (target guard, 100% of checks, one CSRF-protected write per role)
+  but nothing runs it on a PR, so a seed or journey can rot unnoticed. Found 2026-10-18
+  by rch-load-test-harness.
+
+- ~~**`RadioCardGroup` arrow keys are mirrored the wrong way under Arabic.**~~ **FIXED
+  2026-10-25** (rch-i18n-rtl-leak-fixes). The app's `DirectionProvider` now also mounts Radix's
+  `Direction.Provider` with the same direction, so every Radix group's roving focus follows the
+  reading direction. `RatingInput`'s explicit `dir` stays as the element-level override.
+
+- **Two leftovers from the lesson-to-session wording change (`cur-session-wording`).**
+  `src/routes/design-preview.tsx` still shows "lesson" in its hard-coded sample copy (a
+  primitives gallery, not product copy). And `billing.plan*Desc` in the Arabic locale say
+  حصة where the rest of the app says جلسة; a pre-existing split outside the `call`, `booking`
+  and `prefs` namespaces that unit covered. The terminology guard
+  (`dashboard/src/locales/terminology.test.ts`) walks only those three namespaces; widen its
+  list when billing's copy is next touched.
+
+- **Arabic `font-display` headings fall past Fraunces and Georgia to the platform's generic
+  serif.** In RTL `body` switches to `--font-arabic`, but `font-display` does not, and
+  Fraunces has no Arabic glyphs (its `unicode-range` subsets never load), so an Arabic
+  heading renders in whatever serif the OS picks. True before and after `@kaleem/tokens`
+  v0.2.3, which fixed the Latin case only. Deciding which Arabic display face the brand
+  wants is a design choice for the brand work (`inf-brand-direction` / `inf-brand-mark-assets`,
+  after `dec-brand-typeface`), not a patch.
+  `e2e/display-font.spec.ts` runs in English for this reason. Found 2026-10-18.
 
 - **One failed `getUserMedia` tap writes TWO `calldiagnostic` rows, so the table
   over-counts failures (spotted during the per-kind split fix, dashboard #71).** `acquire`
@@ -513,7 +573,10 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
   today. The "a container nobody pointed the check at" failure is narrowed, not eliminated; the
   root container that defeated the original fix was exactly this class.
 
-- **The deploy's file sync now downloads its own binary, unchecksummed.** `appleboy/scp-action`
+- ~~**The deploy's file sync now downloads its own binary, unchecksummed.**~~ **FIXED 2026-10-25**
+  (`lb-deploy-pipeline-hardening`): the file sync and the remote run use the runner's own OpenSSH
+  in place of both `appleboy` actions, so nothing is downloaded at deploy time. The original
+  entry follows. `appleboy/scp-action`
   v1 is a composite action: instead of running a pinned Docker image, it `curl`s the `drone-scp`
   binary onto the runner at deploy time (default v1.8.0, GitHub releases, no checksum). The action
   tag is pinned, the thing it fetches is not. This is the step that carries `turnserver.conf` to
@@ -589,14 +652,25 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
   and putting it in the merge path is a standing cost on every PR. Fix AND gate, or stop
   calling it a gate. Measured here so the decision has real numbers.
 
+- **The infra submodule's `CLAUDE.md` still calls the deploy script `deploy.sh`** (its file list
+  and its rollback line); the script is `scripts/ship.sh`. Spotted 2026-10-25 while hardening the
+  deploy pipeline; left alone there (D10).
 - ~~**`docs/runbook/deploy.md` still calls the deploy script `scripts/deploy.sh`.**~~ **FIXED
   2026-09-13** — every reference now says `scripts/ship.sh`, so the commands survive a
   copy-paste.
 - **The C3a e2e is time-bombed on seed age.** `seed_e2e_matching` puts the joinable session at
   `now`, and its window closes 75 minutes later. A suite run long after seeding would find the
   button still enabled but the POST returning 409. Fine in CI, which seeds immediately.
-- **`call.spec.ts`'s "the lobby has a way back" measures 44px with zero tolerance, and it is
-  runner-sensitive.** Failed on meta#221 at **43** (initial run AND the automatic retry, so
+- ~~**`call.spec.ts`'s "the lobby has a way back" measures 44px with zero tolerance, and it is
+  runner-sensitive.**~~ **FIXED 2026-10-18** (dashboard `feat/ci-fix-known-flakes`; spec
+  `2026-10-18-ci-fix-known-flakes-design.md`). The check now hit-tests four points 42px apart,
+  the way `touch-targets.spec.ts` does. **Real cause, measured:** the control it finds is the
+  device-check dialog's, and the dialog enters with `scale(0.98)`, so a box read mid-entry is
+  43.1px; it was 43 on every local run, 3 of 3. Mutation-checked: `h-10` on that button and an
+  overlay on top of it both go red; restored, green. A *separate* gap, noticed and left alone
+  (D10): `ExitToSchedule`'s own `h-11` is only class-asserted in jsdom, because the lobby flow
+  reaches the dialog's button, not that one.
+  Original report: Failed on meta#221 at **43** (initial run AND the automatic retry, so
   stable within the job), then **passed in 1.6s on a fresh runner at the identical commit**.
   Ruled out as a code cause first: the same test passed on the previous run, the diff between
   the two dashboard SHAs is seven files touching curriculum queries, the invite card and two
@@ -651,13 +725,14 @@ None blocks the phase; each was reviewed and consciously deferred.
   candidate and is the larger change: `Subscription` mirrors no `current_period_start`, so
   there is no second bound to derive an id from without a billing migration.
 
-**The C2 scoping cluster — one root cause, three symptoms:**
+**Left by `lb-parent-acts-for-child` (a parent books for a child; two subjects book):**
 
-- `claim_slot(actor, weekday, start_time)` carries **no parameter naming the student or the
-  subject**. Consequently: a student with two subjects cannot book at all (refused loudly rather
-  than guessing which subject a lesson belongs to); a **parent cannot claim or end** a weekly time
-  or see a quota counter; and `GET /slots/` had to be narrowed to students. Adding that parameter
-  is the single fix for all three.
+- **A parent cannot set a child's subject interests.** `curriculum`'s `me/student-subjects/` is
+  self-only, and a child gets no match request, so no assignment, without an interest. The child
+  sets their own today. Its own unit: a curriculum endpoint a parent may call with a linked
+  child, and the child picker on `/account`.
+- **Switching child on `/schedule` is locked while an availability edit is unsaved**, with a hint,
+  rather than carrying or discarding the edit. A "discard and switch" choice would be kinder.
 
 **The rest:**
 
@@ -680,8 +755,6 @@ None blocks the phase; each was reviewed and consciously deferred.
 - ~~**`NotFoundError("Recurring slot", request.user.id)` echoes the user id.**~~ **FIXED
   2026-09-13** (backend #56). `identifier` is now optional: the slot does not exist, so there is
   no id to name, and the user-visible body no longer reads a USER id under a slot's noun.
-- **The multi-subject 400 detail renders the server's raw English string**, unlocalised — matching
-  the existing claim-mutation pattern. Wants an i18n pass.
 - **Feature naming diverges across repos:** the backend puts booking inside `scheduling`; the
   dashboard adds `features/booking/` beside an existing `features/scheduling/`.
 - Smaller: a teacher-and-parent sees their own name echoed on rows they teach; the seed prints
@@ -704,10 +777,19 @@ phase; each was reviewed and consciously deferred rather than missed.
   deleted, because without it both threads reach the INSERT and the unique index refuses one —
   which `accept_offer` now converts into a `ConflictError` too. Same type, different mechanism.
   The MESSAGE separates them, and the assertion names which one refused when it fails.
-- **`/account` overflows horizontally in Arabic** — `scrollWidth` 1162 vs `innerWidth` 1018
-  (144px); clean at 1003/1018 in English. Traced to the "Preferred teacher gender" radio group's
-  visually-hidden inputs using a physical `left:-159px` instead of a logical inset. This is a
-  WCAG 1.4.10 Reflow (AA) failure on a page C1 adds a card to. Belongs to identity/curriculum.
+- ~~**`/account` overflows horizontally in Arabic**~~ **FIXED 2026-10-19**
+  (ntf-recipient-locale-tz). The "Preferred teacher gender" radio group's visually-hidden
+  form mirrors (Radix puts one `<input>` per radio inside a form, shifted one item-width
+  toward the start edge) stuck out past the page edge in a right-to-left document, which
+  counts as scrollable overflow. `RadioCardGroup` now takes them out of layout
+  (`[&>input]:hidden`); they still submit. The Arabic-sweep allowlist is empty and its
+  ceiling is 0. The rest of that list (raw times, `TimezoneBar` locale, icon flips) was fixed
+  2026-10-25 by rch-i18n-rtl-leak-fixes.
+- **The time zone picker does not offer `UTC`.** `Intl.supportedValuesOf("timeZone")` omits
+  the `UTC` alias in Chromium, so `TimezoneBar` (availability editor and the `/account`
+  card) cannot choose it. A user whose device is not in UTC cannot go back to the default
+  once they pick another zone; "Use device time zone" is the only way, from a device that
+  is. `account-locale.spec.ts` restores UTC that way.
 - ~~**N+1 in the teacher inbox.**~~ **FIXED 2026-09-13** (backend #57). Measured at **23
   queries for five offers**, now **7 and constant**: the teacher's own availability was re-read
   per row, and the student read and preference lookup were a query each. Batched via new
@@ -833,6 +915,14 @@ proves; all are robustness of an unattended job.
 
 ### Backend
 
+- **No push sender yet (ntf-core, owner choice 2026-10-25: channels are email, in-app and
+  push).** `ntf-core` ships the push channel interface (`PushChannel`, the two push delivery
+  services, `settings.NOTIFICATIONS_PUSH_CHANNEL = None`) and no adapter, so a push delivery
+  is recorded `failed`/`channel_unconfigured` and logged at ERROR. Needs a follow-up unit:
+  web push for the PWA (VAPID keys as an owner VPS env step, `rch-pwa-service-worker`, a
+  subscription table with its own personal-data hooks, the sender and a settings opt-in).
+  Kinds opt into push explicitly (`DEFAULT_CHANNELS` omits it), so nothing logs an error
+  until a producer asks for push.
 - Email security alerts dispatch via `send_email_message.delay(...)` *inside*
   `@transaction.atomic` (`identity.services.add_email_address` / `set_primary_email`). In
   prod the worker can pick the task up before commit. The clean fix is
@@ -916,8 +1006,8 @@ proves; all are robustness of an unattended job.
   **Two existing tests drove that editor and asserted the payload contained the slots** — they
   passed, and they encoded the illusion as correct behaviour. That is the third time today a
   green test was protecting nothing. The control is gone, because one that accepts input and
-  throws it away is worse than none: the parent believes the times are set. Editing a child's
-  real availability remains a genuine missing feature with its own entry.
+  throws it away is worse than none: the parent believes the times are set. A parent now edits a
+  child's real availability on `/schedule` (`lb-parent-acts-for-child`).
 - `TimezoneBar` picker has no Escape-to-close, and its listbox `aria-label` reuses the search
   label.
 - `WeeklyAvailabilityEditor` pill React key collides on two identical ranges in one day
@@ -953,7 +1043,7 @@ proves; all are robustness of an unattended job.
   the user could not tell a failed copy from a slow one. The message now says to select the
   code by hand, because the code is still on screen and reporting only "failed" would leave
   the user stuck beside a working alternative.
-- `StudentPreferencesCard`: the per-row validation message is a sibling `<p role="alert">`,
+- ~~`StudentPreferencesCard`: the per-row validation message is a sibling `<p role="alert">`,~~ **FIXED 2026-10-18** (lb-known-wcag-gaps): the entry was stale for that card; the real gap was `InlineEditor` in `WeeklyAvailabilityEditor`, whose error is now a linked `FormError` with `aria-invalid` on the offending select(s), and `Select` gained `Input`'s invalid styling.
   not `aria-describedby`-linked to the offending input, and the time inputs carry no
   `aria-invalid`. Also the "required times" message anchors on `end_time` even when
   `start_time` is the empty one. And it hand-rolls a `SELECT_CLASS` string replicating the
@@ -975,7 +1065,7 @@ proves; all are robustness of an unattended job.
   was stale, verified 2026-09-13.** `grep -rn "bg-black/" dashboard/src` returns nothing; the
   per-theme `--overlay` token landed with the `Dialog` primitive and was confirmed rendering as
   `#191c1b8c` light / `#000000ad` dark during the staging walk.
-- **A `secondary` button is nearly invisible as a SURFACE against the page.**
+- ~~**A `secondary` button is nearly invisible as a SURFACE against the page.**~~ **FIXED 2026-10-18** (lb-known-wcag-gaps, tokens v0.2.4): a `control-border` edge at 3:1 on background/card/popover; darkening the fill could not work (the label would drop to 4.09:1).
   `--secondary` on `--background` measures **1.09:1** in light (it was 1.13:1 on
   v0.1.1, so this is pre-existing and only marginally worse, not a v2 regression);
   dark is 1.75:1. `Button variant="secondary"` carries no border, so on a page
@@ -1028,6 +1118,38 @@ proves; all are robustness of an unattended job.
 
 ---
 
+- **The chat list works out access for every chat a user has before it pages them
+  (`msg-core-backend`).** `messaging.services.list_chats` loads all of a user's chats, runs the
+  batched access lookups once over all of them, and the view then paginates the Python list.
+  Query count is flat in the number of chats (pinned by a test), but the work is linear, and a
+  teacher with several hundred students is polled for it. Fine at launch size; when it
+  isn't, page the member chats in the database (newest first) and compute access only for the
+  page. Not worth doing before a real teacher has that many.
+- **The `subject name` catalog lookup is repeated in `assessment`
+  (`asm-report-api`).** `assessment/api/serializers.py` translates a subject's name with
+  `pgettext("subject name", ...)` because assessment may not import `curriculum`; the
+  context string is now written in two places. If curriculum renames it, the Arabic
+  `subject_name` test in `assessment/tests/test_api.py` goes red. When a third module needs
+  it, move the lookup behind one `scheduling.services` helper.
+
+- **The privacy notice does not yet say the schedule is kept on the device.** The service worker
+  unit (ADR-0065) keeps the signed-in person's upcoming lessons, names included, in the browser
+  for up to 14 days, wiped on sign-out. The sentence belongs in the privacy notice, which is legal
+  text and part of the deferred legal pass (`hg-counsel-review`); the feature does not depend on it.
+
+- **`rch-security-headers`' CSP must allow `worker-src 'self'`.** `dashboard/nginx.conf` serves
+  `/sw.js` from the app's own origin and the page registers it; a CSP without `worker-src` (falling
+  back to `script-src`/`default-src`) that excludes `'self'` would stop the worker silently. Add an
+  e2e assertion with the CSP.
+
+- **Safari and iOS are unverified for the service worker and the offline copy.** No Apple device
+  in the project. `rch-pwa-device-verification` owns the check.
+
+- **The dashboard's initial JS has about 450 bytes of headroom left (579,549 of 580,000).** The
+  service worker unit measured +1,934 bytes against `main`, of which the bundler's extra shared
+  chunks were about two thirds. The next unit that adds to the entry graph should expect to pay for
+  it by moving something out, not by raising the budget.
+
 ## Known-good gotchas (not bugs — read before panicking)
 
 - **Dashboard tests look catastrophically broken under memory pressure.** During the billing
@@ -1068,6 +1190,11 @@ proves; all are robustness of an unattended job.
   `/account` load plus a console error that is a red herring for anyone debugging a real 403.
 
 - **The dashboard unit suite flakes: jsdom intermittently crashes creating a Window.**
+  **NOT FIXED, NOT REPRODUCED here (2026-10-18, ci-fix-known-flakes).** A CI-shaped harness
+  (vitest 3.2.6 / jsdom 29.1.1, `taskset` to 4 cores, `--coverage`, no `--maxWorkers`, burners on
+  the same cores) ran 24 times on `origin/main` and dropped no file: 0/12 with 4 burners
+  (median 130s) and 0/12 with 8 (median 185s). The spec's rule is to ship no unproven cap, so
+  none was shipped. CPU load alone does not trigger it; the gotcha below says *memory* pressure.
   Roughly 1 run in 4 on a loaded machine, `vitest` reports an unhandled
   `SyntaxError: Invalid or unexpected token` from `jsdom/living/interfaces.js`
   `installInterfaces` -> `createWindow`, one test *file* is dropped from the run, and the

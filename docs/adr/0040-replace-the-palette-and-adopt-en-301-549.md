@@ -110,6 +110,13 @@ target for both the axe sweep and the real-browser contrast check.
 Clauses 5 and 11 add software-level obligations already satisfied or inapplicable.
 Adopting it changes no engineering requirement in this ADR.
 
+**AMENDED BY ADR-0054 (2026-10-18): the clause named below is the wrong one.** Clause 7
+only governs displaying and preserving captions that exist, and W3C does not read WCAG
+1.2.4 as reaching a two-person call. The clauses with teeth for a two-way voice and video
+lesson are 6.2.1.1 (real-time text) and 6.5.5 (audio-activity indicator) of EN 301 549
+V4.1.1. The launch position is to state the gap and build after launch. The paragraph is
+left as written.
+
 **The one clause with real teeth for kaleem is clause 7 — captions and audio description
 for video.** kaleem delivers live 1-on-1 video lessons. Nothing in the design system
 touches this; it belongs to the call feature, needs its own spec, and is substantial
