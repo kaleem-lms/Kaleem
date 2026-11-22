@@ -19,14 +19,15 @@ Decision: `docs/adr/0063-domain-event-bus.md`.
 | DRF exception handler | `drf.py` | Maps those exceptions to HTTP statuses; an unmapped `KaleemError` falls back to 400. Adds a stable `error_code` to every dict body (below) |
 | Pagination | `pagination.py` | `StandardPagination` |
 | Permissions | `permissions.py` | `DocsPermission` for the API docs; `IsStaff`, the server control behind every staff endpoint (authenticated and `is_staff`; imports only DRF; ADR-0057) |
-| Throttling | `throttling.py` | `EmailScopedThrottle` |
+| Throttling | `throttling.py` | `EmailScopedThrottle`, `FailClosedScopedRateThrottle`, `FailClosedThrottleMixin`; which throttles refuse during a cache outage is below |
+| Cache | `cache.py` | `ResilientRedisCache` (the `default` alias), `StrictRedisCache` (`throttle-strict`), `CacheUnavailable`; below |
 | Middleware | `middleware.py` | `RequestIDMiddleware` |
 | Logging | `logging.py` | `JSONFormatter` for structured logs |
 | Access-log policy | `access_log.py`, `gunicorn_logging.py` | paths only, credential paths masked; below |
 | Health | `views.py` | `/health/live/` and `/health/ready/` (outside `/api/v1/`, on the closed allowlist) |
 | Email task | `tasks.py` | `send_email_message`, the Celery send of one already-rendered email (allauth's, until `ntf-identity-emails-relayout`), and `send_templated_email`, which renders and sends in the worker |
 | Email | `email.py`, `templates/platform/email/`, `management/commands/send_sample_email.py` | the bilingual layout, the renderer and the guarded send; below |
-| Seed command | `management/commands/seed.py` | `manage.py seed basic|rich` |
+| Seed command | `management/commands/seed.py` | `manage.py seed [basic]`: runs the e2e manifest through `seed_e2e_all` by name; refuses unless `DEBUG` is on and the `FRONTEND_URL` host is loopback; takes no password |
 | Staging pool | `staging_pool.py`, `management/commands/seed_staging_pool.py` | the pool address scheme, the staging check and the seed orchestrator; below |
 | Personal-data registry | `personal_data.py`, `personal_data_contract.py` | below |
 | Teaching-link port | `teaching.py` | below |
@@ -149,6 +150,30 @@ mail moves onto it in `ntf-identity-emails-relayout`.
 pairs, the absolute link, no address or name in a body. **Not covered, and cannot be without
 real clients and SES out of its sandbox:** layout in Gmail, Outlook and Android mail, dark-mode
 inversion, Arabic font fallback, clipping, how `List-Unsubscribe` shows, and deliverability.
+
+## The cache
+
+The Django cache is its own bounded Redis instance (`redis-cache`: 64 MB, LRU, no persistence,
+no port), separate from the Celery broker (ADR-0067). It holds short-lived security state
+only (rate-limit counts and locks, a one-time-code replay marker); nothing caches a response
+or a query. Production requires `DJANGO_CACHE_URL`, which the compose file sets; elsewhere it defaults to DB 1 of the
+broker's Redis.
+
+Two aliases reach the one instance, with the same 0.25 s socket timeouts, and differ in what
+an outage means:
+
+| Alias | Backend | During an outage |
+| --- | --- | --- |
+| `default` | `ResilientRedisCache` | a read is a miss, a write is skipped, `add` reports "not added", `incr` reads as a missing key |
+| `throttle-strict` | `StrictRedisCache` | raises `CacheUnavailable` |
+
+Only `ConnectionError` and `TimeoutError` count as an outage; any other Redis error raises. The
+first failure in a process logs one ERROR (`cache_unavailable op=... error=...`) and the next
+success one INFO (`cache_recovered`); a log line never carries a key. The throttles that guard
+a password re-ask or an outbound email use `throttle-strict` (through `FailClosedThrottleMixin`)
+and answer **503 `rate_limit_unavailable`** during an outage; every other throttle uses
+`default` and keeps serving, uncounted. A new throttle is open unless it takes the mixin, so
+adding one is a decision to make on purpose. A new cached read follows the rule in ADR-0067.
 
 ## Access-log policy
 

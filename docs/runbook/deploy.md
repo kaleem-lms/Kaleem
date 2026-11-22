@@ -73,6 +73,14 @@ you merge. To keep more or fewer for one run: `KEEP_DEPLOYS=3 bash scripts/ship.
 On a host with no `.deploy-history`, the first deploy records the image the live colour runs
 before it prunes, so a rollback target survives.
 
+## Log retention
+
+Every container logs to the host's systemd journal (the compose file's `x-logging` anchor), and the
+journal keeps at most 30 days (ADR-0068). `docker logs <name>` still works. The host must be
+configured with `infra/scripts/host-log-retention.sh apply` **before** a compose change that
+carries the anchor reaches it; see `docs/runbook/log-retention.md`. The first deploy after that
+change recreates every shared service and the frontends, so deploy it at a quiet hour.
+
 ## Which deploys did not happen: `deploy-outcome`
 
 `deploy-staging` skips, without a signal, when any gate is red (a grey job among green ones). The
@@ -130,7 +138,7 @@ mkdir -p /opt/kaleem/scripts
 # Copy files from infra/ submodule to /opt/kaleem/
 # Create .env.production from .env.production.example
 # Start shared services first:
-docker compose -f docker-compose.production.yml up -d traefik postgres redis
+docker compose -f docker-compose.production.yml up -d traefik postgres redis redis-cache
 ```
 
 ### `.env.production` is hand-managed, and a missing variable rolls the deploy back
@@ -176,6 +184,13 @@ variable with its production value in a `# production:` comment beside it.
 | `DJANGO_FRONTEND_URL` | `django-*` | as above (it was already required) |
 | `ACME_EMAIL` | `traefik` | `${ACME_EMAIL:?}` fails compose resolution **before any container changes**. Changing it makes Traefik register a new ACME account; certificates are kept |
 | `API_DOMAIN` | `django-*` router and the `dashboard` container (`KALEEM_API_URL=https://${API_DOMAIN}/api/v1/`) | compose resolution fails |
+
+`DJANGO_CACHE_URL` is **not** an `.env.production` variable. The compose file sets it
+(`redis://redis-cache:6379/0`, the `redis-cache` service of that environment's own compose
+project, ADR-0067) on every service that loads production settings, so it deploys with the
+service it names. Do not add it to the host's env file ahead of a deploy: running code already
+reads it, and a host with no `redis-cache` yet would answer 500 on every throttled endpoint
+with nothing to roll back.
 
 **Step 6c of `ship.sh`** runs `manage.py check --deploy --tag security --fail-level WARNING`
 inside the new colour, after the health checks and before migrations, against the real

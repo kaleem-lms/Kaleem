@@ -83,9 +83,12 @@ if [ -z "$port" ] || [ "$ready" -ne 1 ]; then
 	exit 2
 fi
 
-# Paths to check.
+# Paths to check. The first of a sorted listing is taken with `sed -n 1p`, never
+# `head -n 1`: head stops reading after one line, so a sort still writing a listing past
+# the pipe buffer takes SIGPIPE, and under pipefail the script died rc=141 printing
+# nothing. sed reads to the end.
 paths=("/")
-route="$(find "$docroot" -name '*.html' -type f ! -path "$docroot/index.html" | sort | head -n 1)"
+route="$(find "$docroot" -name '*.html' -type f ! -path "$docroot/index.html" | sort | sed -n 1p)"
 if [ -n "$route" ]; then
 	route="${route#"$docroot"}"
 	case "$route" in
@@ -94,7 +97,12 @@ if [ -n "$route" ]; then
 	esac
 	paths+=("$route")
 fi
-asset="$(find "$docroot/_astro" -type f 2>/dev/null | sort | head -n 1)"
+# Test for the directory rather than silencing find: a find that fails on a missing
+# _astro/ fails the pipeline, and pipefail exited the script before it could say so.
+asset=""
+if [ -d "$docroot/_astro" ]; then
+	asset="$(find "$docroot/_astro" -type f | sort | sed -n 1p)"
+fi
 if [ -n "$asset" ]; then
 	paths+=("/_astro/$(basename "$asset")")
 else

@@ -64,8 +64,15 @@ Errors are typed (`platform.exceptions.ValidationError` / `NotFoundError`) — n
 - Session cookies + real CSRF, same-site across `app-`/`api-` (ADR-0019). The cookie names are
   per environment (`DJANGO_SESSION_COOKIE_NAME` / `DJANGO_CSRF_COOKIE_NAME`: Django's defaults
   off production, required in production), and the dashboard reads the CSRF name at runtime from
-  `/env.js` (ADR-0019 amendment). No JWT. allauth handles email verification
-  (mandatory) and password reset; landing pages live under `/accounts/`.
+  `/env.js` (ADR-0019 amendment). No JWT. The auth surface is this API only: allauth is the
+  library behind `services.py` and mounts no HTTP views (ADR-0010, amended; nothing is served
+  under `/accounts/`). Email verification (mandatory) and password-reset links point at the
+  dashboard (`/verify-email`, `/reset-password`). Native allauth sign-up is closed in
+  `CeleryAccountAdapter.is_open_for_signup`; `LOGIN_URL` is the dashboard login.
+- Operator emails also go through services: the admin's "Send password-set email" for
+  teachers calls `services.send_password_set_link` (the same dashboard set-password link as
+  child activation). A first password on an account with no usable password sends no
+  "password changed" alert (ADR-0023).
 - URL-path versioned under `/api/v1/` (ADR-0017). Endpoints: `register/`,
   `resend-verification/`, `verify-email/`, `login/`, `logout/`, `me/` (GET+PATCH),
   `me/emails/` (GET+POST), `me/emails/<id>/primary/`, `me/emails/<id>/` (DELETE),
@@ -190,6 +197,20 @@ unlinks their children, who keep their accounts; no one but the erased person is
 
 A later sender that mails an inactive user hits an undeliverable `.invalid` address:
 notification code should skip `is_active=False` recipients.
+
+## Retention jobs (`identity/retention.py`, lb-gdpr-retention-jobs)
+
+`identity.tasks.apply_retention` (a thin wrapper over `services.apply_retention(*,
+now=None) -> {"sessions": n, "admin_log": n}`) runs nightly at **03:29** UTC (beat entry `identity-apply-retention`) and deletes two
+things, per lb-dec-retention ("logs 30 days"): expired session rows (the configured session
+engine's `clear_expired()`, what `clearsessions` runs, always judged against the real clock),
+and Django admin `LogEntry` rows whose `action_time` is more than 30 days old, in batches of
+1000. It never touches the anonymised `User` and profile rows: other people's lessons, chats
+and reports point at them, and erasure already removed everything personal from them. The
+12-month clock on a closed account is billing's (see `billing.md`, "Retention purge"), which
+asks `services.erased_before(user_ids, cutoff)` which of its candidates were erased in time.
+Idempotent, so both blue-green colours dispatching it is harmless. Application and container
+logs are not this job's: an infra unit (`lb-server-log-retention`) bounds them.
 
 ## e2e fixtures
 

@@ -647,12 +647,21 @@ jobs:
           # so the container writes dist/env.js exactly as the shipped image does. If the hook
           # is not executable nginx skips it with a log line, env.js stays `{}`, and the
           # build (which has no base) refuses to load: the whole suite goes red.
+          #
+          # KALEEM_CSP_MODE=enforce: production ships the policy report-only first (the
+          # hook's default) because a wrong policy in the lesson room fails silently, but CI
+          # has no reason to be gentle. Running the whole suite ENFORCED means the call, the
+          # service worker, downloads and the billing flows all run under the policy
+          # production will enforce, and e2e/csp.spec.ts fails on any violation. The
+          # signaling origin is the one the Django and signaling processes started above use.
           docker run -d --name dash -p 4173:80 \
             -v "$PWD/dashboard/dist:/usr/share/nginx/html" \
             -v "$PWD/dashboard/nginx.conf:/etc/nginx/conf.d/default.conf:ro" \
             -v "$PWD/dashboard/docker/40-kaleem-runtime-config.sh:/docker-entrypoint.d/40-kaleem-runtime-config.sh:ro" \
             -e KALEEM_API_URL=http://api.kaleem.localhost:8000/api/v1/ \
             -e KALEEM_CSRF_COOKIE_NAME=kaleem_csrftoken \
+            -e KALEEM_SIGNALING_URL=ws://ws.kaleem.localhost:9000 \
+            -e KALEEM_CSP_MODE=enforce \
             "$image"
       - name: Wait for the dashboard
         run: |
@@ -879,6 +888,8 @@ jobs:
           docker build \
             -f marketing/Dockerfile \
             --target production \
+            --build-arg PUBLIC_SITE_URL=https://staging.kaleem.academy \
+            --build-arg PUBLIC_APP_URL=https://app-staging.kaleem.academy \
             --secret id=tokens_token,env=TOKENS_REPO_TOKEN \
             -t scan/marketing:ci \
             marketing/
@@ -1048,6 +1059,12 @@ jobs:
       needs.triage.outputs.code == 'true'
       && needs.triage.outputs.verified != 'true'
       && github.actor != 'dependabot[bot]'
+    # The site's own address and the app's address have no default anywhere:
+    # marketing/astro.config.mjs refuses to load without them. These `.test` values are
+    # placeholders for the build and the e2e suite, which never leave the runner.
+    env:
+      PUBLIC_SITE_URL: https://kaleem.test
+      PUBLIC_APP_URL: https://app.kaleem.test
     defaults:
       run:
         working-directory: marketing
@@ -1223,6 +1240,8 @@ jobs:
           docker buildx build --push --provenance=false \
             -f marketing/Dockerfile \
             --target production \
+            --build-arg PUBLIC_SITE_URL=https://staging.kaleem.academy \
+            --build-arg PUBLIC_APP_URL=https://app-staging.kaleem.academy \
             --secret id=tokens_token,env=TOKENS_REPO_TOKEN \
             -t ghcr.io/kaleem-lms/marketing:${{ env.SHORT_SHA }} \
             -t ghcr.io/kaleem-lms/marketing:latest \

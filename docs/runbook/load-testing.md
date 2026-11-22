@@ -154,3 +154,16 @@ lead a ranking with sub-millisecond means. The slowest reads are the scheduling 
 Nothing was near saturation: gunicorn used a bit over one of its three cores' worth.
 That is the arithmetic of 100 virtual users who spend most of their time reading: it says
 the stack is not slow at this load, and nothing about where it stops being fast.
+
+### Re-run with the cache on its own instance (2026-11-22, `rch-redis-caching`)
+
+Backend `42136a4efad9`, infra `08d9e6169315`, the same k6 image and population, with
+`redis-cache` as a second Redis service (64 MB, LRU, no persistence) and `DJANGO_CACHE_URL`
+pointing at it. `smoke` ended with 100% of checks and 0 failed requests; `baseline` made
+12,032 requests at 25.5 per second with 0 failed and 100% of checks. Load average on the host
+was 9 to 11 while it ran (other builds), against about 4 for the recorded run, so this is not
+a quiet-host comparison. Even so, no endpoint's p95 was above the recorded one; the largest
+moves were `GET scheduling/match-offers/` 75 to 54 ms, `GET billing/plans/` 36 to 24 ms and
+`POST identity/login/` 129 to 119 ms. Peak memory: `redis-cache` 19 MiB (the whole container,
+well under the cap's data budget), `redis` 15 MiB. The cache holds only throttle and
+rate-limit keys, so there was nothing for it to evict.
