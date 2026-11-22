@@ -1,5 +1,5 @@
 ---
-number: 0067
+number: 0068
 title: Container and host logs live in the journal for at most 30 days
 status: proposed
 date: 2026-11-22

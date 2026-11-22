@@ -1,7 +1,7 @@
 # Runbook: log retention (30 days)
 
 Server, application and container logs on the staging/production host are kept **at most 30 days**
-(`lb-dec-retention`, ADR-0067). Production shares the host, so one configuration covers both.
+(`lb-dec-retention`, ADR-0068). Production shares the host, so one configuration covers both.
 
 The bound has one source: container output goes to the host's systemd journal (the compose file's
 `x-logging` anchor) and the journal keeps 28 days; the host's own text logs are capped by their
@@ -98,7 +98,7 @@ its volume).
 - `sudo bash -s -- check` exits 0.
 
 `Suppressed` messages mean journald's rate limit dropped lines under a flood. The fallback is a
-raised `RateLimitBurst` in the same drop-in, by an amendment to ADR-0067.
+raised `RateLimitBurst` in the same drop-in, by an amendment to ADR-0068.
 
 ## Rolling back
 

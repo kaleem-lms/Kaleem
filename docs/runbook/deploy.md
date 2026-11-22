@@ -76,7 +76,7 @@ before it prunes, so a rollback target survives.
 ## Log retention
 
 Every container logs to the host's systemd journal (the compose file's `x-logging` anchor), and the
-journal keeps at most 30 days (ADR-0067). `docker logs <name>` still works. The host must be
+journal keeps at most 30 days (ADR-0068). `docker logs <name>` still works. The host must be
 configured with `infra/scripts/host-log-retention.sh apply` **before** a compose change that
 carries the anchor reaches it; see `docs/runbook/log-retention.md`. The first deploy after that
 change recreates every shared service and the frontends, so deploy it at a quiet hour.
