@@ -1,11 +1,11 @@
 ---
 spec: docs/superpowers/specs/2026-11-22-eng-points-levels-design.md
-status: draft
+status: approved
 ---
 
 Backend only (`backend-eng-points-levels`, branch `feat/eng-points-levels`, off `origin/main`
-e543505). Meta is docs only. Do not start until the owner has answered the spec's open
-questions. If an answer changes a value (points, thresholds, audience), change the constant or
+e543505). Meta is docs only. The owner answered the spec's open questions on 2026-11-22, all as
+recommended. If a later answer changes a value (points, thresholds, audience), change the constant or
 the seed and its test. The structure does not change.
 
 The TDD loop is `_tools/backend-gate.sh "${WT}" kaleem/engagement/tests/<file>.py`. Write each

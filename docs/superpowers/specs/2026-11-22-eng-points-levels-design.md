@@ -2,7 +2,8 @@
 name: eng-points-levels
 phase: v1 (wave 4, engagement stream)
 modules: [engagement]
-status: draft
+status: approved
+approved: 2026-11-22
 created: 2026-11-22
 closed: null
 ---
@@ -19,11 +20,11 @@ The unit adds an append-only points ledger, a level table, one event handler, on
 endpoint, and the personal-data hooks. Engagement is a scaffold today: it has no models, no
 routes and no migrations.
 
-**This spec needs the owner's approval.** Points are about students, and many students are
-children. The rules on what earns points and who sees them are new product behaviour.
-`dec-eng-audience-points` is still open. The questions are under **Open questions** at the
-end. Each one has a recommendation, and the rest of the spec is written as if every
-recommendation is accepted.
+**The owner approved this spec on 2026-11-22** and answered all seven open questions as
+recommended, which also answers `dec-eng-audience-points` (students only). The answers are
+recorded under **Decisions** at the end. Points are about students, and many students are
+children, so the rules on what earns points and who sees them are product decisions, not
+implementation details.
 
 Read for this spec: backend `origin/main` e543505 (`eng-event-bus-publish` and
 `pay-earnings-ledger` merged) and meta `origin/master` 414752c.
@@ -222,20 +223,20 @@ by removing the `subscribe` call: the test must go red.
 is already proven in CI by `event_bus_probe`. The points card's flow belongs to
 `eng-dashboard-ui`. The D3 table gets an "`engagement` — points" row saying exactly this.
 
-## Open questions
+## Decisions
 
-**Each of these needs the owner's answer before the build.** The recommendation is what the
-spec above assumes.
+The owner approved on 2026-11-22 and answered every question as recommended. The
+"recommended" text below is therefore the decision.
 
-1. **`dec-eng-audience-points`: who earns points?** *Recommended: students only.* Teachers
+1. **`dec-eng-audience-points`: who earns points?** *Decided (as recommended): students only.* Teachers
    earn nothing in v1.
-2. **What earns points in this unit?** *Recommended: a delivered lesson only* (outcome
+2. **What earns points in this unit?** *Decided (as recommended): a delivered lesson only* (outcome
    `held`). A student absence earns nothing. A cancellation earns nothing, whoever cancels and
    however early. This is `dec-lesson-outcomes`' "points count delivered only", restated for
    approval. Completed curriculum lessons and streaks come later, in their own units.
-3. **How many points is a delivered lesson worth?** *Recommended: 10, the same for every
+3. **How many points is a delivered lesson worth?** *Decided (as recommended): 10, the same for every
    subject and every lesson.*
-4. **Levels: how many, at what thresholds, and named or numbered?** *Recommended: ten levels,
+4. **Levels: how many, at what thresholds, and named or numbered?** *Decided (as recommended): ten levels,
    numbered only ("Level 3"), with no names.* Names would need Arabic and religious-term
    review. The thresholds, with the lessons each takes at 10 points per lesson, are:
 
@@ -254,18 +255,18 @@ spec above assumes.
 
    At 2 to 3 lessons a week, level 2 arrives in the first month and level 10 after about two
    years. Level 10 is the top: points keep counting past 2250, and no level 11 is defined.
-5. **Who sees a student's points?** *Recommended:*
+5. **Who sees a student's points?** *Decided (as recommended):*
    - The student sees their own.
    - A linked parent sees their child's, in `eng-dashboard-ui`.
    - Teachers do not.
    - No one else sees them until `eng-leaderboards` is decided.
 6. **If staff later rule that a "delivered" lesson was really a teacher no-show
-   (`sched-teacher-no-show`), are the points taken back?** *Recommended: no.* The student
+   (`sched-teacher-no-show`), are the points taken back?** *Decided (as recommended): no.* The student
    attended. Removing points a child has already seen punishes them for the teacher's absence.
-7. **Lessons delivered before this ships.** *Recommended: no backfill migration.* After the
+7. **Lessons delivered before this ships.** *Decided (as recommended): no backfill migration.* After the
    first staging deploy, the conductor runs
    `replay_events --handler engagement.points_lesson_delivered` once, which credits what is
    still in the 90-day log. Production is not live yet, so no real student is short-changed.
 
-Conductor allocations needed: migrations `engagement/0001` and `engagement/0002`. There is no
+Conductor allocations: migrations `engagement/0001` and `engagement/0002`. There is no
 ADR, no beat slot and no e2e fixture.
