@@ -212,7 +212,12 @@ an orphaning delete from a legitimate one; it broke deleting any matched student
 person in one timezone. A `RecurringSlot` belongs to *two* people in two zones, so a local time
 would have no single meaning, and a student who travels would silently move their teacher's
 lesson. Slots and sessions are UTC. The two meet in `to_utc_intervals`, which converts for the
-reference week of a given date, so DST is resolved per week.
+reference week of a given date, so DST is resolved per week. A local time that does not exist
+(a spring gap) or happens twice (an autumn overlap) resolves with `fold=0`: the offset from
+before the switch, and the first occurrence. `claim_slot` and `slot_options` check the shared
+window for the week of their `reference_date` only, so a claim valid this week can fall outside
+both people's declared hours after one of them switches. Pinned, with the measurements, by
+`test_dst_characterization.py`; the options are in the lb-recurring-dst-spike spec.
 
 **Saturday-first.** `weekday` 0 is Saturday and 6 is Friday (`WEEKDAY_LABELS`). Python's
 Monday-0 weekday is converted at the edges (`_kaleem_weekday`, `_week_saturday`).

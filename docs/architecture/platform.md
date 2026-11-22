@@ -25,7 +25,7 @@ Decision: `docs/adr/0063-domain-event-bus.md`.
 | Access-log policy | `access_log.py`, `gunicorn_logging.py` | paths only, credential paths masked; below |
 | Health | `views.py` | `/health/live/` and `/health/ready/` (outside `/api/v1/`, on the closed allowlist) |
 | Email task | `tasks.py` | `send_email_message`, the Celery send of one already-rendered email |
-| Seed command | `management/commands/seed.py` | `manage.py seed basic|rich` |
+| Seed command | `management/commands/seed.py` | `manage.py seed [basic]`: runs the e2e manifest through `seed_e2e_all` by name; refuses unless `DEBUG` is on and the `FRONTEND_URL` host is loopback; takes no password |
 | Staging pool | `staging_pool.py`, `management/commands/seed_staging_pool.py` | the pool address scheme, the staging check and the seed orchestrator; below |
 | Personal-data registry | `personal_data.py`, `personal_data_contract.py` | below |
 | Teaching-link port | `teaching.py` | below |

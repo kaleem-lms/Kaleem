@@ -208,6 +208,7 @@ class PaymentProvider(Protocol):
     def cancel_at_period_end(self, subscription_id: str, *, intent_at: datetime) -> datetime | None: ...
     def resume(self, subscription_id: str, *, intent_at: datetime) -> datetime | None: ...
     def get_price(self, price_id: str) -> ProviderPrice | None: ...
+    def delete_customer(self, customer_id: str) -> bool: ...   # retention purge only
     # plus retrieve_checkout_session, create_portal_session, get_subscription,
     # list_subscriptions, verify_and_parse_webhook
 ```
@@ -365,5 +366,34 @@ user has a subscription in `LIVE_STATUSES`: it raises `SubscriptionStillActiveEr
 A live subscription can still bill upstream, so erasure never cancels, prorates or refunds;
 the person cancels first. Otherwise it blanks each incident's `detail` (free text staff
 wrote). `Subscription` and `BillingCustomer` rows stay unchanged: they hold no name or email
-and are kept 12 months after closure (lb-dec-retention); lb-gdpr-retention-jobs purges them,
-and the provider's customer record, on that clock.
+and are kept 12 months after closure (lb-dec-retention); the nightly retention purge below
+deletes them, and the provider's customer record, on that clock.
+
+### Retention purge (`billing/retention.py`, lb-gdpr-retention-jobs)
+
+`billing.tasks.purge_erased_customers` (a thin wrapper over
+`services.purge_erased_customers(*, now=None, limit=100) -> int`) runs nightly at **03:47** UTC (beat entry `billing-purge-erased-customers`),
+after the 03:17 reconcile. For each user whose `erased_at` is 365 days or more ago it deletes
+the provider customer first, then the user's `BillingIncident`, `Subscription` and
+`BillingCustomer` rows, in one transaction per user. The anonymised user and profile rows stay
+as anchors for other people's records. `TeacherRate`, `TeacherEarning` (statutory period,
+`dec-retention-new-domains`), `StripeEventLog` and incidents with no user are never touched.
+
+- **Provider first.** A failure after the provider call leaves the rows in place, so the next
+  night asks the provider again, gets `resource_missing`, and finishes. The other order would
+  orphan a provider customer. `PaymentProvider.delete_customer(customer_id) -> bool` is `True`
+  when the provider deleted it and `False` when it had no such customer; both count as done.
+  Any other provider failure is a mapped `KaleemError`, caught per user: that user is skipped,
+  logged as `billing.retention.skipped user_id=<id> reason=<why>`, and retried the next night.
+- **What waits.** A user with a subscription in `LIVE_STATUSES` (erasure already refuses
+  those, so this is a guard) or an unresolved `BillingIncident` is skipped, so an open money
+  problem is never deleted unseen. Both are excluded in the selection query, before the
+  100-user limit, so a user skipped every night cannot take a batch slot, and re-checked
+  under the row lock. A user with a provider call that fails every night does count against
+  the limit.
+- **Double dispatch.** Both blue-green colours run beat. Each user's customer, subscription
+  and incident rows are locked with `select_for_update(skip_locked=True)`, and a user whose
+  rows another worker holds is skipped. The purge is idempotent.
+- **Reads identity only through its API:** `identity.services.erased_before(user_ids,
+  cutoff)` returns the given ids erased at or before the cutoff.
+- **Rollout.** The task name shipped one release before its beat entry (blue-green rule).

@@ -888,6 +888,8 @@ jobs:
           docker build \
             -f marketing/Dockerfile \
             --target production \
+            --build-arg PUBLIC_SITE_URL=https://staging.kaleem.academy \
+            --build-arg PUBLIC_APP_URL=https://app-staging.kaleem.academy \
             --secret id=tokens_token,env=TOKENS_REPO_TOKEN \
             -t scan/marketing:ci \
             marketing/
@@ -1057,6 +1059,12 @@ jobs:
       needs.triage.outputs.code == 'true'
       && needs.triage.outputs.verified != 'true'
       && github.actor != 'dependabot[bot]'
+    # The site's own address and the app's address have no default anywhere:
+    # marketing/astro.config.mjs refuses to load without them. These `.test` values are
+    # placeholders for the build and the e2e suite, which never leave the runner.
+    env:
+      PUBLIC_SITE_URL: https://kaleem.test
+      PUBLIC_APP_URL: https://app.kaleem.test
     defaults:
       run:
         working-directory: marketing
@@ -1232,6 +1240,8 @@ jobs:
           docker buildx build --push --provenance=false \
             -f marketing/Dockerfile \
             --target production \
+            --build-arg PUBLIC_SITE_URL=https://staging.kaleem.academy \
+            --build-arg PUBLIC_APP_URL=https://app-staging.kaleem.academy \
             --secret id=tokens_token,env=TOKENS_REPO_TOKEN \
             -t ghcr.io/kaleem-lms/marketing:${{ env.SHORT_SHA }} \
             -t ghcr.io/kaleem-lms/marketing:latest \

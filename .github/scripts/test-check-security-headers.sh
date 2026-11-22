@@ -107,4 +107,22 @@ expect "a conf nginx refuses is rc=2, not a pass" 2 - \
 expect "no built pages is rc=2" 2 "no built" \
 	"$check" "$work/good.conf" "$work/site/_astro" "$work/expected" "$image"
 
+# A sorted listing longer than the pipe buffer (64 KiB) piped into something that stops
+# reading after one line: the sort is still writing, takes SIGPIPE, and under pipefail the
+# script died rc=141 printing nothing. A long docroot and enough files put both listings
+# (pages and assets) past 64 KiB on every run, not just sometimes.
+big="$work/$(printf 'a%.0s' {1..200})/$(printf 'b%.0s' {1..200})/$(printf 'c%.0s' {1..200})/site"
+mkdir -p "$big/_astro" "$big/pages"
+cp "$work/site/index.html" "$work/site/about.html" "$big/"
+(cd "$big/_astro" && touch chunk-{001..150}-ABCDEFGH.js)
+for i in $(seq -w 1 150); do
+	printf '<!doctype html><title>p</title>\n' >"$big/pages/p$i.html"
+done
+expect "a listing past the pipe buffer does not kill the check" 0 "OK:" \
+	"$check" "$work/good.conf" "$big" "$work/expected" "$image"
+
+rm -rf "$work/no-astro" && cp -r "$work/site" "$work/no-astro" && rm -rf "$work/no-astro/_astro"
+expect "no _astro/ directory is reported, not a silent exit" 1 "no file under _astro/" \
+	"$check" "$work/good.conf" "$work/no-astro" "$work/expected" "$image"
+
 exit "$fail"
