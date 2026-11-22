@@ -310,6 +310,7 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
 
 ## Someday
 
+- **Two identity tests accept 401 or 403 for a signed-out caller**, so they cannot catch a dropped permission: `kaleem/identity/tests/test_data_export.py:155` and `kaleem/identity/tests/test_account_delete.py:217`. The API answers 403 with error_code `not_authenticated` (SessionAuthentication sends no WWW-Authenticate); pin both, as `engagement/tests/test_api.py::test_anonymous_refused` now does. Found 2026-11-22 by eng-points-levels review.
 - **`AvailabilityPage` unmounts the editor when a background refetch fails (found 2026-11-08,
   fix/availability-load-race).** `dashboard/src/routes/_authed/-pages/AvailabilityPage.tsx` checks
   `isError` before rendering the editor, and React Query v5 reports `isError` on a failed
