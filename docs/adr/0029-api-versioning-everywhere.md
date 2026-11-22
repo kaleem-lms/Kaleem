@@ -40,9 +40,6 @@ proves it.**
    - `/accounts/…` — allauth's own third-party-managed flows.
    - the Django admin at `settings.ADMIN_URL` — an operator surface, not an API.
 
-   > **Amended 2026-10-18 (ADR-0010):** the `/accounts/…` entry is removed; allauth mounts
-   > no HTTP views. The allowlist is now two product exceptions: health probes and the admin.
-
    Adding a fourth entry requires an ADR. The point of an allowlist is that it is short and
    growing it is deliberate.
 

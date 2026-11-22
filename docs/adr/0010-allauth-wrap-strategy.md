@@ -19,7 +19,7 @@ The identity module's services.py exposes functions like register_student(), ver
 - If allauth is replaced, only identity/services.py changes.
 - Each auth flow has a typed, testable service function.
 
-## Amendment 2026-10-18: allauth mounts no HTTP views
+## Amendment 2026-11-22: allauth mounts no HTTP views
 
 **Decision.** allauth remains the account library behind `identity/services.py`, but the
 backend serves none of its views. `config/urls.py` does not include `allauth.urls`; every
@@ -37,10 +37,10 @@ ADR-0029) and lands in the dashboard (ADR-0019). Concretely:
   "password changed" alert, because the account had no usable password; an adult resetting
   an existing password is still alerted (ADR-0023).
 - `LOGIN_URL` is the dashboard login (`{FRONTEND_URL}/login`), not an allauth route name.
-- **This amends ADR-0029 clause 2:** the unversioned allowlist is two product exceptions
-  (health probes, the Django admin), not three. `/accounts/…` is gone. The enforcement test
-  no longer allows it, and `tests/test_allauth_surface_closed.py` fails if a route under
-  `accounts/` is ever served again.
+- **ADR-0029 is not amended.** `/accounts/…` stays one of its three closed unversioned
+  exceptions, reserved for allauth, and now mounts nothing. `tests/test_allauth_surface_closed.py`
+  fails if a route under `accounts/` is ever served again, so re-mounting anything there is a
+  visible, reviewed change rather than a silent one.
 
 **Alternatives considered.** Keeping the mount and disabling views one by one: rejected, an
 allow-by-default surface drifts with every allauth upgrade, whereas an unmounted one cannot.
