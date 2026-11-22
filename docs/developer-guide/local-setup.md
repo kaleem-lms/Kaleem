@@ -34,8 +34,22 @@
 
 ## Test users
 
-After running `just seed` (available from Phase A):
-- Admin: admin@kaleem.test / admin123
-- Teacher 1: teacher1@kaleem.test / test123
-- Student 1-5: student{1-5}@kaleem.test / test123
-- Parent 1-3: parent{1-3}@kaleem.test / test123
+`just seed` runs `python manage.py seed basic`, which runs the e2e fixture manifest
+(`backend/config/e2e_seeds.txt`) and so creates synthetic accounts on the reserved
+`kaleem.test` domain. It refuses to run unless `DEBUG` is on and `DJANGO_FRONTEND_URL`
+is a local host. Sign in with:
+
+| Role | Email | What it has |
+| --- | --- | --- |
+| Teacher | `e2e.asm.teacher@kaleem.test` | one student, four lessons in the states a close-out starts from, a filed report |
+| Student | `e2e.asm.student@kaleem.test` | the same lessons seen from the student side, one `held` with a report, one `student_absent` |
+| Parent | `e2e.asm.parent@kaleem.test` | linked to that student, may read the report |
+| Staff | `e2e.staff@kaleem.test` | `is_staff`, no role profile |
+| Student with upcoming lessons | `e2e.booked@kaleem.test` | booked lessons, one joinable now (teacher `e2e.teacher@kaleem.test`) |
+
+The password is `E2E_PASSWORD` in
+`backend/kaleem/identity/management/commands/seed_e2e.py`; it is not repeated here. Run
+`just seed` again whenever you want the time-relative lessons (joinable now, still to
+close) moved back into place: it converges on the same accounts and does not reset the
+database. The other accounts in the manifest (billing states, family, rebook) are listed
+in the seed modules named in that file.
