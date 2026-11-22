@@ -30,7 +30,7 @@ and the window closed 2 Nov. The programme record shows the seed task, `base-06`
 progress". No staging read was ever recorded. The only reads on disk are a local rehearsal
 against a throwaway database (2026-10-18). So this spike takes the agreed fallback,
 frozen-clock tests. `hg-staging-accounts` is not needed on this path. One optional staging
-read is in the plan (step 6), but only to add supporting evidence.
+read is in the plan (step 8), but only to add supporting evidence.
 
 ## What the code does today
 
