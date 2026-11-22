@@ -61,8 +61,10 @@ dropped silently:
 | No SMTP credentials in production | `failed` / `channel_unconfigured` (`ntf-core`'s existing path, because the channel setting is `None`) | ERROR per `notify()`, plus a WARNING at startup |
 | The recipient is inactive (an erased account) | `failed` / `recipient_inactive` | INFO |
 | The address is on the denylist | `failed` / `recipient_suppressed` | INFO |
-| The provider refuses the recipient | `failed` / `recipient_refused` | WARNING |
-| A transient SMTP or connection error | retried 3 times with backoff, then `failed` / `send_failed` | WARNING per try, ERROR on the last |
+| The provider refuses the recipient permanently (5xx RCPT) | `failed` / `recipient_refused` at once | WARNING |
+| The provider refuses the recipient temporarily (4xx RCPT, e.g. 450 greylisting) | retried 3 times with backoff; still refused on the last try: `failed` / `recipient_refused` | WARNING per try |
+| A permanent SMTP error (5xx: e.g. 554 data, 553 sender, 535 auth) | `failed` / `send_failed` at once, no retry | ERROR |
+| A transient SMTP or connection error (4xx, dropped or refused connection) | retried 3 times with backoff, then `failed` / `send_failed` | WARNING per try, ERROR on the last |
 | Still `pending` after 15 minutes (broker down at commit, worker lost) | the sweep re-enqueues it | INFO |
 | Still `pending` after 24 hours | `failed` / `delivery_expired`, so a day-old notice is never sent | WARNING |
 | The adapter runs while delivery is not configured (a misconfiguration; `notify()` normally records `channel_unconfigured` first) | `failed` / `email_not_configured` | ERROR |

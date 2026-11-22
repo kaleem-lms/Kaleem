@@ -310,6 +310,8 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
 
 ## Someday
 
+- **`platform.tasks.send_templated_email` takes the recipient address as its `to` kwarg**, so Celery's worker records (`record.args`/`data`) and any future error tracker's Celery integration can hold it. No caller exists yet; the first caller (ntf-identity-emails-relayout) must pass a redacted `kwargsrepr` or the task should take a user id instead. ADR-0023. Found 2026-11-22 by ntf-email-foundation review fixes.
+- **`signaling/tests/test_app.py::test_media_state_is_never_echoed_back_to_its_sender` can hang in `receive_json`** under machine load (a 28-minute stall in a full gate while other gates ran; 41/41 alone). Add a receive timeout. Found 2026-11-22.
 - **`AvailabilityPage` unmounts the editor when a background refetch fails (found 2026-11-08,
   fix/availability-load-race).** `dashboard/src/routes/_authed/-pages/AvailabilityPage.tsx` checks
   `isError` before rendering the editor, and React Query v5 reports `isError` on a failed
