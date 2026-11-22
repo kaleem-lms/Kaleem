@@ -106,7 +106,7 @@ cascading the `HandledEvent` rows.
 The Django cache is its own bounded Redis instance (`redis-cache`: 64 MB, LRU, no persistence,
 no port), separate from the Celery broker (ADR-0067). It holds short-lived security state
 only (rate-limit counts and locks, a one-time-code replay marker); nothing caches a response
-or a query. Production requires `DJANGO_CACHE_URL`; elsewhere it defaults to DB 1 of the
+or a query. Production requires `DJANGO_CACHE_URL`, which the compose file sets; elsewhere it defaults to DB 1 of the
 broker's Redis.
 
 Two aliases reach the one instance, with the same 0.25 s socket timeouts, and differ in what

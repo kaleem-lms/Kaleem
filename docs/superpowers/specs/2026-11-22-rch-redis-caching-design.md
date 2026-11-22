@@ -76,9 +76,16 @@ cache keys on the shared server.
 `DJANGO_CACHE_URL` through `_required`, so a production process without it refuses to start
 instead of silently falling back to the broker. `base.py` keeps its broker-DB-1 default for
 local development, CI and e2e, which have one Redis. The Dockerfile's collectstatic step gets a
-build-only value like its other required variables. Staging's value is
-`redis://redis-cache:6379/0`, the same in every environment, and goes in `.env.production`
-(hg-vps-env, below) and in `.env.production.example`.
+build-only value like its other required variables. The value is `redis://redis-cache:6379/0`,
+the same in every environment and not a secret, so it is set in `docker-compose.production.yml`
+(the `environment:` of every service that loads production settings: both Django colours, both
+Celery workers, both beats and flower), not in the host's `.env.production`. That way it ships
+in the same deploy as the `redis-cache` service it names. A host env-file entry would have to
+exist before the service does, and any deploy in between would point the running code, which
+already reads this variable, at a host that is not there: every throttled endpoint would then
+answer 500, with nothing to roll the deploy back (`/health/ready/` and `check --deploy` never
+touch the cache). A test in `scripts/test-deploy-lib.sh` fails if a service that loads
+production settings lacks it.
 
 **C. Outage semantics (backend).** `CACHES["default"]["BACKEND"]` becomes
 `kaleem.platform.cache.ResilientRedisCache`, a subclass of Django's `RedisCache`. On
@@ -138,15 +145,16 @@ of at most 24 hours backs that up. A miss or an outage computes the value from t
 ## Deploy and the blue-green window
 
 - No schema change, so nothing to expand or contract.
-- hg-vps-env: the conductor adds **`DJANGO_CACHE_URL`** to staging's `.env.production` before
-  the meta merge that pins this unit. Production's env file gets the same name at the
-  setup-and-deployment step. No other variable.
+- hg-vps-env: none. `DJANGO_CACHE_URL` is carried by the compose file (section B), so staging's
+  and production's `.env.production` need no new line, and no ordering between an env edit and a
+  deploy exists. An existing `DJANGO_CACHE_URL` line in a host env file is overridden by the
+  compose value.
 - hg-shipsh-review (pre-approved): the PR body summarises the compose service and the one
   `SHARED_SERVICES` entry.
 - During the window the old colour still counts in the broker's DB 1 and the new colour in
   `redis-cache`, so throttle counts start from zero on the new instance once, at this deploy.
   The old DB-1 keys expire on their own TTLs; no cleanup step.
-- A rollback recreates the old colour with the new `.env.production`; the old code reads
+- A rollback recreates the old colour from the new compose file; the old code reads
   `DJANGO_CACHE_URL` too and finds `redis-cache` already running from step 4.
 
 ## Module boundaries

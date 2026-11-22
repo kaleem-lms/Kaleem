@@ -97,9 +97,10 @@ step 7's test now runs both ways. What was built beyond the steps below:
    `coturn dashboard flower marketing postgres redis redis-cache signaling traefik`. Red.
 10. [ ] `scripts/ship.sh`: `SHARED_SERVICES=(traefik postgres redis redis-cache flower coturn
     signaling)`. `docker-compose.production.yml`: the `redis-cache` service exactly as spec
-    section A (no `depends_on` from the colours, no port, no volume). `.env.production.example`:
-    `DJANGO_CACHE_URL=redis://redis-cache:6379/0` under `CELERY_BROKER_URL`, with a two-line
-    comment (own instance, bounded and evicting; required in production). `CLAUDE.md`'s
+    section A (no `depends_on` from the colours, no port, no volume), and
+    `DJANGO_CACHE_URL=redis://redis-cache:6379/0` in the `environment:` of every service that
+    loads production settings (7), with a test that fails when one lacks it; nothing is added to
+    `.env.production.example` (the compose file carries it). `CLAUDE.md`'s
     shared-services line gains `redis-cache`. Green: `bash scripts/test-deploy-lib.sh`, and meta's
     `.github/scripts/check-shipsh-services.sh docker-compose.production.yml scripts/ship.sh`
     exits 0 (run from the meta worktree against the infra worktree's files). Mutation: drop the
@@ -126,15 +127,18 @@ step 7's test now runs both ways. What was built beyond the steps below:
     deltas). D3 table: unchanged (no user-facing area; existing flows exercise the backend).
 15. [ ] Hand-back per runbook section 3 for backend and infra: merge `origin/main` (never rebase)
     right before hand-back, re-run the full gates, `gitleaks-range.sh`, the floor-touch grep.
-    The block says `needs: env var DJANGO_CACHE_URL (hg-vps-env) | infra/ship.sh and compose
-    (hg-shipsh-review)`. The PR body summary for hg-shipsh-review: one new shared compose service
+    The block says `needs: infra/ship.sh and compose (hg-shipsh-review)`; no env var and no
+    `hg-vps-env`. The PR body summary for hg-shipsh-review: one new shared compose service
     `redis-cache` (no port, no volume, 64 MB LRU, no persistence), one new `SHARED_SERVICES`
     entry, no step reordered, no other ship.sh change.
 
 ## Risks
 
-- **The env var reaches staging late.** The new colour refuses to start, the health check fails
-  and ship.sh rolls back: loud and safe. Fallback: add the line, redeploy the same SHA.
+- **The cache host must not reach a host before the service does.** That is why the value lives
+  in the compose file and not the host's env file: code already deployed reads
+  `DJANGO_CACHE_URL`, so an env line added ahead of this deploy would aim every throttled
+  endpoint at a host that is not there (a 500, and nothing rolls back because the health checks
+  skip the cache). Do not add the line to `.env.production` for this unit.
 - **Throttle counts reset once at the cutover** (old colour on DB 1, new on `redis-cache`).
   Accepted in the spec; it happens on this deploy only.
 - **django-stubs signatures differ from Django 6.0's runtime ones** and mypy rejects an override.

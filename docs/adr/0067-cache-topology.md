@@ -29,7 +29,9 @@ request until the operating system gives up.
    `redis` is unchanged. Anything that must not be evicted (task results, pub/sub) stays on
    the broker.
 2. **Production names it and refuses to start without it.** `DJANGO_CACHE_URL` is required by
-   `production.py`; the value is `redis://redis-cache:6379/0` in every environment.
+   `production.py`; the value is `redis://redis-cache:6379/0` in every environment and is set by
+   `docker-compose.production.yml` on every service that loads production settings, not by the
+   host's env file, so it deploys atomically with the service it names.
    `base.py` keeps its broker-DB-1 default, for development, CI and e2e, which have one Redis.
    The colours do not `depends_on` the cache and `/health/ready/` does not check it: the API
    serves without one, and a cache outage must not roll a deploy back.
@@ -90,7 +92,11 @@ request until the operating system gives up.
 - Production's compose project must not reuse staging's network or container names on the
   shared server (`lb-prod-env-parametrization`); one cache instance per environment is part
   of this decision.
-- `DJANGO_CACHE_URL` is a new variable in the hand-managed `.env.production`; a missing one
-  stops the new colour and the deploy rolls back.
+- `DJANGO_CACHE_URL` lives in the compose file, not the hand-managed `.env.production`. The
+  alternative (a host env line added before the deploy) was rejected: code already on the
+  server reads that variable, so a deploy between the edit and this one would aim it at a
+  cache host that does not exist, and every throttled endpoint would answer 500 with no
+  rollback, because the health checks never touch the cache. A host-level override cannot be
+  set by accident for the same reason: the compose value wins.
 
 Spec: `docs/superpowers/specs/2026-11-22-rch-redis-caching-design.md`.
