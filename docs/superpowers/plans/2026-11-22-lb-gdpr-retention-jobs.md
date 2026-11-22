@@ -1,6 +1,6 @@
 ---
 spec: docs/superpowers/specs/2026-11-22-lb-gdpr-retention-jobs-design.md
-status: draft
+status: approved
 ---
 
 Worktree: `backend-lb-gdpr-retention-jobs` on `feat/lb-gdpr-retention-jobs` (runbook

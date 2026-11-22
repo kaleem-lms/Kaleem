@@ -2,7 +2,8 @@
 name: lb-gdpr-retention-jobs
 phase: v1 (wave 4, legal stream)
 modules: [billing, identity]
-status: draft
+status: approved
+approved: 2026-11-22
 created: 2026-11-22
 closed: null
 ---
@@ -181,16 +182,28 @@ gone at the provider, after one run.
 
 ## Open questions
 
-None blocking. The owner confirms these rules at approval:
+None. The owner approved the spec on 2026-11-22 and answered the four rules as follows.
 
 1. **The account's 12-month clock deletes its billing rows and the provider customer.**
-   The anonymized user and profile rows stay as anchors, because others' lessons, chats,
-   reports and earnings point at them, and they hold no personal data. The alternative is
-   to hard-delete the user row, which would cascade into other people's records.
-2. **"Logs 30 days" covers Django admin's action log.** Staff lose the change history of
-   admin edits older than 30 days. The alternative is to treat the admin log as an audit
-   record, kept 12 months.
-3. **A billing purge waits while an incident about the user is unresolved,** so an open
-   money problem is never deleted unseen. The alternative is to purge regardless.
-4. **The application and container log bound (30 days) needs an owner and a unit.** This
-   unit is backend only and does not set it.
+   Approved. 365 days after `erased_at` the billing job deletes the provider customer
+   first, then `BillingCustomer`, `Subscription` and `BillingIncident` rows. The
+   anonymized user and profile rows stay as anchors. Teacher rates, teacher earnings and
+   `StripeEventLog` are untouched.
+2. **"Logs 30 days" covers Django admin's action log and expired sessions.** Approved:
+   `LogEntry` rows are deleted after 30 days, and expired session rows are deleted.
+3. **A billing purge waits while an incident about the user is unresolved.** Approved.
+4. **Application and container logs are handled by a separate infra unit,**
+   `lb-server-log-retention`, not by this one.
+
+**Beat slots accepted:** `identity.tasks.apply_retention` at 03:29 and
+`billing.tasks.purge_erased_customers` at 03:47.
+
+**Two-part landing (owner decision).** Part 1 (services, tasks, provider method, no beat
+entries) is branch `feat/lb-gdpr-retention-jobs`. Part 2 (the two beat entries in
+`config/settings/base.py` plus a beat-schedule test) is a second backend branch,
+`feat/lb-gdpr-retention-jobs-beat`, stacked on part 1. The meta branch pins part 1 only;
+the conductor lands part 2 after part 1 deploys. As a billing unit, the conductor
+dispatches stripe-clock on the meta branch before merging.
+
+**Test provider.** `PaymentProvider.delete_customer` is implemented on the existing
+`FakePaymentProvider`; no test calls live Stripe.
