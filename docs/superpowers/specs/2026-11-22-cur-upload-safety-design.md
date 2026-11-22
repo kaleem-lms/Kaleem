@@ -37,7 +37,7 @@ These numbers were approved by the owner with this spec on 2026-11-22, unchanged
 
 | Family | Accepted when the bytes are | Stored as | Size cap |
 | --- | --- | --- | --- |
-| image | JPEG, PNG or WebP, one frame, at most 30 megapixels | `image/jpeg`, `image/png`, `image/webp` (same format, re-encoded) | 10 MB as received |
+| image | JPEG, PNG or WebP, one frame (a multi-picture JPEG is stored as its primary picture), at most 30 megapixels | `image/jpeg`, `image/png`, `image/webp` (same format, re-encoded) | 10 MB as received |
 | pdf | PDF (`%PDF-` at offset 0) | `application/pdf` | 20 MB |
 | audio | MP3 (an ID3 tag or an MPEG audio frame header), or M4A (an `ftyp` box whose major or compatible brands include `M4A `) | `audio/mpeg`, `audio/mp4` | 30 MB |
 
@@ -158,7 +158,9 @@ stub that only starts with a magic string.
   constant to a small number.
 - **Re-encode:** a JPEG with EXIF GPS and an orientation tag is stored with no EXIF, upright
   (the orientation is applied, then dropped). A PNG `tEXt` chunk is gone. A truncated JPEG is
-  `upload_unreadable`. An animated WebP is `upload_type_not_allowed`.
+  `upload_unreadable`. An animated WebP is `upload_type_not_allowed`. A camera JPEG with extra
+  pictures (an MPF segment: a gain map, depth map or preview) is not an animation: it is
+  accepted and stored as a plain JPEG of its primary picture, with the rest dropped.
 - **Name:** `../../x.html` with PDF bytes becomes `x.pdf`. Arabic names survive. A name with a
   control character or no extension is cleaned. A 300-character name is cut with its extension
   kept.
