@@ -1,6 +1,6 @@
 ---
 spec: docs/superpowers/specs/2026-11-22-rch-mkt-foundation-design.md
-status: draft
+status: approved
 ---
 
 Worktrees: `marketing-rch-mkt-foundation` (already created at `a10d38c`, deps installed) and

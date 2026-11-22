@@ -2,7 +2,7 @@
 name: rch-mkt-foundation
 phase: v1
 modules: [marketing]
-status: draft
+status: approved
 created: 2026-11-22
 closed: null
 ---
@@ -171,3 +171,24 @@ Every regression test is mutation-checked: revert its fix and see it fail.
 
 None for the conductor. Owner approval is needed (new public pages, a cookie, new copy), and
 the Arabic strings above go to `hg-arabic-review`.
+
+## Approval
+
+The owner approved this spec as written on 2026-11-22 (dec-spec-approval: new public pages, a
+cookie, new copy). The answers recorded with the approval:
+
+- English at `/`, Arabic at `/ar/` (RTL), IBM Plex Sans Arabic 400/600 from `@fontsource`
+  5.2.9, never downloaded by the English home.
+- The language switch and "Sign in" (app URL plus `/login`) live in the header.
+- The `kaleem_locale=ar` cookie is as tabled above: host-only, `SameSite=Lax`, `Secure` on
+  https, one year, written only on a tap and deleted on switching back. It is a
+  user-interface-customisation cookie, an exemption consistent with `dec-cookies` = None.
+- The brief English view for a returning Arabic visitor is accepted. A server-side (nginx)
+  redirect is the named later fix, recorded in `ISSUES.md`.
+- The Arabic strings are drafts that wait on `hg-arabic-review`.
+- The Latin wordmark stays. The Arabic name reading is not decided here.
+- `vite.build.assetsInlineLimit: 0`, so no inline script reaches CI's no-inline-script check.
+- The conductor grants the marketing dependency slot. The `ci.yml` edits (the `marketing-build`
+  env, the image-scan build, the deploy build) are allowed. `PUBLIC_SITE_URL` and
+  `PUBLIC_APP_URL` have no default anywhere. The Lighthouse ratchet floors on the marketing
+  home must not drop.
