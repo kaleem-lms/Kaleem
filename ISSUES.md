@@ -949,6 +949,14 @@ proves; all are robustness of an unattended job.
 
 ### Dashboard
 
+- **`ClaimSlotCard.formatSlot` shows a standing weekly time at the viewer's WINTER offset
+  all year.** It formats the slot from an anchor instant on 6 Jan 2024
+  (`dashboard/src/features/booking/components/ClaimSlotCard.tsx`, `KALEEM_WEEK_ANCHOR_UTC`),
+  so in summer it disagrees with the Schedule page, which formats each lesson's real
+  instant. Checked with Node on 2026-11-22: a 17:00Z slot reads "Saturday 5:00 PM" in London
+  where the 4 July 2026 lesson is at 6:00 PM; Cairo and New York are off by one hour the
+  same way. Belongs to `lb-recurring-dst-anchoring`, which owns the dashboard side of the
+  decision in `docs/superpowers/specs/2026-11-22-lb-recurring-dst-spike-design.md`.
 - ~~**The touch-target sweep does not model SC 2.5.8's *inline* exception.**~~ **FIXED
   2026-09-13** (dashboard #65) — and the fix reversed the finding. The sweep now implements
   the exception structurally (inline-level, with non-target text in the parent), then was
