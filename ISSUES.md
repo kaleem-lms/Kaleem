@@ -310,6 +310,9 @@ Resolved entries are **deleted**, not struck through — git remembers them. Las
 
 ## Someday
 
+- **`just seed` is described as "reset DB" but converges (found 2026-11-22, plat-dev-seed).** The `justfile` comment, the rebuild roadmap and CLAUDE.md's command list say it resets the database. `seed basic` runs the e2e manifest, which converges only its own accounts and resets nothing. CLAUDE.md needs an ADR to edit; not tidied there (D10).
+- **A reseed grows `platform.DomainEvent` and `billing.TeacherEarning` (found 2026-11-22, plat-dev-seed).** Running `seed basic` twice doubled both tables (3 to 6 each) while users, sessions and reports stayed equal, because the manifest closes its lessons out again and the event bus and earnings ledger are append-only. Harmless for a developer database, and `tests/test_dev_seed_dataset.py` checks only users, sessions and reports for that reason. Left alone (D10).
+- **`kaleem/platform/access_log.py`'s comment says allauth's credential paths are "Mounted at /accounts/"**; since lb-allauth-surface-lockdown nothing is mounted there (the masking stays as defence in depth). Owner: lb-access-log-redaction. Found 2026-11-22.
 - **Two identity tests accept 401 or 403 for a signed-out caller**, so they cannot catch a dropped permission: `kaleem/identity/tests/test_data_export.py:155` and `kaleem/identity/tests/test_account_delete.py:217`. The API answers 403 with error_code `not_authenticated` (SessionAuthentication sends no WWW-Authenticate); pin both, as `engagement/tests/test_api.py::test_anonymous_refused` now does. Found 2026-11-22 by eng-points-levels review.
 - **`AvailabilityPage` unmounts the editor when a background refetch fails (found 2026-11-08,
   fix/availability-load-race).** `dashboard/src/routes/_authed/-pages/AvailabilityPage.tsx` checks
@@ -948,6 +951,14 @@ proves; all are robustness of an unattended job.
 
 ### Dashboard
 
+- **`ClaimSlotCard.formatSlot` shows a standing weekly time at the viewer's WINTER offset
+  all year.** It formats the slot from an anchor instant on 6 Jan 2024
+  (`dashboard/src/features/booking/components/ClaimSlotCard.tsx`, `KALEEM_WEEK_ANCHOR_UTC`),
+  so in summer it disagrees with the Schedule page, which formats each lesson's real
+  instant. Checked with Node on 2026-11-22: a 17:00Z slot reads "Saturday 5:00 PM" in London
+  where the 4 July 2026 lesson is at 6:00 PM; Cairo and New York are off by one hour the
+  same way. Belongs to `lb-recurring-dst-anchoring`, which owns the dashboard side of the
+  decision in `docs/superpowers/specs/2026-11-22-lb-recurring-dst-spike-design.md`.
 - ~~**The touch-target sweep does not model SC 2.5.8's *inline* exception.**~~ **FIXED
   2026-09-13** (dashboard #65) — and the fix reversed the finding. The sweep now implements
   the exception structurally (inline-level, with non-target text in the parent), then was
