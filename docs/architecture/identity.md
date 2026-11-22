@@ -191,6 +191,20 @@ unlinks their children, who keep their accounts; no one but the erased person is
 A later sender that mails an inactive user hits an undeliverable `.invalid` address:
 notification code should skip `is_active=False` recipients.
 
+## Retention jobs (`identity/retention.py`, lb-gdpr-retention-jobs)
+
+`identity.tasks.apply_retention` (a thin wrapper over `services.apply_retention(*,
+now=None) -> {"sessions": n, "admin_log": n}`) runs nightly at **03:29** and deletes two
+things, per lb-dec-retention ("logs 30 days"): expired session rows (the configured session
+engine's `clear_expired()`, what `clearsessions` runs, always judged against the real clock),
+and Django admin `LogEntry` rows whose `action_time` is more than 30 days old, in batches of
+1000. It never touches the anonymised `User` and profile rows: other people's lessons, chats
+and reports point at them, and erasure already removed everything personal from them. The
+12-month clock on a closed account is billing's (see `billing.md`, "Retention purge"), which
+asks `services.erased_before(user_ids, cutoff)` which of its candidates were erased in time.
+Idempotent, so both blue-green colours dispatching it is harmless. Application and container
+logs are not this job's: an infra unit (`lb-server-log-retention`) bounds them.
+
 ## e2e fixtures
 
 `seed_e2e` (dev/CI only, refuses with `DEBUG=False`) converges a fixed set of accounts on
