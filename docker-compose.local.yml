@@ -222,6 +222,11 @@ services:
       args: *uidgid
       secrets:
         - tokens_token
+    # Required build-time config, no default (marketing/astro.config.mjs refuses to load
+    # without them). Local values only; staging's are build args in ci.yml.
+    environment:
+      PUBLIC_SITE_URL: http://kaleem.localhost
+      PUBLIC_APP_URL: http://app.kaleem.localhost
     volumes:
       - ./marketing:/app
       - marketing_node_modules:/app/node_modules
