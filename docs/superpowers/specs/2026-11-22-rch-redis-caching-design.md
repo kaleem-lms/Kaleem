@@ -2,15 +2,17 @@
 name: rch-redis-caching
 phase: v1 programme (wave 2, ops stream)
 modules: [platform (backend `kaleem/platform`), settings (backend `config/settings`), infra (compose, ship.sh, loadtest)]
-status: draft
+status: approved
 created: 2026-11-22
 closed: null
 ---
 
 ## Goal
 
-Give Django's cache its own Redis instance, make a cache outage degrade to "uncached" instead
-of failing requests, and cache new reads only where the load-test baseline shows they are hot.
+Give Django's cache its own Redis instance, make a cache outage degrade to "uncached" for
+everything that can safely do so while the rate limits that guard the most abusable actions
+refuse instead (split by risk, see "Outage semantics"), and cache new reads only where the
+load-test baseline shows they are hot.
 It shows none are, so this unit caches nothing new and writes down the rule a future cached read
 must follow (ADR: cache topology, number allocated by the conductor).
 
@@ -38,9 +40,11 @@ measured gain. So: measured, not cached.
 
 ## User flow
 
-No user-visible change while the cache is up. During a cache outage, every request is still
-served; reads that would use the cache behave as misses (see "Outage semantics"). The outage
-is reported once per process at ERROR (`cache_unavailable`) and its end at INFO
+No user-visible change while the cache is up. During a cache outage, requests are still served
+and reads that would use the cache behave as misses, with one deliberate exception: an action
+guarded by a high-risk rate limit (a password re-ask, an outbound email) is refused with a
+typed 503, `rate_limit_unavailable`, until the cache is back (see "Outage semantics"). The
+outage is reported once per process at ERROR (`cache_unavailable`) and its end at INFO
 (`cache_recovered`).
 
 ## Data model delta
@@ -89,7 +93,17 @@ build-only value like its other required variables. Staging's value is
 | `add` | `False` ("not added"), the conservative answer for every caller using `add` as a guard |
 | `incr` / `decr` | `ValueError`, as for a missing key |
 
-What this means for each security control that keeps state in the cache is recorded privately
+**Split by risk (owner decision, 2026-11-22).** The table above is the `default` alias, used by
+everything that can safely behave as uncached. A second alias, `throttle-strict`, points at the
+same instance with the same options but its backend (`StrictRedisCache`, a subclass) raises
+`CacheUnavailable` instead of degrading. The throttles that guard a password re-ask or an
+outbound email use it through one mixin (`FailClosedThrottleMixin`), which turns
+`CacheUnavailable` into `RateLimitUnavailable` (a `KaleemError`, 503, `error_code`
+`rate_limit_unavailable`, gettext message with an Arabic entry). Every other throttle keeps the
+default alias and so passes through during an outage, as do any throttle added later unless it
+opts in with the mixin. The TOTP replay guard and allauth's own limits are unchanged (they
+already refuse during an outage). Both aliases share the one "down" flag, so the ERROR is
+still once per process. Which scope sits on which side, and why, is recorded privately
 (rch-d-security-disclosure). `OPTIONS` sets `socket_connect_timeout` and `socket_timeout` to
 0.25 s; both default to none, so today a cache that accepts a connection and never answers holds
 a request until the OS gives up. The pool Django builds already retries nothing (redis-py 8.1.0
@@ -145,7 +159,8 @@ programme entry, are not touched, for the reason in the Goal.
 
 - Caching plans, subjects or any other read (measured, not justified; see Goal).
 - Session storage in the cache (`cached_db`): the session lookup is sub-millisecond.
-- Changing any throttle rate or scope, or adding one (`rch-ratelimit-drf`).
+- Changing any throttle rate, or adding a scope (`rch-ratelimit-drf`). Which existing throttles
+  use the strict alias is decided here (recorded privately).
 - The broker's own memory settings, and where `msg-realtime`'s pub/sub runs. The ADR says only
   that anything that must not be evicted stays off the cache instance.
 - A JSON-formatter change to emit `extra` fields (`error_code` goes in the message text).
@@ -162,8 +177,13 @@ Backend, test-first (the plan names each test):
   The second is what proves the socket timeout takes effect.
 - One ERROR on the first failure, none on the second, one INFO on recovery; no record contains
   the key.
-- Through a real DRF view that uses a scoped throttle, the outage semantics hold end to end
-  (no 500).
+- Through real DRF views, over a refused address, end to end: an everyday scoped throttle
+  serves its normal status (no 500); each high-risk throttled view answers 503 with
+  `error_code` `rate_limit_unavailable` and, with the cache up, behaves as before (the limit
+  still counts and 429s). The message is Arabic under `ar`.
+- `StrictRedisCache` raises `CacheUnavailable` on both exception types and passes success
+  through; `throttle-strict` shares `LOCATION` and `OPTIONS` with `default` in base and
+  production settings.
 - `production.py` refuses to start without `DJANGO_CACHE_URL`; `base.py` keeps its default;
   `CACHES` names the new backend outside test settings.
 - e2e: existing flows only. The e2e job runs with a real Redis and the new backend on every
@@ -179,6 +199,4 @@ with `allkeys-lru`; a throttled request creates a key there and none in the brok
 
 ## Open questions
 
-None open. One consequence for the owner to confirm with the spec: the owner's rule "a cache
-outage degrades to uncached, not failed requests" applied to rate-limit state (recorded
-privately).
+None open. The owner approved the spec on 2026-11-22 and chose the split by risk above.
