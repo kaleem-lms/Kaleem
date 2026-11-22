@@ -73,6 +73,14 @@ you merge. To keep more or fewer for one run: `KEEP_DEPLOYS=3 bash scripts/ship.
 On a host with no `.deploy-history`, the first deploy records the image the live colour runs
 before it prunes, so a rollback target survives.
 
+## Log retention
+
+Every container logs to the host's systemd journal (the compose file's `x-logging` anchor), and the
+journal keeps at most 30 days (ADR-0068). `docker logs <name>` still works. The host must be
+configured with `infra/scripts/host-log-retention.sh apply` **before** a compose change that
+carries the anchor reaches it; see `docs/runbook/log-retention.md`. The first deploy after that
+change recreates every shared service and the frontends, so deploy it at a quiet hour.
+
 ## Which deploys did not happen: `deploy-outcome`
 
 `deploy-staging` skips, without a signal, when any gate is red (a grey job among green ones). The
