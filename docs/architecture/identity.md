@@ -194,7 +194,7 @@ notification code should skip `is_active=False` recipients.
 ## Retention jobs (`identity/retention.py`, lb-gdpr-retention-jobs)
 
 `identity.tasks.apply_retention` (a thin wrapper over `services.apply_retention(*,
-now=None) -> {"sessions": n, "admin_log": n}`) runs nightly at **03:29** and deletes two
+now=None) -> {"sessions": n, "admin_log": n}`) runs nightly at **03:29** once its beat entry lands (part 2) and deletes two
 things, per lb-dec-retention ("logs 30 days"): expired session rows (the configured session
 engine's `clear_expired()`, what `clearsessions` runs, always judged against the real clock),
 and Django admin `LogEntry` rows whose `action_time` is more than 30 days old, in batches of
