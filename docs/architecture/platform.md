@@ -19,7 +19,8 @@ Decision: `docs/adr/0063-domain-event-bus.md`.
 | DRF exception handler | `drf.py` | Maps those exceptions to HTTP statuses; an unmapped `KaleemError` falls back to 400. Adds a stable `error_code` to every dict body (below) |
 | Pagination | `pagination.py` | `StandardPagination` |
 | Permissions | `permissions.py` | `DocsPermission` for the API docs; `IsStaff`, the server control behind every staff endpoint (authenticated and `is_staff`; imports only DRF; ADR-0057) |
-| Throttling | `throttling.py` | `EmailScopedThrottle` |
+| Throttling | `throttling.py` | `EmailScopedThrottle`, `FailClosedScopedRateThrottle`, `FailClosedThrottleMixin`; which throttles refuse during a cache outage is below |
+| Cache | `cache.py` | `ResilientRedisCache` (the `default` alias), `StrictRedisCache` (`throttle-strict`), `CacheUnavailable`; below |
 | Middleware | `middleware.py` | `RequestIDMiddleware` |
 | Logging | `logging.py` | `JSONFormatter` for structured logs |
 | Access-log policy | `access_log.py`, `gunicorn_logging.py` | paths only, credential paths masked; below |
@@ -99,6 +100,30 @@ admin: server code reads it, and the user sees their own rows through the export
 `platform.events` hooks (ADR-0048) export every event whose `user_ids` contains the user
 (`{type, version, occurred_at, payload}`, any counterpart as an id only) and erase them,
 cascading the `HandledEvent` rows.
+
+## The cache
+
+The Django cache is its own bounded Redis instance (`redis-cache`: 64 MB, LRU, no persistence,
+no port), separate from the Celery broker (ADR-0067). It holds short-lived security state
+only (rate-limit counts and locks, a one-time-code replay marker); nothing caches a response
+or a query. Production requires `DJANGO_CACHE_URL`, which the compose file sets; elsewhere it defaults to DB 1 of the
+broker's Redis.
+
+Two aliases reach the one instance, with the same 0.25 s socket timeouts, and differ in what
+an outage means:
+
+| Alias | Backend | During an outage |
+| --- | --- | --- |
+| `default` | `ResilientRedisCache` | a read is a miss, a write is skipped, `add` reports "not added", `incr` reads as a missing key |
+| `throttle-strict` | `StrictRedisCache` | raises `CacheUnavailable` |
+
+Only `ConnectionError` and `TimeoutError` count as an outage; any other Redis error raises. The
+first failure in a process logs one ERROR (`cache_unavailable op=... error=...`) and the next
+success one INFO (`cache_recovered`); a log line never carries a key. The throttles that guard
+a password re-ask or an outbound email use `throttle-strict` (through `FailClosedThrottleMixin`)
+and answer **503 `rate_limit_unavailable`** during an outage; every other throttle uses
+`default` and keeps serving, uncounted. A new throttle is open unless it takes the mixin, so
+adding one is a decision to make on purpose. A new cached read follows the rule in ADR-0067.
 
 ## Access-log policy
 
