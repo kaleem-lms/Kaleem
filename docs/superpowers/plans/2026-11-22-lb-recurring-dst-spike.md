@@ -1,6 +1,6 @@
 ---
 spec: docs/superpowers/specs/2026-11-22-lb-recurring-dst-spike-design.md
-status: draft
+status: done
 ---
 
 # Plan: lb-recurring-dst-spike
