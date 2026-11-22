@@ -130,7 +130,7 @@ mkdir -p /opt/kaleem/scripts
 # Copy files from infra/ submodule to /opt/kaleem/
 # Create .env.production from .env.production.example
 # Start shared services first:
-docker compose -f docker-compose.production.yml up -d traefik postgres redis
+docker compose -f docker-compose.production.yml up -d traefik postgres redis redis-cache
 ```
 
 ### `.env.production` is hand-managed, and a missing variable rolls the deploy back
@@ -174,6 +174,7 @@ variable with its production value in a `# production:` comment beside it.
 | `DJANGO_SESSION_COOKIE_NAME`, `DJANGO_CSRF_COOKIE_NAME` | `django-*`; the CSRF name also feeds the `dashboard` container | production settings refuse to import, so the new colour never becomes healthy and the deploy rolls back; a missing CSRF name also fails compose resolution (`:?`). Staging: `sessionid` / `csrftoken`. Production: `kaleem_sessionid` / `kaleem_csrftoken` |
 | `DJANGO_COOKIE_DOMAIN`, `CORS_ALLOWED_ORIGINS`, `CSRF_TRUSTED_ORIGINS` | `django-*` | no default in production: the process refuses to start (the deploy rolls back), instead of serving an API the dashboard cannot use |
 | `DJANGO_FRONTEND_URL` | `django-*` | as above (it was already required) |
+| `DJANGO_CACHE_URL` | `django-*` | production settings refuse to import, so the new colour never becomes healthy and the deploy rolls back. The same value in every environment: `redis://redis-cache:6379/0`, the `redis-cache` service of that environment's own compose project (ADR-0067) |
 | `ACME_EMAIL` | `traefik` | `${ACME_EMAIL:?}` fails compose resolution **before any container changes**. Changing it makes Traefik register a new ACME account; certificates are kept |
 | `API_DOMAIN` | `django-*` router and the `dashboard` container (`KALEEM_API_URL=https://${API_DOMAIN}/api/v1/`) | compose resolution fails |
 

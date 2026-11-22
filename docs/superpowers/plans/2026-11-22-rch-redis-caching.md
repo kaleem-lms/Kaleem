@@ -1,6 +1,6 @@
 ---
 spec: docs/superpowers/specs/2026-11-22-rch-redis-caching-design.md
-status: draft
+status: done
 ---
 
 Three repos, one branch name, `feat/rch-redis-caching`: backend and infra (worktrees per runbook
@@ -8,6 +8,28 @@ section 1, `R=/home/abdulkhalek/Projects/kaleem-worktrees`) and meta
 (`meta-rch-redis-caching`). No migration, no dependency change (`redis` is already in
 `requirements/base.txt`), no floor edit. Mutation-check every regression test: revert the fix,
 see red, restore it, and record the failure line for the hand-back block.
+
+## Amendment: split by risk (owner decision, 2026-11-22)
+
+The owner approved the spec with one change, so steps 2, 4 and 7 grew by one mechanism and
+step 7's test now runs both ways. What was built beyond the steps below:
+
+- `kaleem/platform/cache.py` also holds `StrictRedisCache` (same class, `fail_closed = True`,
+  raises `CacheUnavailable`) and `CACHES` has a second alias, `throttle-strict`, with the same
+  `LOCATION` and `OPTIONS` (base, test and production settings).
+- `kaleem/platform/throttling.py`: `FailClosedThrottleMixin`, `FailClosedScopedRateThrottle`;
+  `EmailScopedThrottle` takes the mixin. The data-export and account-delete views use the
+  strict class. `RateLimitUnavailable` (503, `rate_limit_unavailable`, Arabic entry) joins the
+  platform exceptions and the DRF map.
+- Tests, real views over a real refused port (the root `cache_outage` fixture):
+  `identity/tests/test_cache_outage.py` (each strict view answers 503 and does nothing),
+  `scheduling/tests/test_cache_outage.py` and `messaging/tests/test_cache_outage.py` (each
+  everyday view keeps serving). The `StrictRedisCache` behaviour sits in `test_cache.py`.
+- Infra: `test-deploy-lib.sh` also asserts the shape of the `redis-cache` service and the
+  load-test harness's copy of it.
+- The Dockerfile's build-only `DJANGO_CACHE_URL` (step 6) changes the file the gate image is
+  keyed on, so the final full gate ran on the tree before that one line and the line itself
+  was verified by running the Dockerfile's own `collectstatic` command in the gate image.
 
 ## Steps
 
