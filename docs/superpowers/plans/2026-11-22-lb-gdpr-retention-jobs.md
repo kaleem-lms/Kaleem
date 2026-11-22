@@ -103,7 +103,7 @@ parts, because a new task name must be deployed before its beat entry (blue-gree
 
 ### Part 2: beat entries (after part 1 is deployed to staging)
 
-8. [ ] **Beat schedule.** Write the tests first in a new
+8. [x] **Beat schedule.** Write the tests first in a new
    `kaleem/platform/tests/test_retention_beat_schedule.py` (`test_beat_schedule.py`
    belongs to the event bus):
    - Both entries exist and name registered tasks.
@@ -115,11 +115,11 @@ parts, because a new task name must be deployed before its beat entry (blue-gree
    Then add the two entries to `CELERY_BEAT_SCHEDULE` in `config/settings/base.py`, each
    with a one-line comment naming the decision. This is a shared file, so take
    `origin/main`'s version at merge time and re-add only these two entries.
-9. [ ] **Docs (meta worktree).** In `docs/architecture/billing.md`, under "Personal-data
+9. [x] **Docs (meta worktree).** In `docs/architecture/billing.md`, under "Personal-data
    erasure", replace "lb-gdpr-retention-jobs purges them" with what the job does and its
    slot. In `docs/architecture/identity.md`, add a "Retention jobs" paragraph covering
    sessions, the admin log and the slot. Add a `STATE.md` line.
-10. [ ] **Full gate, merge `origin/main`, hand back part 2.**
+10. [x] **Full gate, merge `origin/main`, hand back part 2.**
 
 ## Migrations
 

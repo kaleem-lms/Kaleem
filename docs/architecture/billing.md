@@ -372,7 +372,7 @@ deletes them, and the provider's customer record, on that clock.
 ### Retention purge (`billing/retention.py`, lb-gdpr-retention-jobs)
 
 `billing.tasks.purge_erased_customers` (a thin wrapper over
-`services.purge_erased_customers(*, now=None, limit=100) -> int`) runs nightly at **03:47** once its beat entry lands (part 2),
+`services.purge_erased_customers(*, now=None, limit=100) -> int`) runs nightly at **03:47** UTC (beat entry `billing-purge-erased-customers`),
 after the 03:17 reconcile. For each user whose `erased_at` is 365 days or more ago it deletes
 the provider customer first, then the user's `BillingIncident`, `Subscription` and
 `BillingCustomer` rows, in one transaction per user. The anonymised user and profile rows stay
